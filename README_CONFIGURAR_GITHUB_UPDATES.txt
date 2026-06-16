@@ -17,17 +17,17 @@ Configuracion recomendada del repo
    version.json
 
 3. En la raiz del repo, subir tambien el instalador:
-   Instalador_Suite_Rodriguez_Finura_v1.3.21.exe
+   Instalador_Suite_Rodriguez_Finura_v1.3.22.exe
 
 4. El version.json de la raiz debe apuntar al instalador con installer_url.
    Ejemplo:
 
    {
-     "version": "1.3.21",
-     "installer": "Instalador_Suite_Rodriguez_Finura_v1.3.21.exe",
-     "installer_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Instalador_Suite_Rodriguez_Finura_v1.3.21.exe",
-     "sha256": "D5AE4015A6926B0BDB7F2D5FE63B2B4B215C035956CA26A61EA7E40A55C14BF2",
-     "notes": "Actualizador preparado para GitHub/HTTP directo."
+     "version": "1.3.22",
+     "installer": "Instalador_Suite_Rodriguez_Finura_v1.3.22.exe",
+     "installer_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Instalador_Suite_Rodriguez_Finura_v1.3.22.exe",
+     "sha256": "EC576EA9F24B9558195DC237470CF3691EA9608F042012CB60EB1278F09C3597",
+     "notes": "Version de prueba del canal GitHub/HTTP directo."
    }
 
 5. La URL que queda grabada en la aplicacion es:
@@ -47,6 +47,6 @@ Flujo para futuras versiones
 
 Importante
 ----------
-La version 1.3.21 queda compilada con el version_url definitivo del repo real.
+La version 1.3.21 y posteriores quedan compiladas con el version_url definitivo del repo real.
 Desde esta version, los equipos no necesitan OneDrive sincronizado ni rutas
 configuradas para consultar nuevas versiones.

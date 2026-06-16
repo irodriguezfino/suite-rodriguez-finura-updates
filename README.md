@@ -5,12 +5,12 @@ Este repositorio publica el manifiesto y el instalador que consulta la suite al 
 ## Archivos necesarios
 
 - `version.json`: manifiesto remoto que lee la aplicacion.
-- `Instalador_Suite_Rodriguez_Finura_v1.3.21.exe`: instalador descargado por el actualizador.
-- `CHANGELOG_v1.3.21.txt`: cambios de la version publicada.
+- `Instalador_Suite_Rodriguez_Finura_v1.3.22.exe`: instalador descargado por el actualizador.
+- `CHANGELOG_v1.3.22.txt`: cambios de la version publicada.
 
 ## Funcionamiento
 
-La version 1.3.21 de la suite consulta:
+La version 1.3.21 y posteriores de la suite consultan:
 
 `https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/version.json`
 
@@ -25,4 +25,3 @@ Si `version.json` contiene una version superior a la instalada, descarga `instal
 5. Hacer commit y push a `main`.
 
 No hace falta OneDrive sincronizado ni rutas locales en los equipos cliente.
-

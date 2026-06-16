@@ -1,0 +1,7 @@
+Suite Rodriguez Finura v1.3.22
+
+- Version de prueba del canal de actualizaciones GitHub/HTTP directo.
+- No incluye cambios de funcionalidad.
+- No incluye cambios de interfaz.
+- Actualiza exclusivamente metadatos de version, instalador y manifiesto remoto.
+
