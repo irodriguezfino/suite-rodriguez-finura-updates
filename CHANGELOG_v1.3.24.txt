@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.3.24
+
+- El actualizador online abre la ventana de progreso antes de descargar el instalador.
+- La descarga y la validacion SHA-256 se muestran dentro del updater, evitando esperas visualmente silenciosas tras pulsar Si.
+- No incluye cambios de funcionalidad de negocio ni de interfaz.
+

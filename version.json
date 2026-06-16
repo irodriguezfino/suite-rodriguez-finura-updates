@@ -1,8 +1,8 @@
 ﻿{
-  "version": "1.3.23",
-  "installer": "downloads/Instalador_Suite_Rodriguez_Finura_v1.3.23.exe",
-  "installer_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Instalador_Suite_Rodriguez_Finura_v1.3.23.exe",
-  "sha256": "657F11308BD23AD91852E3AD4B9086C09A7A195D49C8F55C0259FC94964EEC19",
-  "notes": "Correccion del actualizador: usa archivos temporales unicos para evitar bloqueos WinError 32."
+  "version": "1.3.24",
+  "installer": "Instalador_Suite_Rodriguez_Finura_v1.3.24.exe",
+  "installer_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Instalador_Suite_Rodriguez_Finura_v1.3.24.exe",
+  "sha256": "778479E75C76BAB68F4AC0D974ACD21271B61E0EFB969250761378A4B99841A9",
+  "notes": "Mejora del actualizador: abre la ventana de progreso antes de descargar el instalador."
 }
 
