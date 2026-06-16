@@ -1,0 +1,8 @@
+Suite Rodriguez Finura v1.3.21
+
+- Actualizador preparado para canal GitHub/HTTP directo.
+- El launcher puede leer un version.json remoto definido por version_url en update_config.json.
+- El version.json remoto puede indicar installer_url para descargar el instalador directamente a la carpeta temporal.
+- Antes de instalar, el launcher valida el SHA-256 del instalador descargado.
+- Se mantiene como respaldo el mecanismo anterior por carpeta local sincronizada.
+- Mantiene Control de precintos jamones con solo Blanco e Iberico en el selector.
