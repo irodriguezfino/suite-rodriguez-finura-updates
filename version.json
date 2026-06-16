@@ -1,8 +1,8 @@
 ﻿{
-  "version": "1.3.22",
-  "installer": "Instalador_Suite_Rodriguez_Finura_v1.3.22.exe",
-  "installer_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Instalador_Suite_Rodriguez_Finura_v1.3.22.exe",
-  "sha256": "EC576EA9F24B9558195DC237470CF3691EA9608F042012CB60EB1278F09C3597",
-  "notes": "Version de prueba del canal GitHub/HTTP directo, sin cambios de funcionalidad ni interfaz."
+  "version": "1.3.23",
+  "installer": "downloads/Instalador_Suite_Rodriguez_Finura_v1.3.23.exe",
+  "installer_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Instalador_Suite_Rodriguez_Finura_v1.3.23.exe",
+  "sha256": "657F11308BD23AD91852E3AD4B9086C09A7A195D49C8F55C0259FC94964EEC19",
+  "notes": "Correccion del actualizador: usa archivos temporales unicos para evitar bloqueos WinError 32."
 }
 

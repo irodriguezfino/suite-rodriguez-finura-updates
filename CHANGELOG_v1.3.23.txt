@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.3.23
+
+- Corrige el actualizador GitHub/HTTP para usar archivos temporales unicos por intento.
+- Evita bloqueos WinError 32 si queda un instalador o helper temporal ocupado por Windows, antivirus o un intento anterior.
+- No incluye cambios de funcionalidad de negocio ni de interfaz.
+
