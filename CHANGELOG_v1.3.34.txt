@@ -1,0 +1,7 @@
+Suite Rodriguez Finura v1.3.34
+
+- Mejora la interfaz del MSI con un flujo visible de instalacion.
+- El MSI incorpora una pantalla inicial, una pantalla de progreso real y una pantalla final.
+- La barra de progreso del MSI escucha los eventos internos de Windows Installer durante la copia de archivos.
+- Se mantiene la apertura automatica de la suite al finalizar sin hacer critica esa accion.
+- Las actualizaciones automaticas siguen publicandose por ZIP limpio verificable por SHA-256.
