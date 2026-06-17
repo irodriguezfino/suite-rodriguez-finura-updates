@@ -1,0 +1,7 @@
+Suite Rodriguez Finura v1.3.32
+
+- La instalacion de cero se mantiene mediante MSI.
+- Las actualizaciones automaticas pasan a publicarse como ZIP limpio verificable por SHA-256.
+- El launcher conserva soporte ZIP y MSI, pero el canal publicado vuelve a ZIP para evitar ejecutar instaladores sin firma en cada actualizacion.
+- El MSI incluye accion de apertura automatica de la suite al finalizar una instalacion con interfaz visible.
+- El MSI mantiene deteccion de versiones previas por UpgradeCode y retira versiones anteriores antes de instalar la nueva.
