@@ -1,0 +1,7 @@
+Suite Rodriguez Finura v1.3.27
+
+- Version correctiva de distribucion para evitar el bloqueo de Microsoft Defender sobre instaladores EXE sin firma.
+- Se publica como paquete ZIP portable para instalacion inicial y actualizacion.
+- El paquete no incluye instalador EXE propio de la suite.
+- La suite se abre con Abrir_Suite_Rodriguez_Finura.cmd, que lanza SuiteLauncher.py con el runtime incluido.
+- No incluye cambios funcionales ni visuales en la aplicacion.
