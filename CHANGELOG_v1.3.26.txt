@@ -1,0 +1,7 @@
+Suite Rodriguez Finura v1.3.26
+
+- Version correctiva para reducir falsos positivos de Microsoft Defender.
+- El canal de actualizacion deja de descargar y ejecutar instaladores EXE.
+- Las actualizaciones automaticas pasan a paquetes ZIP verificados con SHA-256.
+- El actualizador aplica los archivos desde una copia temporal del runtime y vuelve a abrir la suite.
+- No incluye cambios funcionales ni visuales en la aplicacion.
