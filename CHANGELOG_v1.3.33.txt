@@ -1,0 +1,7 @@
+Suite Rodriguez Finura v1.3.33
+
+- Corrige el fallo del MSI al finalizar la instalacion provocado por la apertura automatica de la suite.
+- La accion de apertura final pasa a ser asincrona y no critica, de modo que nunca puede provocar rollback de la instalacion.
+- La apertura final se realiza desde la carpeta instalada y mediante SuiteLauncher.py.
+- Se mantiene el canal de actualizaciones automaticas por ZIP limpio verificable por SHA-256.
+- Se mantiene el MSI como instalador de cero sin firma digital.

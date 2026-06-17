@@ -1,12 +1,12 @@
 ﻿{
-  "version": "1.3.32",
+  "version": "1.3.33",
   "package_type": "zip",
-  "package": "Suite_Rodriguez_Finura_v1.3.32_update.zip",
-  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.32_update.zip",
-  "sha256": "64D515A8BD2459EC00D194B564BAD449DE205CCE611C4C64F617B8C962AB4B1B",
-  "fresh_install_msi": "Suite_Rodriguez_Finura_v1.3.32.msi",
-  "fresh_install_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.32.msi",
-  "fresh_install_sha256": "389AD6581B63579FC35F510226DE6CCB6322C52510DFA8C6DBAF0D30BE9AF8BB",
-  "notes": "Actualizacion automatica por ZIP limpio verificable. El MSI queda reservado para instalacion de cero porque no esta firmado."
+  "package": "Suite_Rodriguez_Finura_v1.3.33_update.zip",
+  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33_update.zip",
+  "sha256": "416AA81A6FA1247F8170989796AA6FC085F3A1A89D8C8EB8B599FD5CD970A0CD",
+  "fresh_install_msi": "Suite_Rodriguez_Finura_v1.3.33.msi",
+  "fresh_install_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
+  "fresh_install_sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518",
+  "notes": "Corrige el MSI 1.3.32: la apertura final ya no puede provocar rollback. La actualizacion automatica sigue siendo ZIP limpio verificable."
 }
 
