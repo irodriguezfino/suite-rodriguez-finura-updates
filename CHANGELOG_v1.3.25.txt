@@ -1,0 +1,7 @@
+Suite Rodriguez Finura v1.3.25
+
+- Version correctiva de distribucion para evitar falsos positivos de Microsoft Defender.
+- El instalador deja de incluir SuiteLauncher.exe y SuiteUpdater.exe generados con PyInstaller.
+- El acceso directo abre SuiteLauncher.py mediante el runtime Python instalado con la suite.
+- El actualizador se ejecuta desde una copia temporal del runtime para no bloquear la carpeta instalada.
+- No incluye cambios funcionales ni visuales en la aplicacion.
