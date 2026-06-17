@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.3.35
+
+- Retira el MSI 1.3.34 del canal recomendado por falso positivo de Defender durante la descarga.
+- La instalacion de cero vuelve a recomendar el MSI 1.3.33, que mantiene apertura automatica y evita la UI MSI avanzada que provoco el bloqueo.
+- Las actualizaciones automaticas siguen funcionando por ZIP limpio verificable por SHA-256.
+- No incluye cambios funcionales ni visuales en la aplicacion.
