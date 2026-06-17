@@ -1,0 +1,7 @@
+Suite Rodriguez Finura v1.3.31
+
+- El instalador MSI vuelve a incluir launcher y actualizador.
+- El canal de actualizaciones soporta paquetes MSI mediante package_type=msi.
+- Se mantiene compatibilidad con actualizaciones ZIP para versiones anteriores del actualizador.
+- El MSI incorpora deteccion de versiones anteriores por UpgradeCode para futuras actualizaciones.
+- Pendiente de firma digital: no hay certificado de firma de codigo disponible en este equipo.
