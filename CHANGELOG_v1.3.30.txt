@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.3.30
+
+- Prueba de instalador MSI por usuario basado en la version portable limpia.
+- Instala en AppData local y crea acceso directo en el escritorio.
+- No incluye autoactualizador ni instalador EXE.
+- No incluye cambios funcionales ni visuales en la aplicacion.
