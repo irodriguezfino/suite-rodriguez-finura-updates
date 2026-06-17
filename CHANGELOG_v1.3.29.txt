@@ -1,0 +1,7 @@
+Suite Rodriguez Finura v1.3.29
+
+- Paquete portable limpio sin autoactualizador para aislar el falso positivo Trojan:Script/Wacatac.C!ml.
+- No incluye SuiteUpdater.py ni codigo de descarga/extraccion automatica.
+- El runtime se publica sin cache de bytecode ni carpetas de tests.
+- La suite se abre con Abrir_Suite_Rodriguez_Finura.cmd.
+- No incluye cambios funcionales ni visuales en la aplicacion.

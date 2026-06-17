@@ -1,8 +1,8 @@
 ﻿{
-  "version": "1.3.27",
-  "package": "Suite_Rodriguez_Finura_v1.3.27_portable.zip",
-  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.27_portable.zip",
-  "sha256": "2FA23E959C4A483F661E089F2331339DF3295457131BC64364A57D404FF98F40",
-  "notes": "Correccion de distribucion: paquete ZIP portable, sin instalador EXE descargable."
+  "version": "1.3.29",
+  "package": "Suite_Rodriguez_Finura_v1.3.29_portable_sin_actualizador.zip",
+  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.29_portable_sin_actualizador.zip",
+  "sha256": "F0C9CC87B32EA22B4D2493E79452FA545D8353E4951E348C05BA0DB5D52AE652",
+  "notes": "Paquete portable limpio sin autoactualizador para evitar falso positivo Trojan:Script/Wacatac.C!ml."
 }
 
