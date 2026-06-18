@@ -1,0 +1,7 @@
+Suite Rodriguez Finura v1.3.37
+
+- Las actualizaciones automaticas pasan a ser ligeras: el ZIP ya no incluye el runtime de Python.
+- El launcher deja de copiar el runtime completo a una carpeta temporal antes de abrir el actualizador.
+- El actualizador se ejecuta desde el runtime instalado y solo copia a temporal el script de actualizacion y recursos visuales.
+- Reduce drasticamente el tamano del ZIP, el tiempo de descarga, la extraccion y el escaneo de Defender.
+- El MSI 1.3.33 sigue siendo la base recomendada para instalacion de cero.
