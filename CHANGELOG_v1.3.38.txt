@@ -1,0 +1,8 @@
+Suite Rodriguez Finura v1.3.38
+
+- Anade pantalla Acerca de / Version con version instalada, ultima comprobacion, URL del canal y estado del actualizador.
+- Anade boton Buscar actualizacion para lanzar una comprobacion manual desde el menu principal.
+- Anade boton Copiar diagnostico con version, ruta, entorno, estado del actualizador y ultimas lineas de logs.
+- Refuerza el launcher: si GitHub no responde abre la suite sin molestar salvo busqueda manual.
+- Registra estado persistente de actualizaciones en AppData local y evita reavisos automaticos recientes tras cancelacion o fallo.
+- Mantiene actualizaciones ligeras por ZIP sin runtime.
