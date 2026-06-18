@@ -1,0 +1,7 @@
+Suite Rodriguez Finura v1.3.36
+
+- Estandariza el canal de actualizaciones automaticas: MSI solo para instalacion de cero y ZIP para actualizar.
+- El launcher rechaza cualquier actualizacion automatica que no sea ZIP verificable por SHA-256.
+- Se anaden logs persistentes en AppData local para diagnosticar comprobacion y aplicacion de actualizaciones.
+- Se anade un generador local de paquete ZIP y version.json para evitar errores manuales al publicar.
+- No incluye cambios funcionales ni visuales en la aplicacion.
