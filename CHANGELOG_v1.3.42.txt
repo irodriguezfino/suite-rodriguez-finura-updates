@@ -1,0 +1,8 @@
+Suite Rodriguez Finura v1.3.42
+
+- Anade panel de configuracion del mensaje de correo en Control Precintos Jamones.
+- Permite personalizar asunto y cuerpo del correo con plantilla persistente.
+- Incluye variables automaticas en el mensaje: tipo de jamon, registros validos, incidencias y duplicados.
+- Mantiene la generacion y adjunto automatico del CSV corregido y el TXT de resumen.
+- Refuerza el flujo de envio conservando la ultima direccion destinataria usada.
+- Corrige el foco de selectores y guardados de archivo para que permanezcan asociados a la aplicacion activa.
