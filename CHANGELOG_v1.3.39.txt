@@ -1,0 +1,7 @@
+Suite Rodriguez Finura v1.3.39
+
+- Mejora Control de Precintos Jamones con validacion de partida de 6 digitos y lote obligatorio.
+- Anade sugerencias de partida y lote en la zona de trabajo usando los valores habituales del TXT.
+- Evita que los duplicados provocados por correcciones manuales aparezcan como duplicados reales en el resumen.
+- Mejora el area de trabajo con fuente, margenes y diferenciacion visual entre comentarios y lineas editables.
+- Anade formato importable en AX para los precintos discrepantes entre TXT y Excel oficial.

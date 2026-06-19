@@ -1,11 +1,11 @@
 {
   "schema": "suite-rodriguez-finura-update-v1",
-  "version": "1.3.38",
+  "version": "1.3.39",
   "auto_update": {
     "type": "zip",
-    "file": "Suite_Rodriguez_Finura_v1.3.38_update.zip",
-    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.38_update.zip",
-    "sha256": "7D9186413980A64878A1C40C8C64A1CBEC8CC02AE91B869476EEA5B2BE9F4B80"
+    "file": "Suite_Rodriguez_Finura_v1.3.39_update.zip",
+    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.39_update.zip",
+    "sha256": "9D8DA9294CE65223573CD6CF63F016716B3538EA9F91B8D18B55714146E1D329"
   },
   "fresh_install": {
     "type": "msi",
@@ -15,9 +15,9 @@
   },
   "notes": "Actualizacion ligera por ZIP, sin runtime. MSI reservado para instalacion de cero.",
   "package_type": "zip",
-  "package": "Suite_Rodriguez_Finura_v1.3.38_update.zip",
-  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.38_update.zip",
-  "sha256": "7D9186413980A64878A1C40C8C64A1CBEC8CC02AE91B869476EEA5B2BE9F4B80",
+  "package": "Suite_Rodriguez_Finura_v1.3.39_update.zip",
+  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.39_update.zip",
+  "sha256": "9D8DA9294CE65223573CD6CF63F016716B3538EA9F91B8D18B55714146E1D329",
   "fresh_install_msi": "Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"
