@@ -1,0 +1,7 @@
+Suite Rodriguez Finura v1.3.40
+
+- Corrige el icono de la barra de tareas de Windows aplicando el identificador de aplicacion y el icono real de la suite.
+- Mejora el area de trabajo de Control Precintos Jamones para editar con libertad tipo bloc de notas, con deshacer/rehacer y seleccion normal.
+- Adapta el area de trabajo de Control Precintos Jamones al modo oscuro.
+- Unifica la fuente del area de trabajo con el resto de la interfaz.
+- Mantiene el menu principal maximizado al abrir y cerrar aplicaciones para evitar la animacion de restauracion.
