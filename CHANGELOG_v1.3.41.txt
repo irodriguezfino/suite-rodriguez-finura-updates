@@ -1,0 +1,7 @@
+Suite Rodriguez Finura v1.3.41
+
+- Mejora la edicion del area de trabajo de Control Precintos Jamones para permitir seleccion normal con el cursor.
+- Anade boton Enviar correo junto a Guardar TXT y Guardar CSV.
+- Genera y adjunta automaticamente el CSV corregido y el TXT de resumen al enviar correo.
+- Recuerda la ultima direccion destinataria utilizada y la sugiere en el siguiente envio.
+- Configura el envio por el servidor SMTP corporativo sin SSL.
