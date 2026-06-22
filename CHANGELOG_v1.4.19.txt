@@ -1,0 +1,5 @@
+Suite Rodriguez Finura v1.4.19
+
+- Corrige la regresion visual introducida en v1.4.18 que hacia crecer demasiado la cabecera, el panel lateral y algunas categorias al abrir el menu.
+- Inicializa los paneles Canvas redondeados con tamano minimo real para que midan su contenido antes de ocupar espacio.
+- Mantiene la estabilizacion de tarjetas, filas y botones Abrir/Traer sin volver a provocar reescalados al abrir aplicaciones.
