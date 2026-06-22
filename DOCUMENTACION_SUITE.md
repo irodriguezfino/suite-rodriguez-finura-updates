@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.9
+Ultima revision: v1.4.10
 
 ## Para que sirve
 
@@ -12,22 +12,13 @@ La suite agrupa herramientas internas para preparar, revisar y convertir fichero
 
 El menu principal centraliza el acceso a las aplicaciones, muestra el estado de version dentro de Acerca de, permite buscar actualizaciones y mantiene una experiencia visual coherente entre herramientas.
 
-Desde v1.4.0 adopta una interfaz preparada para crecer con mas aplicaciones:
+Desde v1.4.7 el menu principal usa componentes redondeados basados en Canvas para cabecera, panel lateral, panel central, tarjetas, filas e items de categoria.
 
-- Navegacion lateral por categorias.
-- Buscador rapido por nombre, proceso o palabra clave.
-- Accesos favoritos/recientes en tarjetas.
-- Vista de lista para trabajar con muchas herramientas sin saturar la pantalla.
-- Indicacion visual de aplicaciones abiertas dentro de cada acceso, cambiando Abrir por Traer.
-- Logos de Finura y Rodriguez en la parte inferior.
-- Detalles rojos discretos en separadores, categoria activa e iconos, manteniendo el azul como color principal.
-- Atajos Alt+1 a Alt+5 para las aplicaciones actuales y Ctrl+K para enfocar la busqueda.
+Desde v1.4.8 mantiene Canvas en todos esos componentes, pero cambia el motor visual del menu: categorias, secciones, tarjetas y filas se cachean y se actualizan de forma incremental en vez de destruirse y recrearse.
 
-Desde v1.4.7 el menu principal usa componentes redondeados basados en Canvas para cabecera, panel lateral, panel central, tarjetas, filas e items de categoria. Tambien mejora la busqueda con normalizacion de acentos y palabras sueltas, anade placeholder, refuerza la accesibilidad del panel lateral con foco y teclado, incorpora ayuda contextual en favoritos y refina la jerarquia visual con Segoe UI.
+Desde v1.4.9 el modo oscuro actualiza tambien los Canvas persistentes del menu principal. Ademas, la capa comun de estilo incorpora un panel Canvas reutilizable que se aplica a los bloques principales de Merma, TXT a CSV, Palets PDA, Control de Precintos y Precintos Excel, manteniendo comandos, logica y uso sin cambios.
 
-Desde v1.4.8 mantiene Canvas en todos esos componentes, pero cambia el motor visual del menu: categorias, secciones, tarjetas y filas se cachean y se actualizan de forma incremental en vez de destruirse y recrearse. RoundedPanel redibuja solo cuando cambian dimensiones, colores o foco, los renders se agrupan con `after_idle`, el scroll evita bindings duplicados y los botones secundarios/salida usan bordes finos coherentes con las tarjetas Canvas.
-
-Desde v1.4.9 el modo oscuro actualiza tambien los Canvas persistentes del menu principal. Ademas, la capa comun de estilo incorpora un panel Canvas reutilizable que se aplica a los bloques principales de Merma, TXT a CSV, Palets PDA, Control de Precintos y Precintos Excel, manteniendo comandos, logica y uso sin cambios. La paleta oscura ajusta bordes suaves, campos de entrada, botones secundarios y areas Tk para una experiencia mas coherente.
+Desde v1.4.10 el criterio visual de bordes queda normalizado: el rojo se reserva al foco de teclado en paneles Canvas, mientras que hover y click de raton usan bordes suaves azul-gris. Tambien se modernizan las barras de scroll ttk con un estilo plano, sin flechas clasicas visibles y adaptado al modo claro/oscuro.
 
 ## Aplicaciones incluidas
 

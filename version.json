@@ -1,11 +1,11 @@
 {
   "schema": "suite-rodriguez-finura-update-v1",
-  "version": "1.4.9",
+  "version": "1.4.10",
   "auto_update": {
     "type": "zip",
-    "file": "Suite_Rodriguez_Finura_v1.4.9_update.zip",
-    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.9_update.zip",
-    "sha256": "B4DC2B417F68B584B7167C61999F8E48ADF02D5A24036B171EF1F25428E6B6BD"
+    "file": "Suite_Rodriguez_Finura_v1.4.10_update.zip",
+    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.10_update.zip",
+    "sha256": "01E20CF9984D7793F581C3550FDE7E64EE3E1B4B40680F936BCECBC6C234DE1C"
   },
   "fresh_install": {
     "type": "msi",
@@ -13,11 +13,11 @@
     "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
     "sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"
   },
-  "notes": "- Corrige el modo oscuro en el menu principal refrescando los Canvas persistentes de cabecera, lateral, panel central, categorias y accesos.\n- Anade un panel Canvas comun en la capa de estilo para reutilizar bordes redondeados, fondo y contorno suave en todas las aplicaciones.\n- Aplica paneles Canvas a los bloques principales de Merma, TXT a CSV, Palets PDA, Control de Precintos y Precintos Excel.\n- Mejora la armonia visual de botoneras, paneles de trabajo, areas de resumen y estados sin cambiar comandos, logica ni flujos de uso.\n- Ajusta la paleta oscura para bordes suaves, campos de entrada, botones secundarios y textos Tk.\n- Mantiene las mejoras de rendimiento de la version 1.4.8.",
+  "notes": "- Ajusta el criterio de bordes: rojo solo para foco de teclado en paneles Canvas, no para hover ni click de raton.\n- Corrige estados de click cancelado para que tarjetas, categorias y paneles vuelvan al borde normal al salir o soltar.\n- Anade feedback hover/pressed suave en paneles Canvas del menu y de las aplicaciones.\n- Ajusta botones secundarios, favoritos y salida para usar bordes hover/pressed azul-gris en vez de rojo persistente.\n- Moderniza las barras de scroll ttk con estilo plano, sin flechas clasicas visibles y colores adaptados a modo claro/oscuro.\n- Mantiene intactas las logicas, comandos y flujos de uso.",
   "package_type": "zip",
-  "package": "Suite_Rodriguez_Finura_v1.4.9_update.zip",
-  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.9_update.zip",
-  "sha256": "B4DC2B417F68B584B7167C61999F8E48ADF02D5A24036B171EF1F25428E6B6BD",
+  "package": "Suite_Rodriguez_Finura_v1.4.10_update.zip",
+  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.10_update.zip",
+  "sha256": "01E20CF9984D7793F581C3550FDE7E64EE3E1B4B40680F936BCECBC6C234DE1C",
   "fresh_install_msi": "Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"

@@ -1,0 +1,8 @@
+Suite Rodriguez Finura v1.4.10
+
+- Ajusta el criterio de bordes: rojo solo para foco de teclado en paneles Canvas, no para hover ni click de raton.
+- Corrige estados de click cancelado para que tarjetas, categorias y paneles vuelvan al borde normal al salir o soltar.
+- Anade feedback hover/pressed suave en paneles Canvas del menu y de las aplicaciones.
+- Ajusta botones secundarios, favoritos y salida para usar bordes hover/pressed azul-gris en vez de rojo persistente.
+- Moderniza las barras de scroll ttk con estilo plano, sin flechas clasicas visibles y colores adaptados a modo claro/oscuro.
+- Mantiene intactas las logicas, comandos y flujos de uso.
