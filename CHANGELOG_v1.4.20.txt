@@ -1,0 +1,5 @@
+Suite Rodriguez Finura v1.4.20
+
+- Corrige la regresion visual de v1.4.19 que dejaba botones, tarjetas y categorias sin altura visible.
+- Restaura el tamano inicial natural de los Canvas redondeados y sincroniza despues su tamano exacto con el contenido.
+- Mantiene las mejoras de v1.4.18 para evitar reescalados de botones Abrir/Traer al abrir aplicaciones.

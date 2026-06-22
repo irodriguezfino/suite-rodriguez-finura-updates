@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.19
+Ultima revision: v1.4.20
 
 ## Para que sirve
 
@@ -37,6 +37,8 @@ Desde v1.4.17 la sincronizacion de la barra nativa de Windows aplica DWM al HWND
 Desde v1.4.18 se corrigen bugs de refactor visual: el scroll global del modo compacto deja de borrar bindings de otras ventanas, Acerca de usa un tamano propio, el estado inferior vuelve a ser visible sin mostrar el listado de aplicaciones abiertas y el layout se mantiene estable al abrir herramientas. Tambien se estabilizan los minimos de paneles Canvas, tarjetas, filas y botones para evitar reescalados al cambiar entre Abrir y Traer.
 
 Desde v1.4.19 se corrige la regresion visual de v1.4.18 que hacia crecer demasiado la cabecera, el panel lateral y algunas categorias al abrir el menu. Los paneles Canvas redondeados parten de un tamano minimo real y despues crecen hasta su contenido.
+
+Desde v1.4.20 se corrige la regresion visual de v1.4.19 que dejaba botones, tarjetas y categorias sin altura visible. Los Canvas recuperan su tamano inicial natural y despues sincronizan su tamano exacto con el contenido medido.
 
 ## Aplicaciones incluidas
 
