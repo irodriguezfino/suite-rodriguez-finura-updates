@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.4.16
+
+- Ajusta la apertura de aplicaciones para que la animacion ocurra sobre el menu, sin bajar ni simular minimizacion del menu.
+- Anade una animacion breve de cierre: la aplicacion se desvanece dejando visible el menu detras.
+- Coordina los cierres hechos desde la X de Windows y desde botones internos de las aplicaciones para usar la misma salida visual.
+- Mantiene la logica funcional y el flujo de trabajo sin cambios.
