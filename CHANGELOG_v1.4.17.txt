@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.4.17
+
+- Refuerza la sincronizacion de la barra nativa de Windows con el modo claro/oscuro aplicando DWM sobre el HWND de Tk y sus wrappers padre.
+- Fuerza el refresco del marco nativo despues de cambiar atributos DWM para que Windows repinte la barra superior.
+- Reintenta la aplicacion del modo de ventana tras el montaje de la decoracion nativa.
+- Mantiene interfaz, animaciones y logica funcional sin cambios adicionales.

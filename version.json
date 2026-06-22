@@ -1,12 +1,12 @@
 {
   "schema": "suite-rodriguez-finura-update-v1",
-  "version": "1.4.16",
-  "published_at": "2026-06-22T12:10:00+02:00",
+  "version": "1.4.17",
+  "published_at": "2026-06-22T12:28:00+02:00",
   "auto_update": {
     "type": "zip",
-    "file": "Suite_Rodriguez_Finura_v1.4.16_update.zip",
-    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.16_update.zip",
-    "sha256": "F916CC89D22617C52736C66F6B51B92362EA321BD06BDA8400795178B6C0AD7E"
+    "file": "Suite_Rodriguez_Finura_v1.4.17_update.zip",
+    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.17_update.zip",
+    "sha256": "919F59072A88155BEEFC15E6AB23FA0877D2CD7904AD0978343A3A68B601F7A5"
   },
   "fresh_install": {
     "type": "msi",
@@ -14,11 +14,11 @@
     "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
     "sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"
   },
-  "notes": "- Ajusta la apertura de aplicaciones para que la animacion ocurra sobre el menu, sin bajar ni simular minimizacion del menu.\n- Anade una animacion breve de cierre: la aplicacion se desvanece dejando visible el menu detras.\n- Coordina los cierres hechos desde la X de Windows y desde botones internos de las aplicaciones para usar la misma salida visual.\n- Mantiene la logica funcional y el flujo de trabajo sin cambios.",
+  "notes": "- Refuerza la sincronizacion de la barra nativa de Windows con el modo claro/oscuro aplicando DWM sobre el HWND de Tk y sus wrappers padre.\n- Fuerza el refresco del marco nativo despues de cambiar atributos DWM para que Windows repinte la barra superior.\n- Reintenta la aplicacion del modo de ventana tras el montaje de la decoracion nativa.\n- Mantiene interfaz, animaciones y logica funcional sin cambios adicionales.",
   "package_type": "zip",
-  "package": "Suite_Rodriguez_Finura_v1.4.16_update.zip",
-  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.16_update.zip",
-  "sha256": "F916CC89D22617C52736C66F6B51B92362EA321BD06BDA8400795178B6C0AD7E",
+  "package": "Suite_Rodriguez_Finura_v1.4.17_update.zip",
+  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.17_update.zip",
+  "sha256": "919F59072A88155BEEFC15E6AB23FA0877D2CD7904AD0978343A3A68B601F7A5",
   "fresh_install_msi": "Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"
