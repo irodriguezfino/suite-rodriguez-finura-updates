@@ -1,0 +1,8 @@
+Suite Rodriguez Finura v1.4.5
+
+- Limpia los marcos del menu principal para acercarlo mas al boceto.
+- Deja como bloques principales el panel lateral, la cabecera del titulo y el panel central de aplicaciones.
+- Elimina bordes internos en tarjetas y filas de lista, conservando solo el borde exterior de cada acceso.
+- Ajusta separaciones para evitar que dos bordes se superpongan y parezcan una linea mas gruesa.
+- Oculta el scroll cuando el contenido cabe completo y bloquea la rueda cuando no hay desplazamiento necesario.
+- Elimina Buscar actualizacion de la cabecera y mantiene esa accion dentro de Acerca de.
