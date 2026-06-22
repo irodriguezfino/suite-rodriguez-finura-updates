@@ -1,0 +1,8 @@
+Suite Rodriguez Finura v1.4.3
+
+- Cambia la categoria Todas para mostrar arriba favoritas y aplicaciones recientes en tarjetas.
+- Muestra debajo, en formato lista, las aplicaciones restantes cuando esta seleccionada la categoria Todas.
+- Mantiene las categorias concretas en vista de tarjetas para revisar cada grupo de aplicaciones.
+- Suprime el selector manual de Vista lista de la cabecera.
+- Refina la estetica del menu principal con titulo y subtitulo mas trabajados, secciones mas claras, chips de categoria, estrellas diferenciadas y filas con acento visual.
+- Mejora el aspecto de tarjetas, recuadros, bordes, busqueda, botones y scroll manteniendo la armonia visual de la suite.
