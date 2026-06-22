@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.0
+Ultima revision: v1.4.1
 
 ## Para que sirve
 
@@ -10,7 +10,7 @@ La suite agrupa herramientas internas para preparar, revisar y convertir fichero
 
 ## Menu principal
 
-El menu principal centraliza el acceso a las aplicaciones, muestra el estado de version, permite buscar actualizaciones y mantiene una experiencia visual coherente entre herramientas.
+El menu principal centraliza el acceso a las aplicaciones, muestra el estado de version dentro de Acerca de, permite buscar actualizaciones y mantiene una experiencia visual coherente entre herramientas.
 
 Desde v1.4.0 adopta una interfaz preparada para crecer con mas aplicaciones:
 
@@ -18,10 +18,12 @@ Desde v1.4.0 adopta una interfaz preparada para crecer con mas aplicaciones:
 - Buscador rapido por nombre, proceso o palabra clave.
 - Accesos favoritos/recientes en tarjetas.
 - Vista de lista para trabajar con muchas herramientas sin saturar la pantalla.
-- Indicacion visual de aplicaciones abiertas, cambiando el acceso de Abrir a Traer.
+- Indicacion visual de aplicaciones abiertas dentro de cada acceso, cambiando Abrir por Traer.
 - Logos de Finura y Rodriguez en la parte inferior.
 - Detalles rojos discretos en separadores, categoria activa e iconos, manteniendo el azul como color principal.
 - Atajos Alt+1 a Alt+5 para las aplicaciones actuales y Ctrl+K para enfocar la busqueda.
+
+Desde v1.4.1 cada acceso permite marcar o quitar favoritos con una estrella. La seleccion se guarda por usuario. El modo compacto vuelve a comportarse como una ventana pequena de lista densa, ocultando lateral, footer y controles no esenciales para maximizar el espacio util.
 
 ## Aplicaciones incluidas
 

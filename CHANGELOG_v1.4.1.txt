@@ -1,0 +1,9 @@
+Suite Rodriguez Finura v1.4.1
+
+- Elimina del menu principal el aviso inferior de aplicaciones abiertas para ganar espacio vertical en la zona de tarjetas.
+- Retira del pie el texto de propiedad intelectual y la version, manteniendolos dentro de la ventana Acerca de.
+- Anade una estrella en tarjetas, filas y modo compacto para marcar o quitar aplicaciones favoritas.
+- Guarda la seleccion de favoritos del usuario de forma persistente en las preferencias visuales.
+- Rehace el modo compacto para que vuelva a funcionar como una ventana pequena con lista densa e informacion reducida.
+- Oculta lateral, footer y controles no esenciales en modo compacto para recuperar espacio util.
+- Ajusta la vista de lista del modo completo para aprovechar mejor el ancho disponible y reducir huecos vacios.
