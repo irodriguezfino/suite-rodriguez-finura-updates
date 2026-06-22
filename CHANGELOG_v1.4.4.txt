@@ -1,0 +1,9 @@
+Suite Rodriguez Finura v1.4.4
+
+- Redisena el menu principal para acercarlo al boceto limpio y profesional.
+- Sustituye la cabecera centrada por una barra de producto con marca SR, titulo, subtitulo y acciones a la derecha.
+- Cambia la navegacion lateral a filas numeradas con contador, seleccion azul y menos bordes visuales.
+- Refina tarjetas, filas de lista, iconos, chips, botones y espaciados para reducir el aspecto clasico de Tkinter.
+- Mantiene el comportamiento de la categoria Todas: favoritas y recientes arriba, resto de aplicaciones debajo en lista.
+- Mantiene las categorias concretas en vista de tarjetas.
+- Conserva los logos corporativos en el footer y mueve Salir a la cabecera para dejar el cierre mas accesible.

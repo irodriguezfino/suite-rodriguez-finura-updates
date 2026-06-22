@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.3
+Ultima revision: v1.4.4
 
 ## Para que sirve
 
@@ -28,6 +28,8 @@ Desde v1.4.1 cada acceso permite marcar o quitar favoritos con una estrella. La 
 Desde v1.4.2 el modo compacto ordena primero las aplicaciones favoritas y reduce el tamano de la estrella y del boton de apertura para evitar cortes en ventanas estrechas. Tambien corrige el scroll con la rueda del raton sobre filas, tarjetas, etiquetas o botones, y refina la cabecera y barra de busqueda para una presentacion mas profesional.
 
 Desde v1.4.3 la categoria Todas se convierte en una portada operativa: muestra arriba las aplicaciones favoritas y recientes en tarjetas, y debajo coloca el resto de aplicaciones en una lista compacta. Al seleccionar una categoria concreta, todas sus aplicaciones se muestran en tarjetas. Se elimina el selector manual de vista lista de la cabecera y se mejora la estetica general con titulo y subtitulo mas cuidados, tarjetas y filas mas redondeadas, botones diferenciados segun su uso, chips de categoria y acentos rojos discretos.
+
+Desde v1.4.4 el menu principal se acerca mas al boceto aprobado: cabecera compacta con marca SR, titulo y acciones superiores; sidebar numerada con contadores; tarjetas mas limpias; filas de lista mas modernas; iconos, chips y botones con menos ruido visual; y footer corporativo reservado para los logos.
 
 ## Aplicaciones incluidas
 
