@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.10
+Ultima revision: v1.4.11
 
 ## Para que sirve
 
@@ -16,9 +16,11 @@ Desde v1.4.7 el menu principal usa componentes redondeados basados en Canvas par
 
 Desde v1.4.8 mantiene Canvas en todos esos componentes, pero cambia el motor visual del menu: categorias, secciones, tarjetas y filas se cachean y se actualizan de forma incremental en vez de destruirse y recrearse.
 
-Desde v1.4.9 el modo oscuro actualiza tambien los Canvas persistentes del menu principal. Ademas, la capa comun de estilo incorpora un panel Canvas reutilizable que se aplica a los bloques principales de Merma, TXT a CSV, Palets PDA, Control de Precintos y Precintos Excel, manteniendo comandos, logica y uso sin cambios.
+Desde v1.4.9 el modo oscuro actualiza tambien los Canvas persistentes del menu principal. La capa comun de estilo incorpora un panel Canvas reutilizable aplicado a los bloques principales de las aplicaciones internas.
 
-Desde v1.4.10 el criterio visual de bordes queda normalizado: el rojo se reserva al foco de teclado en paneles Canvas, mientras que hover y click de raton usan bordes suaves azul-gris. Tambien se modernizan las barras de scroll ttk con un estilo plano, sin flechas clasicas visibles y adaptado al modo claro/oscuro.
+Desde v1.4.10 el rojo se reserva al foco de teclado en paneles Canvas, mientras que hover y click de raton usan bordes suaves azul-gris. Tambien se modernizan las barras de scroll ttk con un estilo plano, sin flechas clasicas visibles y adaptado al modo claro/oscuro.
+
+Desde v1.4.11 el hover de Canvas evita parpadeos usando deteccion por coordenadas y limpieza retardada del estado. Los contenedores principales quedan estables y el hover decorativo se limita para reducir ruido visual y repintados, manteniendo foco de teclado accesible y el flujo principal sin cambios.
 
 ## Aplicaciones incluidas
 

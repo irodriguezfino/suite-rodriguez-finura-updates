@@ -1,0 +1,8 @@
+Suite Rodriguez Finura v1.4.11
+
+- Corrige el parpadeo de hover en paneles Canvas con deteccion por coordenadas y limpieza retardada del estado.
+- Limita el hover a elementos interactivos del menu; los paneles principales se mantienen estables.
+- Desactiva hover decorativo en los paneles Canvas de las aplicaciones internas para reducir ruido visual y repintados.
+- Refuerza el criterio de accesibilidad: rojo solo para foco por teclado, hover y click de raton con bordes azul-gris.
+- Mantiene el estilo moderno de scrollbars y mejora su estabilidad visual en claro y oscuro.
+- Conserva comandos, logica de proceso y flujos principales sin cambios.
