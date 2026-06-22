@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.1
+Ultima revision: v1.4.2
 
 ## Para que sirve
 
@@ -23,7 +23,9 @@ Desde v1.4.0 adopta una interfaz preparada para crecer con mas aplicaciones:
 - Detalles rojos discretos en separadores, categoria activa e iconos, manteniendo el azul como color principal.
 - Atajos Alt+1 a Alt+5 para las aplicaciones actuales y Ctrl+K para enfocar la busqueda.
 
-Desde v1.4.1 cada acceso permite marcar o quitar favoritos con una estrella. La seleccion se guarda por usuario. El modo compacto vuelve a comportarse como una ventana pequena de lista densa, ocultando lateral, footer y controles no esenciales para maximizar el espacio util.
+Desde v1.4.1 cada acceso permite marcar o quitar favoritos con una estrella. La seleccion se guarda por usuario. El modo compacto funciona como una ventana pequena de lista densa, ocultando lateral, footer y controles no esenciales para maximizar el espacio util.
+
+Desde v1.4.2 el modo compacto ordena primero las aplicaciones favoritas y reduce el tamano de la estrella y del boton de apertura para evitar cortes en ventanas estrechas. Tambien corrige el scroll con la rueda del raton sobre filas, tarjetas, etiquetas o botones, y refina la cabecera y barra de busqueda para una presentacion mas profesional.
 
 ## Aplicaciones incluidas
 

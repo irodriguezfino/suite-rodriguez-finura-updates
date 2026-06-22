@@ -1,0 +1,8 @@
+Suite Rodriguez Finura v1.4.2
+
+- Ordena el modo compacto priorizando las aplicaciones marcadas como favoritas.
+- Ajusta el ancho y el estilo de la estrella y del boton de apertura en modo compacto para evitar cortes.
+- Corrige el scroll con la rueda del raton dentro del listado de aplicaciones, tambien cuando el cursor esta sobre filas, tarjetas, etiquetas o botones.
+- Refina la cabecera del menu principal con una presentacion mas limpia y profesional.
+- Mejora la barra de busqueda y la jerarquia visual de categorias, tarjetas y vistas de lista.
+- Mantiene el comportamiento funcional de las aplicaciones sin cambios.
