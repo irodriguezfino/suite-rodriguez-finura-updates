@@ -1,0 +1,9 @@
+Suite Rodriguez Finura v1.4.0
+
+- Redisena el menu principal siguiendo el boceto 1: navegacion lateral por categorias, buscador y accesos favoritos/recientes.
+- Mantiene una vista de tarjetas evolucionada para los accesos principales y anade una vista de lista para trabajar mejor con muchas aplicaciones.
+- Sustituye la definicion manual de tarjetas por un catalogo interno de aplicaciones con categoria, etiquetas, atajo, disponibilidad y comando de apertura.
+- Conserva los logos de Finura y Rodriguez en la parte inferior del menu principal.
+- Refuerza la identidad visual con detalles rojos discretos en separadores, seleccion de categorias e iconos, manteniendo el azul como color principal.
+- Mantiene los atajos existentes Alt+1 a Alt+5 e incorpora Ctrl+K para enfocar la busqueda.
+- Actualiza el modo compacto para usar una lista densa sin perder el acceso a categorias y busqueda.

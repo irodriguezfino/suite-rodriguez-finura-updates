@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.3.42
+Ultima revision: v1.4.0
 
 ## Para que sirve
 
@@ -11,6 +11,17 @@ La suite agrupa herramientas internas para preparar, revisar y convertir fichero
 ## Menu principal
 
 El menu principal centraliza el acceso a las aplicaciones, muestra el estado de version, permite buscar actualizaciones y mantiene una experiencia visual coherente entre herramientas.
+
+Desde v1.4.0 adopta una interfaz preparada para crecer con mas aplicaciones:
+
+- Navegacion lateral por categorias.
+- Buscador rapido por nombre, proceso o palabra clave.
+- Accesos favoritos/recientes en tarjetas.
+- Vista de lista para trabajar con muchas herramientas sin saturar la pantalla.
+- Indicacion visual de aplicaciones abiertas, cambiando el acceso de Abrir a Traer.
+- Logos de Finura y Rodriguez en la parte inferior.
+- Detalles rojos discretos en separadores, categoria activa e iconos, manteniendo el azul como color principal.
+- Atajos Alt+1 a Alt+5 para las aplicaciones actuales y Ctrl+K para enfocar la busqueda.
 
 ## Aplicaciones incluidas
 
@@ -46,5 +57,5 @@ El texto de mejoras debe mantenerse en el `CHANGELOG_vX.Y.Z.txt` de cada version
 
 - Cada nueva version debe tener su `CHANGELOG_vX.Y.Z.txt`.
 - El `version.json` debe apuntar al ZIP publicado, con SHA-256 correcto.
-- Este documento debe actualizarse cuando se anada una aplicacion, cambie un flujo importante o aparezca una funcion que convenga explicar.
+- Este documento debe actualizarse cuando se anada una aplicacion, cambie una aplicacion o cambie un flujo importante.
 - El README del repositorio debe describir el canal de actualizaciones; este documento describe la suite.

@@ -1,11 +1,11 @@
 {
   "schema": "suite-rodriguez-finura-update-v1",
-  "version": "1.3.42",
+  "version": "1.4.0",
   "auto_update": {
     "type": "zip",
-    "file": "Suite_Rodriguez_Finura_v1.3.42_update.zip",
-    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.42_update.zip",
-    "sha256": "A92FF3A482106AEB21C9491D84D985E52822E71A07A6CC5322FBA6A86FE4C97A"
+    "file": "Suite_Rodriguez_Finura_v1.4.0_update.zip",
+    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.0_update.zip",
+    "sha256": "95BD0366393125698B293B75E57920406207AFCF7D35A6A69A2A9AD4A0F40F8F"
   },
   "fresh_install": {
     "type": "msi",
@@ -13,11 +13,11 @@
     "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
     "sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"
   },
-  "notes": "- Anade panel de configuracion del mensaje de correo en Control Precintos Jamones.\n- Permite personalizar asunto y cuerpo del correo con plantilla persistente.\n- Incluye variables automaticas en el mensaje: tipo de jamon, registros validos, incidencias y duplicados.\n- Mantiene la generacion y adjunto automatico del CSV corregido y el TXT de resumen.\n- Refuerza el flujo de envio conservando la ultima direccion destinataria usada.\n- Corrige el foco de selectores y guardados de archivo para que permanezcan asociados a la aplicacion activa.",
+  "notes": "- Redisena el menu principal siguiendo el boceto 1: navegacion lateral por categorias, buscador y accesos favoritos/recientes.\n- Mantiene una vista de tarjetas evolucionada para los accesos principales y anade una vista de lista para trabajar mejor con muchas aplicaciones.\n- Sustituye la definicion manual de tarjetas por un catalogo interno de aplicaciones con categoria, etiquetas, atajo, disponibilidad y comando de apertura.\n- Conserva los logos de Finura y Rodriguez en la parte inferior del menu principal.\n- Refuerza la identidad visual con detalles rojos discretos en separadores, seleccion de categorias e iconos, manteniendo el azul como color principal.\n- Mantiene los atajos existentes Alt+1 a Alt+5 e incorpora Ctrl+K para enfocar la busqueda.\n- Actualiza el modo compacto para usar una lista densa sin perder el acceso a categorias y busqueda.",
   "package_type": "zip",
-  "package": "Suite_Rodriguez_Finura_v1.3.42_update.zip",
-  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.42_update.zip",
-  "sha256": "A92FF3A482106AEB21C9491D84D985E52822E71A07A6CC5322FBA6A86FE4C97A",
+  "package": "Suite_Rodriguez_Finura_v1.4.0_update.zip",
+  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.0_update.zip",
+  "sha256": "95BD0366393125698B293B75E57920406207AFCF7D35A6A69A2A9AD4A0F40F8F",
   "fresh_install_msi": "Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"
