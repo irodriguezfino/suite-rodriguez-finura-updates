@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.14
+Ultima revision: v1.4.15
 
 ## Para que sirve
 
@@ -27,6 +27,8 @@ Desde v1.4.12 se refuerza la ergonomia diaria: las aplicaciones recuerdan la ult
 Desde v1.4.13 el menu mejora la fluidez visual: se construye oculto hasta completar el primer layout, evita renders completos al abrir o cerrar aplicaciones y cambia categoria/busqueda sin vaciar el panel central entre repintados.
 
 Desde v1.4.14 la apertura de menu y aplicaciones usa una rutina comun que prepara las ventanas invisibles y las muestra solo tras aplicar layout, maximizado e icono. Tambien se refuerza el icono de Windows con AppUserModelID, iconbitmap e iconphoto para la barra de tareas.
+
+Desde v1.4.15 la barra nativa superior de Windows se sincroniza con el tema claro u oscuro activo, y las ventanas incorporan una animacion breve de entrada para una apertura mas fluida sin cambiar la logica funcional.
 
 ## Aplicaciones incluidas
 

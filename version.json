@@ -1,25 +1,25 @@
-﻿{
-    "schema":  "suite-rodriguez-finura-update-v1",
-    "version":  "1.4.14",
-    "auto_update":  {
-                        "type":  "zip",
-                        "file":  "Suite_Rodriguez_Finura_v1.4.14_update.zip",
-                        "url":  "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.14_update.zip",
-                        "sha256":  "CE3444AFF339187E2D746713FE018DC61664C7677EA95AB2615C9E88FA9394DF"
-                    },
-    "fresh_install":  {
-                          "type":  "msi",
-                          "file":  "Suite_Rodriguez_Finura_v1.3.33.msi",
-                          "url":  "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
-                          "sha256":  "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"
-                      },
-    "notes":  "- Centraliza la apertura fluida de ventanas: menu y aplicaciones se preparan invisibles y se muestran al final, con layout, maximizado e icono ya aplicados.\n- Reduce parpadeos al abrir aplicaciones evitando ventanas visibles a medio construir y cambios bruscos de foco.\n- Reaplica el icono de Windows desde la capa comun con AppUserModelID, iconbitmap e iconphoto para recuperar el icono en la barra de tareas.\n- Mantiene el flujo funcional de las aplicaciones sin cambios.",
-    "package_type":  "zip",
-    "package":  "Suite_Rodriguez_Finura_v1.4.14_update.zip",
-    "package_url":  "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.14_update.zip",
-    "sha256":  "CE3444AFF339187E2D746713FE018DC61664C7677EA95AB2615C9E88FA9394DF",
-    "fresh_install_msi":  "Suite_Rodriguez_Finura_v1.3.33.msi",
-    "fresh_install_url":  "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
-    "fresh_install_sha256":  "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518",
-    "published_at":  "2026-06-22T11:45:00+02:00"
+{
+  "schema": "suite-rodriguez-finura-update-v1",
+  "version": "1.4.15",
+  "published_at": "2026-06-22T12:00:00+02:00",
+  "auto_update": {
+    "type": "zip",
+    "file": "Suite_Rodriguez_Finura_v1.4.15_update.zip",
+    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.15_update.zip",
+    "sha256": "52571AD0E3C2A8AD6D11DAE1C41CC49776444F331478582D2317EAE0F0E3AB42"
+  },
+  "fresh_install": {
+    "type": "msi",
+    "file": "Suite_Rodriguez_Finura_v1.3.33.msi",
+    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
+    "sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"
+  },
+  "notes": "- Sincroniza la barra nativa superior de Windows con el modo claro u oscuro activo en la suite.\n- Anade una animacion de apertura breve y sobria al mostrar menu y aplicaciones, evitando apariciones bruscas.\n- Centraliza la presentacion visual para que las aplicaciones abiertas desde el menu no ejecuten doble transicion.\n- Revisa estabilidad de apertura, cambio de tema, icono de ventana y rutas principales sin modificar la logica funcional.",
+  "package_type": "zip",
+  "package": "Suite_Rodriguez_Finura_v1.4.15_update.zip",
+  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.15_update.zip",
+  "sha256": "52571AD0E3C2A8AD6D11DAE1C41CC49776444F331478582D2317EAE0F0E3AB42",
+  "fresh_install_msi": "Suite_Rodriguez_Finura_v1.3.33.msi",
+  "fresh_install_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
+  "fresh_install_sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"
 }

@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.4.15
+
+- Sincroniza la barra nativa superior de Windows con el modo claro u oscuro activo en la suite.
+- Anade una animacion de apertura breve y sobria al mostrar menu y aplicaciones, evitando apariciones bruscas.
+- Centraliza la presentacion visual para que las aplicaciones abiertas desde el menu no ejecuten doble transicion.
+- Revisa estabilidad de apertura, cambio de tema, icono de ventana y rutas principales sin modificar la logica funcional.
