@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.4.14
+
+- Centraliza la apertura fluida de ventanas: menu y aplicaciones se preparan invisibles y se muestran al final, con layout, maximizado e icono ya aplicados.
+- Reduce parpadeos al abrir aplicaciones evitando ventanas visibles a medio construir y cambios bruscos de foco.
+- Reaplica el icono de Windows desde la capa comun con AppUserModelID, iconbitmap e iconphoto para recuperar el icono en la barra de tareas.
+- Mantiene el flujo funcional de las aplicaciones sin cambios.
