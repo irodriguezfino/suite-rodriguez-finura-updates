@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.4.6
+
+- Unifica la separacion entre cabecera, cuerpo, footer y columnas principales para que toda la pantalla respire con la misma medida.
+- Ajusta el espacio entre el panel lateral y el panel central para que coincida con el resto de zonas.
+- Diferencia los bloques principales de las tarjetas y filas usando un borde de tarjeta mas suave y ligero.
+- Mantiene solo los marcos necesarios y evita que las zonas se perciban con separaciones desiguales.

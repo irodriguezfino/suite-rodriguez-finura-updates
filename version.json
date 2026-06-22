@@ -1,11 +1,11 @@
 {
   "schema": "suite-rodriguez-finura-update-v1",
-  "version": "1.4.5",
+  "version": "1.4.6",
   "auto_update": {
     "type": "zip",
-    "file": "Suite_Rodriguez_Finura_v1.4.5_update.zip",
-    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.5_update.zip",
-    "sha256": "14589322C1778EC80C283E5A5C3CBC936BB646C7367EF1F93A603698E37F34C2"
+    "file": "Suite_Rodriguez_Finura_v1.4.6_update.zip",
+    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.6_update.zip",
+    "sha256": "045415849F204DD84AEA4CD1796DA1492F4BDEC4C36B5E974B287D97040B8E54"
   },
   "fresh_install": {
     "type": "msi",
@@ -13,11 +13,11 @@
     "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
     "sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"
   },
-  "notes": "- Limpia los marcos del menu principal para acercarlo mas al boceto.\n- Deja como bloques principales el panel lateral, la cabecera del titulo y el panel central de aplicaciones.\n- Elimina bordes internos en tarjetas y filas de lista, conservando solo el borde exterior de cada acceso.\n- Ajusta separaciones para evitar que dos bordes se superpongan y parezcan una linea mas gruesa.\n- Oculta el scroll cuando el contenido cabe completo y bloquea la rueda cuando no hay desplazamiento necesario.\n- Elimina Buscar actualizacion de la cabecera y mantiene esa accion dentro de Acerca de.",
+  "notes": "- Unifica la separacion entre cabecera, cuerpo, footer y columnas principales para que toda la pantalla respire con la misma medida.\n- Ajusta el espacio entre el panel lateral y el panel central para que coincida con el resto de zonas.\n- Diferencia los bloques principales de las tarjetas y filas usando un borde de tarjeta mas suave y ligero.\n- Mantiene solo los marcos necesarios y evita que las zonas se perciban con separaciones desiguales.",
   "package_type": "zip",
-  "package": "Suite_Rodriguez_Finura_v1.4.5_update.zip",
-  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.5_update.zip",
-  "sha256": "14589322C1778EC80C283E5A5C3CBC936BB646C7367EF1F93A603698E37F34C2",
+  "package": "Suite_Rodriguez_Finura_v1.4.6_update.zip",
+  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.6_update.zip",
+  "sha256": "045415849F204DD84AEA4CD1796DA1492F4BDEC4C36B5E974B287D97040B8E54",
   "fresh_install_msi": "Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"
