@@ -1,0 +1,9 @@
+Suite Rodriguez Finura v1.4.8
+
+- Mantiene Canvas en bloques, categorias, tarjetas y filas, pero evita destruirlos y recrearlos en cada navegacion.
+- Anade cache de componentes visuales para secciones, categorias y accesos de aplicaciones.
+- Reduce parpadeos al cambiar de categoria, alternar foco con aplicaciones abiertas o actualizar favoritos.
+- Optimiza RoundedPanel para redibujar solo cuando cambian dimensiones, colores o foco.
+- Agrupa renders y actualizaciones de scroll con after_idle para evitar rafagas de repintado.
+- Evita acumular bindings de rueda del raton en widgets ya vinculados.
+- Ajusta los bordes de botones secundarios, favoritos y salida para que armonicen con los bordes finos de Canvas.

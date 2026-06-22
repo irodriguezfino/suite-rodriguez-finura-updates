@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.7
+Ultima revision: v1.4.8
 
 ## Para que sirve
 
@@ -36,6 +36,8 @@ Desde v1.4.5 se simplifican los marcos: quedan como bloques principales el panel
 Desde v1.4.6 se unifica la separacion entre cabecera, cuerpo, footer y columnas principales con una unica medida visual. Los bordes de tarjetas y filas se suavizan frente a los bloques principales para diferenciar mejor los niveles de la interfaz.
 
 Desde v1.4.7 el menu principal usa componentes redondeados basados en Canvas para cabecera, panel lateral, panel central, tarjetas, filas e items de categoria. Tambien mejora la busqueda con normalizacion de acentos y palabras sueltas, anade placeholder, refuerza la accesibilidad del panel lateral con foco y teclado, incorpora ayuda contextual en favoritos y refina la jerarquia visual con Segoe UI.
+
+Desde v1.4.8 mantiene Canvas en todos esos componentes, pero cambia el motor visual del menu: categorias, secciones, tarjetas y filas se cachean y se actualizan de forma incremental en vez de destruirse y recrearse. RoundedPanel redibuja solo cuando cambian dimensiones, colores o foco, los renders se agrupan con `after_idle`, el scroll evita bindings duplicados y los botones secundarios/salida usan bordes finos coherentes con las tarjetas Canvas.
 
 ## Aplicaciones incluidas
 
