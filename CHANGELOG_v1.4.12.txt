@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.4.12
+
+- Las aplicaciones recuerdan la ultima carpeta utilizada al abrir o guardar archivos.
+- Se mejora la navegacion con teclado definiendo el orden de tabulacion en los controles principales.
+- Las acciones cortas de proceso y guardado bloquean temporalmente botones relevantes para evitar dobles ejecuciones accidentales.
+- Se mantiene la logica de proceso existente y se limita la actualizacion a ergonomia, accesibilidad y estabilidad de interaccion.

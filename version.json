@@ -1,11 +1,11 @@
 {
   "schema": "suite-rodriguez-finura-update-v1",
-  "version": "1.4.11",
+  "version": "1.4.12",
   "auto_update": {
     "type": "zip",
-    "file": "Suite_Rodriguez_Finura_v1.4.11_update.zip",
-    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.11_update.zip",
-    "sha256": "FF4077D6C608A46E2C091F4BD3AA42F9274115E426C874CD64C0C2BB8FC8790E"
+    "file": "Suite_Rodriguez_Finura_v1.4.12_update.zip",
+    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.12_update.zip",
+    "sha256": "0AE386ECF0D55C64EA57DAC6A71893BD0F1CA84AFBAB2C9C10232D0793A7A44E"
   },
   "fresh_install": {
     "type": "msi",
@@ -13,11 +13,11 @@
     "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
     "sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"
   },
-  "notes": "- Corrige el parpadeo de hover en paneles Canvas con deteccion por coordenadas y limpieza retardada del estado.\n- Limita el hover a elementos interactivos del menu; los paneles principales se mantienen estables.\n- Desactiva hover decorativo en los paneles Canvas de las aplicaciones internas para reducir ruido visual y repintados.\n- Refuerza el criterio de accesibilidad: rojo solo para foco por teclado, hover y click de raton con bordes azul-gris.\n- Mantiene el estilo moderno de scrollbars y mejora su estabilidad visual en claro y oscuro.\n- Conserva comandos, logica de proceso y flujos principales sin cambios.",
+  "notes": "- Las aplicaciones recuerdan la ultima carpeta utilizada al abrir o guardar archivos.\n- Se mejora la navegacion con teclado definiendo el orden de tabulacion en los controles principales.\n- Las acciones cortas de proceso y guardado bloquean temporalmente botones relevantes para evitar dobles ejecuciones accidentales.\n- Se mantiene la logica de proceso existente y se limita la actualizacion a ergonomia, accesibilidad y estabilidad de interaccion.",
   "package_type": "zip",
-  "package": "Suite_Rodriguez_Finura_v1.4.11_update.zip",
-  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.11_update.zip",
-  "sha256": "FF4077D6C608A46E2C091F4BD3AA42F9274115E426C874CD64C0C2BB8FC8790E",
+  "package": "Suite_Rodriguez_Finura_v1.4.12_update.zip",
+  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.12_update.zip",
+  "sha256": "0AE386ECF0D55C64EA57DAC6A71893BD0F1CA84AFBAB2C9C10232D0793A7A44E",
   "fresh_install_msi": "Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"

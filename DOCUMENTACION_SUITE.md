@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.11
+Ultima revision: v1.4.12
 
 ## Para que sirve
 
@@ -21,6 +21,8 @@ Desde v1.4.9 el modo oscuro actualiza tambien los Canvas persistentes del menu p
 Desde v1.4.10 el rojo se reserva al foco de teclado en paneles Canvas, mientras que hover y click de raton usan bordes suaves azul-gris. Tambien se modernizan las barras de scroll ttk con un estilo plano, sin flechas clasicas visibles y adaptado al modo claro/oscuro.
 
 Desde v1.4.11 el hover de Canvas evita parpadeos usando deteccion por coordenadas y limpieza retardada del estado. Los contenedores principales quedan estables y el hover decorativo se limita para reducir ruido visual y repintados, manteniendo foco de teclado accesible y el flujo principal sin cambios.
+
+Desde v1.4.12 se refuerza la ergonomia diaria: las aplicaciones recuerdan la ultima carpeta usada para abrir o guardar archivos, se ordena mejor la navegacion por teclado y las acciones cortas bloquean temporalmente sus botones para evitar dobles ejecuciones accidentales.
 
 ## Aplicaciones incluidas
 
