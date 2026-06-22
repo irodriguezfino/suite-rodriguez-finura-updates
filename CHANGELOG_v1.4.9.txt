@@ -1,0 +1,8 @@
+Suite Rodriguez Finura v1.4.9
+
+- Corrige el modo oscuro en el menu principal refrescando los Canvas persistentes de cabecera, lateral, panel central, categorias y accesos.
+- Anade un panel Canvas comun en la capa de estilo para reutilizar bordes redondeados, fondo y contorno suave en todas las aplicaciones.
+- Aplica paneles Canvas a los bloques principales de Merma, TXT a CSV, Palets PDA, Control de Precintos y Precintos Excel.
+- Mejora la armonia visual de botoneras, paneles de trabajo, areas de resumen y estados sin cambiar comandos, logica ni flujos de uso.
+- Ajusta la paleta oscura para bordes suaves, campos de entrada, botones secundarios y textos Tk.
+- Mantiene las mejoras de rendimiento de la version 1.4.8.

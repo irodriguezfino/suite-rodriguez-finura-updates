@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.8
+Ultima revision: v1.4.9
 
 ## Para que sirve
 
@@ -23,21 +23,11 @@ Desde v1.4.0 adopta una interfaz preparada para crecer con mas aplicaciones:
 - Detalles rojos discretos en separadores, categoria activa e iconos, manteniendo el azul como color principal.
 - Atajos Alt+1 a Alt+5 para las aplicaciones actuales y Ctrl+K para enfocar la busqueda.
 
-Desde v1.4.1 cada acceso permite marcar o quitar favoritos con una estrella. La seleccion se guarda por usuario. El modo compacto funciona como una ventana pequena de lista densa, ocultando lateral, footer y controles no esenciales para maximizar el espacio util.
-
-Desde v1.4.2 el modo compacto ordena primero las aplicaciones favoritas y reduce el tamano de la estrella y del boton de apertura para evitar cortes en ventanas estrechas. Tambien corrige el scroll con la rueda del raton sobre filas, tarjetas, etiquetas o botones, y refina la cabecera y barra de busqueda para una presentacion mas profesional.
-
-Desde v1.4.3 la categoria Todas se convierte en una portada operativa: muestra arriba las aplicaciones favoritas y recientes en tarjetas, y debajo coloca el resto de aplicaciones en una lista compacta. Al seleccionar una categoria concreta, todas sus aplicaciones se muestran en tarjetas. Se elimina el selector manual de vista lista de la cabecera y se mejora la estetica general con titulo y subtitulo mas cuidados, tarjetas y filas mas redondeadas, botones diferenciados segun su uso, chips de categoria y acentos rojos discretos.
-
-Desde v1.4.4 el menu principal se acerca mas al boceto aprobado: cabecera compacta con marca SR, titulo y acciones superiores; sidebar numerada con contadores; tarjetas mas limpias; filas de lista mas modernas; iconos, chips y botones con menos ruido visual; y footer corporativo reservado para los logos.
-
-Desde v1.4.5 se simplifican los marcos: quedan como bloques principales el panel lateral, la cabecera superior y el panel central. Las tarjetas y filas mantienen solo su borde exterior, sin marcos internos. El scroll del panel central se oculta cuando no es necesario y la accion Buscar actualizacion se mantiene solo dentro de Acerca de.
-
-Desde v1.4.6 se unifica la separacion entre cabecera, cuerpo, footer y columnas principales con una unica medida visual. Los bordes de tarjetas y filas se suavizan frente a los bloques principales para diferenciar mejor los niveles de la interfaz.
-
 Desde v1.4.7 el menu principal usa componentes redondeados basados en Canvas para cabecera, panel lateral, panel central, tarjetas, filas e items de categoria. Tambien mejora la busqueda con normalizacion de acentos y palabras sueltas, anade placeholder, refuerza la accesibilidad del panel lateral con foco y teclado, incorpora ayuda contextual en favoritos y refina la jerarquia visual con Segoe UI.
 
 Desde v1.4.8 mantiene Canvas en todos esos componentes, pero cambia el motor visual del menu: categorias, secciones, tarjetas y filas se cachean y se actualizan de forma incremental en vez de destruirse y recrearse. RoundedPanel redibuja solo cuando cambian dimensiones, colores o foco, los renders se agrupan con `after_idle`, el scroll evita bindings duplicados y los botones secundarios/salida usan bordes finos coherentes con las tarjetas Canvas.
+
+Desde v1.4.9 el modo oscuro actualiza tambien los Canvas persistentes del menu principal. Ademas, la capa comun de estilo incorpora un panel Canvas reutilizable que se aplica a los bloques principales de Merma, TXT a CSV, Palets PDA, Control de Precintos y Precintos Excel, manteniendo comandos, logica y uso sin cambios. La paleta oscura ajusta bordes suaves, campos de entrada, botones secundarios y areas Tk para una experiencia mas coherente.
 
 ## Aplicaciones incluidas
 
