@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.12
+Ultima revision: v1.4.13
 
 ## Para que sirve
 
@@ -23,6 +23,8 @@ Desde v1.4.10 el rojo se reserva al foco de teclado en paneles Canvas, mientras 
 Desde v1.4.11 el hover de Canvas evita parpadeos usando deteccion por coordenadas y limpieza retardada del estado. Los contenedores principales quedan estables y el hover decorativo se limita para reducir ruido visual y repintados, manteniendo foco de teclado accesible y el flujo principal sin cambios.
 
 Desde v1.4.12 se refuerza la ergonomia diaria: las aplicaciones recuerdan la ultima carpeta usada para abrir o guardar archivos, se ordena mejor la navegacion por teclado y las acciones cortas bloquean temporalmente sus botones para evitar dobles ejecuciones accidentales.
+
+Desde v1.4.13 el menu mejora la fluidez visual: se construye oculto hasta completar el primer layout, evita renders completos al abrir o cerrar aplicaciones y cambia categoria/busqueda sin vaciar el panel central entre repintados.
 
 ## Aplicaciones incluidas
 

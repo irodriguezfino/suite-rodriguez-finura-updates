@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.4.13
+
+- Reduce el parpadeo inicial construyendo el menu oculto y mostrandolo solo cuando el primer layout ya esta compuesto.
+- Evita reconstruir todo el panel central al abrir, traer o cerrar aplicaciones; ahora se actualiza solo el estado visual de los accesos visibles.
+- Mejora la fluidez al cambiar categoria, busqueda o vista usando render incremental sin vaciar previamente el panel de aplicaciones.
+- El refresco periodico de aplicaciones abiertas solo repinta la etiqueta de estado cuando cambia el contenido.
