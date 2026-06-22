@@ -1,0 +1,7 @@
+Suite Rodriguez Finura v1.4.18
+
+- Corrige bugs de refactor en el menu principal: scroll global no destructivo, estado inferior visible sin recuperar el listado de aplicaciones abiertas y dialogo Acerca de con tamano propio.
+- Evita que tarjetas, filas y botones de Abrir/Traer se reescalen al abrir una aplicacion estabilizando los minimos de paneles Canvas y columnas de accion.
+- Reduce recalculos de layout al abrir aplicaciones eliminando el re-zoom preventivo del menu.
+- Mantiene estable el ancho del panel central al ocultar o mostrar la barra de scroll.
+- Refuerza la sincronizacion de la barra nativa de Windows configurando correctamente tipos Win32 para handles de 64 bits.

@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.17
+Ultima revision: v1.4.18
 
 ## Para que sirve
 
@@ -33,6 +33,8 @@ Desde v1.4.15 la barra nativa superior de Windows se sincroniza con el tema clar
 Desde v1.4.16 la animacion de apertura se coordina con el menu: la aplicacion aparece sobre el menu sin simular minimizacion, y al cerrar se desvanece dejando el menu visible detras. Los cierres desde la X de Windows y desde botones internos pasan por la misma salida visual.
 
 Desde v1.4.17 la sincronizacion de la barra nativa de Windows aplica DWM al HWND de Tk y a sus wrappers padre, fuerza refresco del marco y reintenta tras el montaje de la decoracion nativa.
+
+Desde v1.4.18 se corrigen bugs de refactor visual: el scroll global del modo compacto deja de borrar bindings de otras ventanas, Acerca de usa un tamano propio, el estado inferior vuelve a ser visible sin mostrar el listado de aplicaciones abiertas y el layout se mantiene estable al abrir herramientas. Tambien se estabilizan los minimos de paneles Canvas, tarjetas, filas y botones para evitar reescalados al cambiar entre Abrir y Traer.
 
 ## Aplicaciones incluidas
 
