@@ -1,0 +1,10 @@
+Suite Rodriguez Finura v1.4.7
+
+- Redibuja cabecera, panel lateral, panel central, tarjetas, filas e items de categoria con componentes redondeados basados en Canvas.
+- Mejora la estetica general con bordes suaves, jerarquia visual mas limpia y tipografia Segoe UI.
+- Mejora el buscador con placeholder, normalizacion de acentos y busqueda por palabras sueltas.
+- Mejora la accesibilidad del panel lateral con foco, activacion por teclado y navegacion con flechas.
+- Anade ayuda contextual a las estrellas de favoritos para indicar si se anade o se quita un favorito.
+- Ajusta el texto de las tarjetas al ancho disponible para reducir cortes y composiciones rigidas.
+- Refina el modo compacto con filas redondeadas y controles densos.
+- Mantiene la estructura funcional de la version anterior: Todas muestra favoritas/recientes arriba y el resto en lista.

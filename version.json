@@ -1,11 +1,11 @@
 {
   "schema": "suite-rodriguez-finura-update-v1",
-  "version": "1.4.6",
+  "version": "1.4.7",
   "auto_update": {
     "type": "zip",
-    "file": "Suite_Rodriguez_Finura_v1.4.6_update.zip",
-    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.6_update.zip",
-    "sha256": "045415849F204DD84AEA4CD1796DA1492F4BDEC4C36B5E974B287D97040B8E54"
+    "file": "Suite_Rodriguez_Finura_v1.4.7_update.zip",
+    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.7_update.zip",
+    "sha256": "C76E4394D88D6B6DBB045229BEB0F54C37369E9D326A9B9A7CC39FBFCD862E05"
   },
   "fresh_install": {
     "type": "msi",
@@ -13,11 +13,11 @@
     "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
     "sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"
   },
-  "notes": "- Unifica la separacion entre cabecera, cuerpo, footer y columnas principales para que toda la pantalla respire con la misma medida.\n- Ajusta el espacio entre el panel lateral y el panel central para que coincida con el resto de zonas.\n- Diferencia los bloques principales de las tarjetas y filas usando un borde de tarjeta mas suave y ligero.\n- Mantiene solo los marcos necesarios y evita que las zonas se perciban con separaciones desiguales.",
+  "notes": "- Redibuja cabecera, panel lateral, panel central, tarjetas, filas e items de categoria con componentes redondeados basados en Canvas.\n- Mejora la estetica general con bordes suaves, jerarquia visual mas limpia y tipografia Segoe UI.\n- Mejora el buscador con placeholder, normalizacion de acentos y busqueda por palabras sueltas.\n- Mejora la accesibilidad del panel lateral con foco, activacion por teclado y navegacion con flechas.\n- Anade ayuda contextual a las estrellas de favoritos para indicar si se anade o se quita un favorito.\n- Ajusta el texto de las tarjetas al ancho disponible para reducir cortes y composiciones rigidas.\n- Refina el modo compacto con filas redondeadas y controles densos.\n- Mantiene la estructura funcional de la version anterior: Todas muestra favoritas/recientes arriba y el resto en lista.",
   "package_type": "zip",
-  "package": "Suite_Rodriguez_Finura_v1.4.6_update.zip",
-  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.6_update.zip",
-  "sha256": "045415849F204DD84AEA4CD1796DA1492F4BDEC4C36B5E974B287D97040B8E54",
+  "package": "Suite_Rodriguez_Finura_v1.4.7_update.zip",
+  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.7_update.zip",
+  "sha256": "C76E4394D88D6B6DBB045229BEB0F54C37369E9D326A9B9A7CC39FBFCD862E05",
   "fresh_install_msi": "Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"

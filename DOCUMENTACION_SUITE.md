@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.6
+Ultima revision: v1.4.7
 
 ## Para que sirve
 
@@ -34,6 +34,8 @@ Desde v1.4.4 el menu principal se acerca mas al boceto aprobado: cabecera compac
 Desde v1.4.5 se simplifican los marcos: quedan como bloques principales el panel lateral, la cabecera superior y el panel central. Las tarjetas y filas mantienen solo su borde exterior, sin marcos internos. El scroll del panel central se oculta cuando no es necesario y la accion Buscar actualizacion se mantiene solo dentro de Acerca de.
 
 Desde v1.4.6 se unifica la separacion entre cabecera, cuerpo, footer y columnas principales con una unica medida visual. Los bordes de tarjetas y filas se suavizan frente a los bloques principales para diferenciar mejor los niveles de la interfaz.
+
+Desde v1.4.7 el menu principal usa componentes redondeados basados en Canvas para cabecera, panel lateral, panel central, tarjetas, filas e items de categoria. Tambien mejora la busqueda con normalizacion de acentos y palabras sueltas, anade placeholder, refuerza la accesibilidad del panel lateral con foco y teclado, incorpora ayuda contextual en favoritos y refina la jerarquia visual con Segoe UI.
 
 ## Aplicaciones incluidas
 
