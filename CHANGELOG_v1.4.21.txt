@@ -1,0 +1,5 @@
+Suite Rodriguez Finura v1.4.21
+
+- Corrige Control de Precintos Jamones al revalidar pesos fuera de rango.
+- Las correcciones de peso sustituyen ahora el registro original por archivo y linea, conservando el resto de lecturas.
+- Evita que una correccion filtrada se trate como un registro nuevo y provoque eliminaciones o mezclas en la salida.
