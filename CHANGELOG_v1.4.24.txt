@@ -1,0 +1,5 @@
+Suite Rodriguez Finura v1.4.24
+
+- Corrige el flujo de botones de Precintos Expedicion para que Seleccionar Excel quede disponible tras limpiar, comprobar o guardar.
+- Guarda el TXT de expedicion sin BOM para evitar caracteres raros antes del primer numero de lote al importar en AX.
+- Sustituye el selector multiple primitivo por una tabla ttk seleccionable, mas clara y mejor integrada con modo oscuro.

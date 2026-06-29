@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.23
+Ultima revision: v1.4.24
 
 ## Para que sirve
 
@@ -44,6 +44,8 @@ Desde v1.4.22 se incorpora Precintos Expedicion, una herramienta para generar el
 
 Desde v1.4.23 Precintos Expedicion sustituye el filtro manual de articulo y peso por seleccion multiple de pallets de entrada, anade flujo visual de cuatro pasos y muestra una tabla resumen tipo dinamica en la validacion.
 
+Desde v1.4.24 Precintos Expedicion corrige la reactivacion de botones al limpiar o finalizar acciones, guarda el TXT sin BOM para importacion limpia en AX y reemplaza el selector primitivo por una tabla ttk seleccionable adaptada al modo oscuro.
+
 ## Aplicaciones incluidas
 
 ### Merma jamones FAC embutidos Rodriguez
@@ -69,9 +71,9 @@ Tambien permite comparar con Excel oficial cuando aplica, mostrar diferencias y 
 
 Genera el TXT de expedicion de jamones para AX a partir de los Excel de entrada y salida. Detecta automaticamente cada tipo de archivo por sus columnas, ignora lineas sin precinto y permite seleccionar uno o varios Id de pallet de entrada sin consultar rangos de peso en AX.
 
-La pantalla guia al operario con cuatro pasos: adjuntar Excel, seleccionar pallet/s, comprobar y guardar. La validacion muestra una tabla resumen tipo dinamica por Codigo de articulo e Id de pallet, con cuenta de precintos y suma de peso neto, y exige que los precintos seleccionados coincidan exactamente con las unidades de salida.
+La pantalla guia al operario con cuatro pasos: adjuntar Excel, seleccionar pallet/s, comprobar y guardar. El selector de pallets usa una tabla ttk con marca de seleccion, cuenta de precintos y peso neto, integrada con los temas claro y oscuro. La validacion muestra una tabla resumen tipo dinamica por Codigo de articulo e Id de pallet, con cuenta de precintos y suma de peso neto, y exige que los precintos seleccionados coincidan exactamente con las unidades de salida.
 
-Para cada jumbo reparte los kilos en milesimas entre sus unidades, cuadrando la suma exacta antes de permitir guardar. La salida usa el formato `partida;fecha;hora;codigo_articulo;precinto;lote;peso;` con fecha/hora secuencial desde el momento de generacion y permite elegir libremente el nombre del TXT final.
+Para cada jumbo reparte los kilos en milesimas entre sus unidades, cuadrando la suma exacta antes de permitir guardar. La salida usa el formato `partida;fecha;hora;codigo_articulo;precinto;lote;peso;` con fecha/hora secuencial desde el momento de generacion, permite elegir libremente el nombre del TXT final y se guarda sin BOM para evitar caracteres iniciales al importar en AX.
 
 ### Precintos Excel a CSV
 
