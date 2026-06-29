@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.20
+Ultima revision: v1.4.22
 
 ## Para que sirve
 
@@ -40,6 +40,8 @@ Desde v1.4.19 se corrige la regresion visual de v1.4.18 que hacia crecer demasia
 
 Desde v1.4.20 se corrige la regresion visual de v1.4.19 que dejaba botones, tarjetas y categorias sin altura visible. Los Canvas recuperan su tamano inicial natural y despues sincronizan su tamano exacto con el contenido medido.
 
+Desde v1.4.22 se incorpora Precintos Expedicion, una herramienta para generar el TXT de expedicion de jamones desde los Excel de entrada y salida de AX, con deteccion automatica de archivos y validacion estricta de unidades y kilos.
+
 ## Aplicaciones incluidas
 
 ### Merma jamones FAC embutidos Rodriguez
@@ -59,6 +61,13 @@ Procesa TXT procedentes de PDA, valida codigos de palet, muestra incidencias cor
 Carga TXT de lecturas de precintos de jamon, valida partida, lote, articulo, precinto, fecha y hora, diferencia incidencias reales de duplicados, permite corregir registros en un area de trabajo editable y genera salidas TXT/CSV.
 
 Tambien permite comparar con Excel oficial cuando aplica, mostrar diferencias y preparar listados importables en AX. Desde v1.3.41 incluye envio por correo de los ficheros generados y desde v1.3.42 permite personalizar asunto y mensaje del correo.
+
+
+### Precintos Expedicion
+
+Genera el TXT de expedicion de jamones para AX a partir de los Excel de entrada y salida. Detecta automaticamente cada tipo de archivo por sus columnas, filtra la entrada por articulo y rango de peso, ignora lineas sin precinto y exige que los precintos filtrados coincidan exactamente con las unidades de salida.
+
+Para cada jumbo reparte los kilos en milesimas entre sus unidades, cuadrando la suma exacta antes de permitir guardar. La salida usa el formato `partida;fecha;hora;codigo_articulo;precinto;lote;peso;` con fecha/hora secuencial desde el momento de generacion y permite elegir libremente el nombre del TXT final.
 
 ### Precintos Excel a CSV
 

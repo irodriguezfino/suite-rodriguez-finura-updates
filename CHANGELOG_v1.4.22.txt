@@ -1,0 +1,5 @@
+Suite Rodriguez Finura v1.4.22
+
+- Nueva aplicacion Precintos Expedicion para generar TXT de expedicion de jamones desde Excel de entrada y salida de AX.
+- Detecta automaticamente que Excel es entrada y cual es salida, permite filtrar por articulo y rango de peso, e ignora lineas sin precinto.
+- Reparte el peso de cada jumbo en milesimas, cuadrando unidades y kilos exactos antes de permitir guardar el TXT Windows para AX.
