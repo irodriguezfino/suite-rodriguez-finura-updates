@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.22
+Ultima revision: v1.4.23
 
 ## Para que sirve
 
@@ -42,6 +42,8 @@ Desde v1.4.20 se corrige la regresion visual de v1.4.19 que dejaba botones, tarj
 
 Desde v1.4.22 se incorpora Precintos Expedicion, una herramienta para generar el TXT de expedicion de jamones desde los Excel de entrada y salida de AX, con deteccion automatica de archivos y validacion estricta de unidades y kilos.
 
+Desde v1.4.23 Precintos Expedicion sustituye el filtro manual de articulo y peso por seleccion multiple de pallets de entrada, anade flujo visual de cuatro pasos y muestra una tabla resumen tipo dinamica en la validacion.
+
 ## Aplicaciones incluidas
 
 ### Merma jamones FAC embutidos Rodriguez
@@ -65,7 +67,9 @@ Tambien permite comparar con Excel oficial cuando aplica, mostrar diferencias y 
 
 ### Precintos Expedicion
 
-Genera el TXT de expedicion de jamones para AX a partir de los Excel de entrada y salida. Detecta automaticamente cada tipo de archivo por sus columnas, filtra la entrada por articulo y rango de peso, ignora lineas sin precinto y exige que los precintos filtrados coincidan exactamente con las unidades de salida.
+Genera el TXT de expedicion de jamones para AX a partir de los Excel de entrada y salida. Detecta automaticamente cada tipo de archivo por sus columnas, ignora lineas sin precinto y permite seleccionar uno o varios Id de pallet de entrada sin consultar rangos de peso en AX.
+
+La pantalla guia al operario con cuatro pasos: adjuntar Excel, seleccionar pallet/s, comprobar y guardar. La validacion muestra una tabla resumen tipo dinamica por Codigo de articulo e Id de pallet, con cuenta de precintos y suma de peso neto, y exige que los precintos seleccionados coincidan exactamente con las unidades de salida.
 
 Para cada jumbo reparte los kilos en milesimas entre sus unidades, cuadrando la suma exacta antes de permitir guardar. La salida usa el formato `partida;fecha;hora;codigo_articulo;precinto;lote;peso;` con fecha/hora secuencial desde el momento de generacion y permite elegir libremente el nombre del TXT final.
 

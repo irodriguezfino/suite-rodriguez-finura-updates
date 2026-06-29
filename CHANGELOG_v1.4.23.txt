@@ -1,0 +1,5 @@
+Suite Rodriguez Finura v1.4.23
+
+- Mejora Precintos Expedicion sustituyendo el filtro manual de articulo/peso por un selector multiple de Id de pallet de entrada.
+- Anade un flujo visual de cuatro pasos: adjuntar Excel, seleccionar pallet/s, comprobar y guardar.
+- La validacion incorpora una tabla resumen tipo tabla dinamica por Codigo de articulo e Id de pallet con cuenta de precintos y suma de peso neto.

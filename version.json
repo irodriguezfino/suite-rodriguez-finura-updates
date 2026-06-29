@@ -1,12 +1,12 @@
 {
   "schema": "suite-rodriguez-finura-update-v1",
-  "version": "1.4.22",
-  "published_at": "2026-06-29T11:07:17+02:00",
+  "version": "1.4.23",
+  "published_at": "2026-06-29T11:40:51+02:00",
   "auto_update": {
     "type": "zip",
-    "file": "Suite_Rodriguez_Finura_v1.4.22_update.zip",
-    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.22_update.zip",
-    "sha256": "C8C0441B451253FD98A43A984BEF46A55801ED5BC88233C8FD501643EA12483E"
+    "file": "Suite_Rodriguez_Finura_v1.4.23_update.zip",
+    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.23_update.zip",
+    "sha256": "54F2B06F255CD5CBD7A9FE2A28117EEA7A3201B8B723E112C70D8B9A5D4480F6"
   },
   "fresh_install": {
     "type": "msi",
@@ -14,11 +14,11 @@
     "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
     "sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"
   },
-  "notes": "- Nueva aplicacion Precintos Expedicion para generar TXT de expedicion de jamones desde Excel de entrada y salida de AX.\n- Detecta automaticamente que Excel es entrada y cual es salida, permite filtrar por articulo y rango de peso, e ignora lineas sin precinto.\n- Reparte el peso de cada jumbo en milesimas, cuadrando unidades y kilos exactos antes de permitir guardar el TXT Windows para AX.",
+  "notes": "- Mejora Precintos Expedicion sustituyendo el filtro manual de articulo/peso por un selector multiple de Id de pallet de entrada.\n- Anade un flujo visual de cuatro pasos: adjuntar Excel, seleccionar pallet/s, comprobar y guardar.\n- La validacion incorpora una tabla resumen tipo tabla dinamica por Codigo de articulo e Id de pallet con cuenta de precintos y suma de peso neto.",
   "package_type": "zip",
-  "package": "Suite_Rodriguez_Finura_v1.4.22_update.zip",
-  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.22_update.zip",
-  "sha256": "C8C0441B451253FD98A43A984BEF46A55801ED5BC88233C8FD501643EA12483E",
+  "package": "Suite_Rodriguez_Finura_v1.4.23_update.zip",
+  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.23_update.zip",
+  "sha256": "54F2B06F255CD5CBD7A9FE2A28117EEA7A3201B8B723E112C70D8B9A5D4480F6",
   "fresh_install_msi": "Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"
