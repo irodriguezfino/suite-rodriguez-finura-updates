@@ -1,12 +1,12 @@
 {
   "schema": "suite-rodriguez-finura-update-v1",
-  "version": "1.4.28",
-  "published_at": "2026-07-01T13:53:55+02:00",
+  "version": "1.4.29",
+  "published_at": "2026-07-01T14:07:30+02:00",
   "auto_update": {
     "type": "zip",
-    "file": "Suite_Rodriguez_Finura_v1.4.28_update.zip",
-    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.28_update.zip",
-    "sha256": "393291F2276B62AF4234C40EE558458B028739D358554463136C1139385C54C4"
+    "file": "Suite_Rodriguez_Finura_v1.4.29_update.zip",
+    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.29_update.zip",
+    "sha256": "E99B89EB7979EF444DDA92096FB83BAE9C8A84052A236AFED96D33D0A747AA3B"
   },
   "fresh_install": {
     "type": "msi",
@@ -14,11 +14,11 @@
     "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
     "sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"
   },
-  "notes": "- Recepcion Maquilas genera ahora los PDF en A4 vertical.\n- El informe de rangos toma albaran y lote origen desde SealsReport.\n- La configuracion de rangos se carga siempre desde el config_articulos.csv interno.\n- La tabla de rangos muestra el lote real del TXT, sin generar lotes IR.",
+  "notes": "- Recepcion Maquilas muestra todos los lotes origen de SealsReport en una tabla propia.\n- La tabla principal de rangos anade la columna Lote origen cruzada por precinto.\n- Se elimina el resumen truncado de lotes origen de la cabecera del informe.",
   "package_type": "zip",
-  "package": "Suite_Rodriguez_Finura_v1.4.28_update.zip",
-  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.28_update.zip",
-  "sha256": "393291F2276B62AF4234C40EE558458B028739D358554463136C1139385C54C4",
+  "package": "Suite_Rodriguez_Finura_v1.4.29_update.zip",
+  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.29_update.zip",
+  "sha256": "E99B89EB7979EF444DDA92096FB83BAE9C8A84052A236AFED96D33D0A747AA3B",
   "fresh_install_msi": "Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"

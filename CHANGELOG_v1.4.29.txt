@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.4.29
+
+- Recepcion Maquilas: el informe de rangos muestra ahora todos los lotes origen de SealsReport en una tabla propia con el conteo de piezas oficiales.
+- Recepcion Maquilas: la tabla principal de rangos incorpora la columna Lote origen, cruzada por precinto contra el Excel oficial.
+- Recepcion Maquilas: se elimina el resumen truncado de lotes origen en cabecera para evitar que se oculten lotes cuando hay muchos origenes.
+- Actualizacion preparada para distribucion automatica desde GitHub.
