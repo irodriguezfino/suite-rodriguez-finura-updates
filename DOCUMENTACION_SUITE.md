@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.31
+Ultima revision: v1.4.32
 
 ## Para que sirve
 
@@ -59,6 +59,8 @@ Desde v1.4.29 el informe de rangos muestra todos los lotes origen de SealsReport
 Desde v1.4.30 los PDF de Recepcion Maquilas usan tablas paginadas con cabeceras de continuacion, texto ajustado dentro de cada celda y una presentacion mas limpia para evitar valores cortados o solapados.
 
 Desde v1.4.31 la tabla `Clasificacion por rangos` deja de mostrar `Lote origen` y agrupa por lote del TXT y rango; los lotes origen quedan solo en su tabla resumen especifica.
+
+Desde v1.4.32 los PDF sustituyen la terminologia TXT/SealsReport por secaderos/albaran en las secciones impresas, y el informe de rangos no muestra las filas `N DAC` ni `Contrato` si no se completan.
 
 ## Aplicaciones incluidas
 

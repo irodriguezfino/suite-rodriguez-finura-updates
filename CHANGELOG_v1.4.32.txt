@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.4.32
+
+- Recepcion Maquilas: el PDF de diferencias usa la terminologia secaderos/albaran en cabecera, resumen y secciones de diferencias.
+- Recepcion Maquilas: se renombran los estados a Recibido fuera de albaran y No recibido de albaran.
+- Recepcion Maquilas: el PDF de rangos muestra Lotes origen albaran y oculta N DAC y Contrato cuando no tienen valor.
+- Actualizacion preparada para distribucion automatica desde GitHub.
