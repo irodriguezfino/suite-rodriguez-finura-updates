@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.26
+Ultima revision: v1.4.27
 
 ## Para que sirve
 
@@ -50,6 +50,8 @@ Desde v1.4.25 Precintos Expedicion admite una entrada con varias salidas en la m
 
 Desde v1.4.26 Precintos Expedicion solo genera nombre TXT automatico si el Excel de salida contiene un bloque exacto de 6 digitos; en caso contrario obliga al operario a escribir el nombre. La sugerencia de pallets se recalcula automaticamente al cargar o anadir Excel, sin boton visible.
 
+Desde v1.4.27 se incorpora Recepcion Maquilas, una herramienta para comparar el TXT recibido de FAC con el Excel oficial SealsReport y generar informes PDF de diferencias y rangos de peso.
+
 ## Aplicaciones incluidas
 
 ### Merma jamones FAC embutidos Rodriguez
@@ -80,6 +82,14 @@ La pantalla guia al operario con cuatro pasos: adjuntar Excel, seleccionar palle
 La aplicacion sugiere automaticamente el pallet o combinacion de pallets cuya cuenta de precintos coincide con las unidades totales requeridas, pero mantiene la revision manual antes de comprobar. La validacion muestra cada salida con sus jumbos, unidades, kilos, nombre TXT previsto y estado.
 
 Para cada jumbo reparte los kilos en milesimas entre sus unidades, cuadrando la suma exacta antes de permitir guardar. Genera un TXT independiente por cada Excel de salida con el formato `partida;fecha;hora;codigo_articulo;precinto;lote;peso;`, fecha/hora secuencial desde el momento de generacion y codificacion Windows sin BOM para evitar caracteres iniciales al importar en AX. Si la salida contiene un bloque exacto de 6 digitos, usa automaticamente `SCxxxxxx.TXT`; si no lo contiene, solicita el nombre TXT antes de guardar.
+
+### Recepcion Maquilas
+
+Genera informes PDF a partir del TXT recibido de FAC, el Excel oficial SealsReport y el CSV de configuracion de articulos. El informe de diferencias muestra precintos recibidos que no aparecen en el oficial y precintos oficiales no recibidos.
+
+El informe de rangos agrupa las piezas por codigo FAC y rango de peso, mostrando lote, rango ajustado, piezas, peso total y peso medio. Los rangos se calculan con maximo exclusivo para evitar doble conteo: un rango `10,5-12` cuenta desde `10,50` hasta `11,99`, de modo que una pieza de `12,00` entra solo en el rango siguiente.
+
+La pantalla permite completar ganadero, origen, DAC, contrato, especificacion y prefijo de lote antes de emitir el PDF de rangos.
 
 ### Precintos Excel a CSV
 

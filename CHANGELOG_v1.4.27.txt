@@ -1,0 +1,8 @@
+CHANGELOG Suite Rodriguez Finura v1.4.27
+
+Recepcion Maquilas
+- Nueva aplicacion accesible desde el menu principal con atajo Alt+7.
+- Permite cargar TXT recibido de FAC, Excel oficial SealsReport y CSV de configuracion de articulos.
+- Genera un PDF de diferencias entre precintos recibidos y precintos oficiales.
+- Genera un PDF de rangos de peso por articulo, aplicando maximo exclusivo para evitar doble conteo.
+- El informe de rangos permite completar ganadero, origen, DAC, contrato, especificacion y prefijo de lote.
