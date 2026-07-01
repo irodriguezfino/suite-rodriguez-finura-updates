@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.25
+Ultima revision: v1.4.26
 
 ## Para que sirve
 
@@ -48,6 +48,8 @@ Desde v1.4.24 Precintos Expedicion corrige la reactivacion de botones al limpiar
 
 Desde v1.4.25 Precintos Expedicion admite una entrada con varias salidas en la misma sesion, mantiene la seleccion acumulativa de Excel, sugiere automaticamente los pallets que cuadran con las unidades totales y genera un TXT independiente por cada salida.
 
+Desde v1.4.26 Precintos Expedicion solo genera nombre TXT automatico si el Excel de salida contiene un bloque exacto de 6 digitos; en caso contrario obliga al operario a escribir el nombre. La sugerencia de pallets se recalcula automaticamente al cargar o anadir Excel, sin boton visible.
+
 ## Aplicaciones incluidas
 
 ### Merma jamones FAC embutidos Rodriguez
@@ -77,7 +79,7 @@ La pantalla guia al operario con cuatro pasos: adjuntar Excel, seleccionar palle
 
 La aplicacion sugiere automaticamente el pallet o combinacion de pallets cuya cuenta de precintos coincide con las unidades totales requeridas, pero mantiene la revision manual antes de comprobar. La validacion muestra cada salida con sus jumbos, unidades, kilos, nombre TXT previsto y estado.
 
-Para cada jumbo reparte los kilos en milesimas entre sus unidades, cuadrando la suma exacta antes de permitir guardar. Genera un TXT independiente por cada Excel de salida con el formato `partida;fecha;hora;codigo_articulo;precinto;lote;peso;`, fecha/hora secuencial desde el momento de generacion y codificacion Windows sin BOM para evitar caracteres iniciales al importar en AX.
+Para cada jumbo reparte los kilos en milesimas entre sus unidades, cuadrando la suma exacta antes de permitir guardar. Genera un TXT independiente por cada Excel de salida con el formato `partida;fecha;hora;codigo_articulo;precinto;lote;peso;`, fecha/hora secuencial desde el momento de generacion y codificacion Windows sin BOM para evitar caracteres iniciales al importar en AX. Si la salida contiene un bloque exacto de 6 digitos, usa automaticamente `SCxxxxxx.TXT`; si no lo contiene, solicita el nombre TXT antes de guardar.
 
 ### Precintos Excel a CSV
 
