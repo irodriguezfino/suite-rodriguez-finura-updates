@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.4.30
+
+- Recepcion Maquilas: se redisenan los PDF de diferencias y rangos con cabecera profesional, secciones claras y tablas de ancho completo.
+- Recepcion Maquilas: el informe de rangos fuerza la tabla de lotes origen SealsReport para mostrar todos los lotes sin resumen truncado en cabecera.
+- Recepcion Maquilas: las tablas ajustan palabras largas, repiten cabeceras al paginar y evitan que los valores salgan de las cajas.
+- Actualizacion preparada para distribucion automatica desde GitHub.
