@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.30
+Ultima revision: v1.4.31
 
 ## Para que sirve
 
@@ -58,6 +58,8 @@ Desde v1.4.29 el informe de rangos muestra todos los lotes origen de SealsReport
 
 Desde v1.4.30 los PDF de Recepcion Maquilas usan tablas paginadas con cabeceras de continuacion, texto ajustado dentro de cada celda y una presentacion mas limpia para evitar valores cortados o solapados.
 
+Desde v1.4.31 la tabla `Clasificacion por rangos` deja de mostrar `Lote origen` y agrupa por lote del TXT y rango; los lotes origen quedan solo en su tabla resumen especifica.
+
 ## Aplicaciones incluidas
 
 ### Merma jamones FAC embutidos Rodriguez
@@ -93,7 +95,7 @@ Para cada jumbo reparte los kilos en milesimas entre sus unidades, cuadrando la 
 
 Genera informes PDF en A4 vertical a partir del TXT recibido de FAC, el Excel oficial SealsReport y el CSV interno de configuracion de articulos. El informe de diferencias muestra precintos recibidos que no aparecen en el oficial y precintos oficiales no recibidos, con tablas paginadas y texto ajustado a celda.
 
-El informe de rangos agrupa las piezas por codigo FAC, lote real del TXT, lote origen oficial y rango de peso, mostrando lote, lote origen, rango ajustado, piezas, peso total y peso medio. Incluye una tabla propia de lotes origen SealsReport, sin resumen truncado en cabecera. Los rangos se calculan con maximo exclusivo para evitar doble conteo: un rango `10,5-12` cuenta desde `10,50` hasta `11,99`, de modo que una pieza de `12,00` entra solo en el rango siguiente.
+El informe de rangos agrupa las piezas por codigo FAC, lote real del TXT y rango de peso, mostrando lote, rango ajustado, piezas, peso total y peso medio. Incluye una tabla propia de lotes origen SealsReport, sin resumen truncado en cabecera. Los rangos se calculan con maximo exclusivo para evitar doble conteo: un rango `10,5-12` cuenta desde `10,50` hasta `11,99`, de modo que una pieza de `12,00` entra solo en el rango siguiente.
 
 La pantalla permite completar ganadero, origen, DAC, contrato y especificacion antes de emitir el PDF de rangos. El albaran sale siempre de SealsReport; la cabecera mantiene `Lote:` para el lote del TXT y los lotes origen se muestran completos en el cuerpo del informe.
 

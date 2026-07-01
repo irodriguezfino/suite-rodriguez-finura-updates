@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.4.31
+
+- Recepcion Maquilas: la tabla Clasificacion por rangos deja de mostrar la columna Lote origen.
+- Recepcion Maquilas: la clasificacion por rangos agrupa ahora por lote del TXT y rango de peso, evitando filas duplicadas por origen invisible.
+- Recepcion Maquilas: los lotes origen se mantienen exclusivamente en su tabla resumen de SealsReport.
+- Actualizacion preparada para distribucion automatica desde GitHub.
