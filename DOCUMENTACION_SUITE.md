@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.24
+Ultima revision: v1.4.25
 
 ## Para que sirve
 
@@ -46,6 +46,8 @@ Desde v1.4.23 Precintos Expedicion sustituye el filtro manual de articulo y peso
 
 Desde v1.4.24 Precintos Expedicion corrige la reactivacion de botones al limpiar o finalizar acciones, guarda el TXT sin BOM para importacion limpia en AX y reemplaza el selector primitivo por una tabla ttk seleccionable adaptada al modo oscuro.
 
+Desde v1.4.25 Precintos Expedicion admite una entrada con varias salidas en la misma sesion, mantiene la seleccion acumulativa de Excel, sugiere automaticamente los pallets que cuadran con las unidades totales y genera un TXT independiente por cada salida.
+
 ## Aplicaciones incluidas
 
 ### Merma jamones FAC embutidos Rodriguez
@@ -69,11 +71,13 @@ Tambien permite comparar con Excel oficial cuando aplica, mostrar diferencias y 
 
 ### Precintos Expedicion
 
-Genera el TXT de expedicion de jamones para AX a partir de los Excel de entrada y salida. Detecta automaticamente cada tipo de archivo por sus columnas, ignora lineas sin precinto y permite seleccionar uno o varios Id de pallet de entrada sin consultar rangos de peso en AX.
+Genera el TXT de expedicion de jamones para AX a partir de un Excel de entrada y uno o varios Excel de salida. Detecta automaticamente cada tipo de archivo por sus columnas, ignora lineas sin precinto y permite seleccionar uno o varios Id de pallet de entrada sin consultar rangos de peso en AX.
 
-La pantalla guia al operario con cuatro pasos: adjuntar Excel, seleccionar pallet/s, comprobar y guardar. El selector de pallets usa una tabla ttk con marca de seleccion, cuenta de precintos y peso neto, integrada con los temas claro y oscuro. La validacion muestra una tabla resumen tipo dinamica por Codigo de articulo e Id de pallet, con cuenta de precintos y suma de peso neto, y exige que los precintos seleccionados coincidan exactamente con las unidades de salida.
+La pantalla guia al operario con cuatro pasos: adjuntar Excel, seleccionar pallet/s, comprobar y guardar. El boton Seleccionar Excel acumula archivos para poder cargar primero la entrada y anadir salidas despues sin limpiar. El selector de pallets usa una tabla ttk con marca de seleccion, cuenta de precintos, peso neto y una ayuda de coincidencia con las salidas cargadas.
 
-Para cada jumbo reparte los kilos en milesimas entre sus unidades, cuadrando la suma exacta antes de permitir guardar. La salida usa el formato `partida;fecha;hora;codigo_articulo;precinto;lote;peso;` con fecha/hora secuencial desde el momento de generacion, permite elegir libremente el nombre del TXT final y se guarda sin BOM para evitar caracteres iniciales al importar en AX.
+La aplicacion sugiere automaticamente el pallet o combinacion de pallets cuya cuenta de precintos coincide con las unidades totales requeridas, pero mantiene la revision manual antes de comprobar. La validacion muestra cada salida con sus jumbos, unidades, kilos, nombre TXT previsto y estado.
+
+Para cada jumbo reparte los kilos en milesimas entre sus unidades, cuadrando la suma exacta antes de permitir guardar. Genera un TXT independiente por cada Excel de salida con el formato `partida;fecha;hora;codigo_articulo;precinto;lote;peso;`, fecha/hora secuencial desde el momento de generacion y codificacion Windows sin BOM para evitar caracteres iniciales al importar en AX.
 
 ### Precintos Excel a CSV
 

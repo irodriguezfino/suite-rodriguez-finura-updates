@@ -1,12 +1,12 @@
 {
   "schema": "suite-rodriguez-finura-update-v1",
-  "version": "1.4.24",
-  "published_at": "2026-06-29T12:58:12+02:00",
+  "version": "1.4.25",
+  "published_at": "2026-07-01T10:12:06+02:00",
   "auto_update": {
     "type": "zip",
-    "file": "Suite_Rodriguez_Finura_v1.4.24_update.zip",
-    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.24_update.zip",
-    "sha256": "84379FD86830ED1AFEBEAA200E1A42130D9E6EC104239D608E14ECAEFD07D279"
+    "file": "Suite_Rodriguez_Finura_v1.4.25_update.zip",
+    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.25_update.zip",
+    "sha256": "689069C1B81BD38F7121C4B8D51F78651D628ECF5D374EAAD73A6C94239CF282"
   },
   "fresh_install": {
     "type": "msi",
@@ -14,11 +14,11 @@
     "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
     "sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"
   },
-  "notes": "- Corrige el flujo de botones de Precintos Expedicion para que Seleccionar Excel quede disponible tras limpiar, comprobar o guardar.\n- Guarda el TXT de expedicion sin BOM para evitar caracteres raros antes del primer numero de lote al importar en AX.\n- Sustituye el selector multiple primitivo por una tabla ttk seleccionable, mas clara y mejor integrada con modo oscuro.",
+  "notes": "- Precintos Expedicion permite trabajar con una unica entrada y varias salidas en la misma sesion.\n- Seleccionar Excel acumula archivos para poder anadir salidas de una en una sin perder la seleccion previa.\n- Sugiere automaticamente los pallets que cuadran con las unidades requeridas, dejando revision y cambio manual al operario.\n- Genera un TXT independiente por cada salida, en formato Windows sin BOM importable en AX.",
   "package_type": "zip",
-  "package": "Suite_Rodriguez_Finura_v1.4.24_update.zip",
-  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.24_update.zip",
-  "sha256": "84379FD86830ED1AFEBEAA200E1A42130D9E6EC104239D608E14ECAEFD07D279",
+  "package": "Suite_Rodriguez_Finura_v1.4.25_update.zip",
+  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.25_update.zip",
+  "sha256": "689069C1B81BD38F7121C4B8D51F78651D628ECF5D374EAAD73A6C94239CF282",
   "fresh_install_msi": "Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"
