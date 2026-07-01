@@ -1,0 +1,8 @@
+CHANGELOG Suite Rodriguez Finura v1.4.28
+
+Recepcion Maquilas
+- Los informes PDF se generan ahora en A4 vertical.
+- El informe de rangos toma albaran y lote origen desde SealsReport y no permite introducirlos manualmente.
+- La configuracion de rangos se carga siempre desde el config_articulos.csv interno incluido en la aplicacion.
+- La tabla de rangos muestra el lote real del TXT en la columna Lote, sin generar lotes IR.
+- La cabecera del informe de rangos muestra Lote: valor, sin la etiqueta anterior Lote TXT.
