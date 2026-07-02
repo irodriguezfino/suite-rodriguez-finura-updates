@@ -1,0 +1,7 @@
+CHANGELOG Suite Rodriguez Finura v1.4.38
+
+- Control y Recepcion Maquilas deja de adjuntar el TXT de recepcion original/corregido en el correo; solo envia el TXT de detalles y el PDF de rangos.
+- Se mejora la cabecera de la app integrada con un titulo mas grande y una descripcion mas limpia.
+- Se anade un flujo visible de la logica de trabajo, actualizando el siguiente paso recomendado segun el estado real.
+- El boton PDF rangos abre una ventana propia para editar los campos del informe, guardar el PDF individualmente o cerrar dejando esos valores preparados para el envio.
+- Si se envia directamente sin abrir la ventana de PDF, el informe se genera con los valores por defecto.
