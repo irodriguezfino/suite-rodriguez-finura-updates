@@ -1,12 +1,12 @@
 {
   "schema": "suite-rodriguez-finura-update-v1",
-  "version": "1.4.36",
-  "published_at": "2026-07-02T12:39:00+02:00",
+  "version": "1.4.37",
+  "published_at": "2026-07-02T13:10:00+02:00",
   "auto_update": {
     "type": "zip",
-    "file": "Suite_Rodriguez_Finura_v1.4.36_update.zip",
-    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.36_update.zip",
-    "sha256": "27A5DBE3C965E516FA44546F2403D9FD21B05506A56DEA6CFF6EDF766A2E812F"
+    "file": "Suite_Rodriguez_Finura_v1.4.37_update.zip",
+    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.37_update.zip",
+    "sha256": "FF876F2BB20DF6C681A83FDA24A9F21FA2158502FB8B2A49FD591039E3E3101B"
   },
   "fresh_install": {
     "type": "msi",
@@ -14,11 +14,11 @@
     "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
     "sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"
   },
-  "notes": "- Se anade Control y Recepcion Maquilas como nueva app integrada, manteniendo separadas las apps actuales.\n- Corrige y revalida TXT de precintos, incluye filtro de pesos raros y guarda TXT importable AX.\n- Genera PDF de rangos y envia correo final con multiples destinatarios y plantilla editable.",
+  "notes": "- Control y Recepcion Maquilas recupera el resumen y TXT de diferencias contra SealsReport.\n- Si el TXT original ya es valido, permite enviar el correo sin guardar un TXT AX nuevo.\n- El correo genera y adjunta el PDF de rangos automaticamente si no se guardo antes.\n- Se revisan estados de botones y siguiente paso azul.",
   "package_type": "zip",
-  "package": "Suite_Rodriguez_Finura_v1.4.36_update.zip",
-  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.36_update.zip",
-  "sha256": "27A5DBE3C965E516FA44546F2403D9FD21B05506A56DEA6CFF6EDF766A2E812F",
+  "package": "Suite_Rodriguez_Finura_v1.4.37_update.zip",
+  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.37_update.zip",
+  "sha256": "FF876F2BB20DF6C681A83FDA24A9F21FA2158502FB8B2A49FD591039E3E3101B",
   "fresh_install_msi": "Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"

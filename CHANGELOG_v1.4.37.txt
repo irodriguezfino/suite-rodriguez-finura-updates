@@ -1,0 +1,6 @@
+CHANGELOG Suite Rodriguez Finura v1.4.37
+
+- Control y Recepcion Maquilas recupera el resumen de diferencias contra SealsReport: recibidos fuera de albaran y no recibidos del albaran se muestran en pantalla y en el TXT de detalles.
+- Si el TXT original ya es valido, permite enviar el correo sin guardar un TXT AX nuevo; guardar solo es obligatorio cuando hay correcciones, duplicados o modificaciones aplicadas.
+- El envio de correo ya no exige haber generado manualmente el PDF de rangos: si no existe PDF guardado, se genera temporalmente y se adjunta.
+- Se revisa el flujo de botones para activar/desactivar acciones segun el estado real y marcar en azul el siguiente paso recomendado.

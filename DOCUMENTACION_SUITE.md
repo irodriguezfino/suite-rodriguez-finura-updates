@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.36
+Ultima revision: v1.4.37
 
 ## Para que sirve
 
@@ -69,6 +69,8 @@ Desde v1.4.34 `Certificado Welfair` se calcula con los lotes origen del albaran,
 Desde v1.4.35 `Control de temperatura` y `PH` se rellenan por defecto con `OK`, siguen siendo editables, y `Observaciones` aparece en el informe de rangos solo si se rellena.
 
 Desde v1.4.36 se incorpora `Control y Recepcion Maquilas` como aplicacion integrada adicional. Mantiene separadas las apps originales, pero permite corregir el TXT de precintos, revisar pesos raros, guardar el TXT importable en AX, generar el PDF de rangos y enviar el correo final con multiples destinatarios y plantilla editable.
+
+Desde v1.4.37 la app integrada recupera el resumen de diferencias contra SealsReport, genera el TXT de detalles con recibidos fuera de albaran y no recibidos del albaran, permite enviar sin guardar cuando el TXT original ya es valido y genera el PDF de rangos temporalmente al enviar si no se habia guardado aparte.
 
 ## Aplicaciones incluidas
 
