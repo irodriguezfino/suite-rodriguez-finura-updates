@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.41
+Ultima revision: v1.4.42
 
 ## Para que sirve
 
@@ -79,6 +79,8 @@ Desde v1.4.39 el flujo de `Control y Recepcion Maquilas` sale de la tarjeta supe
 Desde v1.4.40 se corrige el arranque de la suite tras la v1.4.39: el componente comun de flujo usa el color `principal_fg` desde la paleta compartida y deja de depender de una constante no definida.
 
 Desde v1.4.41 `Control y Recepcion Maquilas` mejora la deteccion automatica de iberico/blanco: si el codigo FAC del TXT pertenece a un articulo iberico de la configuracion interna, se valida como iberico aunque el precinto tenga GTIN incorrecto. Asi se vuelven a mostrar los fallos del TXT original para corregirlos.
+
+Desde v1.4.42 `Control y Recepcion Maquilas` recupera el comportamiento del panel de correcciones de `Control Precintos Jamones`: primero se corrige y revalida el TXT por formato, GTIN, duplicados y pesos raros, sin comparar nada con SealsReport ni albaran en ese panel. SealsReport queda para el paso posterior, cuando el TXT ya esta limpio.
 
 ## Aplicaciones incluidas
 

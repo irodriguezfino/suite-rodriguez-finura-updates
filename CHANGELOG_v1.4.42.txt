@@ -1,0 +1,5 @@
+CHANGELOG Suite Rodriguez Finura v1.4.42
+
+- Control y Recepcion Maquilas recupera el comportamiento del panel de correcciones de Control Precintos Jamones.
+- El panel de correccion vuelve a ser un paso previo exclusivo del TXT: formato, GTIN, duplicados y pesos raros, sin comparar con SealsReport ni albaran.
+- El editor detecta cambios manuales, obliga a revalidar antes de continuar y mantiene atajos de edicion basicos.
