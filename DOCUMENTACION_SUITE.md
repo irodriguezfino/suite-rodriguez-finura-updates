@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.35
+Ultima revision: v1.4.36
 
 ## Para que sirve
 
@@ -67,6 +67,8 @@ Desde v1.4.33 el informe de rangos muestra `Fecha recepcion` desde el TXT de FAC
 Desde v1.4.34 `Certificado Welfair` se calcula con los lotes origen del albaran, no con el lote recibido en el TXT.
 
 Desde v1.4.35 `Control de temperatura` y `PH` se rellenan por defecto con `OK`, siguen siendo editables, y `Observaciones` aparece en el informe de rangos solo si se rellena.
+
+Desde v1.4.36 se incorpora `Control y Recepcion Maquilas` como aplicacion integrada adicional. Mantiene separadas las apps originales, pero permite corregir el TXT de precintos, revisar pesos raros, guardar el TXT importable en AX, generar el PDF de rangos y enviar el correo final con multiples destinatarios y plantilla editable.
 
 ## Aplicaciones incluidas
 

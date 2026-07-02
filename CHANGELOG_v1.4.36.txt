@@ -1,0 +1,6 @@
+CHANGELOG Suite Rodriguez Finura v1.4.36
+
+- Se anade la nueva aplicacion Control y Recepcion Maquilas como flujo integrado, manteniendo separadas Control Precintos Jamones y Recepcion Maquilas.
+- La nueva app detecta automaticamente Iberico/Blanco por precinto, obliga a corregir y revalidar el TXT, incluye filtro manual de pesos raros y guarda siempre TXT importable en AX.
+- Permite generar el PDF de rangos desde el TXT AX corregido y SealsReport, reutilizando la configuracion interna de articulos.
+- El envio de correo se realiza al pulsar Enviar, admite multiples destinatarios, recuerda los ultimos usados y permite editar una plantilla corporativa.
