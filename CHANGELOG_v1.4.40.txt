@@ -1,0 +1,5 @@
+CHANGELOG Suite Rodriguez Finura v1.4.40
+
+- Corrige el arranque tras la version 1.4.39.
+- El componente comun de flujo usaba una constante de color no definida y ahora toma `principal_fg` desde la paleta compartida.
+- Mantiene el flujo bajo cabecera y la linea roja Rodriguez incorporados en la version anterior.
