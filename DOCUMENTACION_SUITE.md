@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.33
+Ultima revision: v1.4.34
 
 ## Para que sirve
 
@@ -63,6 +63,8 @@ Desde v1.4.31 la tabla `Clasificacion por rangos` deja de mostrar `Lote origen` 
 Desde v1.4.32 los PDF sustituyen la terminologia TXT/SealsReport por secaderos/albaran en las secciones impresas, y el informe de rangos no muestra las filas `N DAC` ni `Contrato` si no se completan.
 
 Desde v1.4.33 el informe de rangos muestra `Fecha recepcion` desde el TXT de FAC, anade `Certificado Welfair` solo cuando el lote termina en `W`, y permite completar manualmente `Control de temperatura` y `PH`.
+
+Desde v1.4.34 `Certificado Welfair` se calcula con los lotes origen del albaran, no con el lote recibido en el TXT.
 
 ## Aplicaciones incluidas
 

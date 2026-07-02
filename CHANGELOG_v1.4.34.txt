@@ -1,0 +1,5 @@
+Suite Rodriguez Finura v1.4.34
+
+- Recepcion Maquilas: Certificado Welfair en el PDF de rangos se calcula ahora desde los lotes origen del albaran.
+- Recepcion Maquilas: se corrige el caso en que el lote origen termina en W pero el lote recibido del TXT no.
+- Actualizacion preparada para distribucion automatica desde GitHub.
