@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.4.33
+
+- Recepcion Maquilas: el PDF de rangos muestra Fecha recepcion tomada del TXT de FAC.
+- Recepcion Maquilas: el PDF de rangos muestra Certificado Welfair solo cuando el lote del TXT termina en W.
+- Recepcion Maquilas: la pantalla permite introducir Control de temperatura y PH para incluirlos en el informe de rangos.
+- Actualizacion preparada para distribucion automatica desde GitHub.
