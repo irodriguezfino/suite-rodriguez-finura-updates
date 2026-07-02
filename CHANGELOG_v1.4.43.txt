@@ -1,0 +1,6 @@
+CHANGELOG Suite Rodriguez Finura v1.4.43
+
+- Redisenada la interfaz de Control y Recepcion Maquilas con acciones agrupadas por fase: TXT, Correccion, SealsReport/Albaran y Salida.
+- Se anaden los botones Nuevo proceso y Limpiar correcciones, con confirmacion cuando hay cambios en curso.
+- Se mantiene la linea roja corporativa, los logos originales y el uso de estilos compartidos compatibles con modo oscuro.
+- Cargar un TXT nuevo limpia SealsReport y PDF previos para evitar estados cruzados.

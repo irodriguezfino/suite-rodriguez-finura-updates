@@ -1,12 +1,12 @@
 {
   "schema": "suite-rodriguez-finura-update-v1",
-  "version": "1.4.42",
-  "published_at": "2026-07-02T15:22:00+02:00",
+  "version": "1.4.43",
+  "published_at": "2026-07-02T16:05:00+02:00",
   "auto_update": {
     "type": "zip",
-    "file": "Suite_Rodriguez_Finura_v1.4.42_update.zip",
-    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.42_update.zip",
-    "sha256": "99BCC022EC788EBAAD0E04CEB37AA0CDBE225D6D83FA4A1431FA53739386CCC3"
+    "file": "Suite_Rodriguez_Finura_v1.4.43_update.zip",
+    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.43_update.zip",
+    "sha256": "818AA7D22DB773865C45783C0DA497D032DA04A1055822221BAFC3DA2625BA98"
   },
   "fresh_install": {
     "type": "msi",
@@ -14,11 +14,11 @@
     "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
     "sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"
   },
-  "notes": "- Control y Recepcion Maquilas recupera el comportamiento del panel de correcciones de Control Precintos Jamones.\n- El panel de correccion es un paso previo exclusivo del TXT: formato, GTIN, duplicados y pesos raros, sin comparar con SealsReport ni albaran.\n- El editor detecta cambios manuales y obliga a revalidar antes de continuar.",
+  "notes": "- Redisenada la interfaz de Control y Recepcion Maquilas con acciones agrupadas por fase.\n- Se anaden Nuevo proceso y Limpiar correcciones, con confirmacion cuando hay cambios en curso.\n- Mantiene logos originales, linea roja Rodriguez y estilos compartidos compatibles con modo oscuro.",
   "package_type": "zip",
-  "package": "Suite_Rodriguez_Finura_v1.4.42_update.zip",
-  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.42_update.zip",
-  "sha256": "99BCC022EC788EBAAD0E04CEB37AA0CDBE225D6D83FA4A1431FA53739386CCC3",
+  "package": "Suite_Rodriguez_Finura_v1.4.43_update.zip",
+  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.43_update.zip",
+  "sha256": "818AA7D22DB773865C45783C0DA497D032DA04A1055822221BAFC3DA2625BA98",
   "fresh_install_msi": "Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"
