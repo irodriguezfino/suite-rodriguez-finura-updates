@@ -1,0 +1,7 @@
+CHANGELOG Suite Rodriguez Finura v1.4.39
+
+- Se mueve el flujo de Control y Recepcion Maquilas fuera de la tarjeta superior y se coloca bajo la cabecera principal.
+- Se anade un componente comun de flujo de proceso que muestra graficamente los pasos y el siguiente paso recomendado.
+- La app integrada pasa a usar la cabecera comun de la suite, incorporando la linea roja Rodriguez sin estilos locales.
+- Se aumenta ligeramente el tamano del titulo compartido para mejorar presencia visual en todas las aplicaciones.
+- Los nuevos estilos del flujo se centralizan en estilo_suite.py para reutilizacion en otras aplicaciones sin hardcodear colores ni fuentes.

@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.38
+Ultima revision: v1.4.39
 
 ## Para que sirve
 
@@ -73,6 +73,8 @@ Desde v1.4.36 se incorpora `Control y Recepcion Maquilas` como aplicacion integr
 Desde v1.4.37 la app integrada recupera el resumen de diferencias contra SealsReport, genera el TXT de detalles con recibidos fuera de albaran y no recibidos del albaran, permite enviar sin guardar cuando el TXT original ya es valido y genera el PDF de rangos temporalmente al enviar si no se habia guardado aparte.
 
 Desde v1.4.38 el correo de `Control y Recepcion Maquilas` deja de adjuntar el TXT de recepcion, la cabecera gana presencia visual, se muestra el flujo de trabajo y el PDF de rangos se configura desde una ventana propia con opcion de guardar individualmente o cerrar dejando los campos preparados para el envio.
+
+Desde v1.4.39 el flujo de `Control y Recepcion Maquilas` sale de la tarjeta superior y se muestra bajo la cabecera, con un componente grafico comun que marca el siguiente paso. La cabecera usa el helper compartido de la suite con la linea roja Rodriguez y se aumenta ligeramente el tamano del titulo comun para todas las aplicaciones.
 
 ## Aplicaciones incluidas
 
