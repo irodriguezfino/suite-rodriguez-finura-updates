@@ -1,0 +1,5 @@
+CHANGELOG Suite Rodriguez Finura v1.4.41
+
+- Corrige la deteccion automatica de iberico/blanco en Control y Recepcion Maquilas.
+- Si el codigo FAC del TXT corresponde a un articulo iberico de la configuracion interna, se valida como iberico aunque los precintos tengan GTIN incorrecto.
+- Recupera la deteccion de fallos del TXT original para que los precintos ibericos incorrectos vuelvan a mostrarse en el editor de correccion.

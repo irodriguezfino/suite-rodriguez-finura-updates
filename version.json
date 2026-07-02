@@ -1,12 +1,12 @@
 {
   "schema": "suite-rodriguez-finura-update-v1",
-  "version": "1.4.40",
-  "published_at": "2026-07-02T14:05:00+02:00",
+  "version": "1.4.41",
+  "published_at": "2026-07-02T14:32:00+02:00",
   "auto_update": {
     "type": "zip",
-    "file": "Suite_Rodriguez_Finura_v1.4.40_update.zip",
-    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.40_update.zip",
-    "sha256": "89ED30E2E69654EF2B9BE84595CB040F0DD0E44737F94BF3C1838EF200925030"
+    "file": "Suite_Rodriguez_Finura_v1.4.41_update.zip",
+    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.41_update.zip",
+    "sha256": "55117F5515557DE7F075683F9374F5E3AA808D68862F830384A21DBACD12A815"
   },
   "fresh_install": {
     "type": "msi",
@@ -14,11 +14,11 @@
     "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
     "sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"
   },
-  "notes": "- Corrige el arranque tras la version 1.4.39.\n- El componente comun de flujo usa ahora principal_fg desde la paleta compartida.\n- Mantiene el flujo bajo cabecera y la linea roja Rodriguez incorporados en la version anterior.",
+  "notes": "- Corrige la deteccion automatica de iberico/blanco en Control y Recepcion Maquilas.\n- Los codigos FAC ibericos de la configuracion interna fuerzan validacion iberica aunque el GTIN venga incorrecto.\n- Los fallos del TXT original vuelven a mostrarse en el editor de correccion.",
   "package_type": "zip",
-  "package": "Suite_Rodriguez_Finura_v1.4.40_update.zip",
-  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.40_update.zip",
-  "sha256": "89ED30E2E69654EF2B9BE84595CB040F0DD0E44737F94BF3C1838EF200925030",
+  "package": "Suite_Rodriguez_Finura_v1.4.41_update.zip",
+  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.41_update.zip",
+  "sha256": "55117F5515557DE7F075683F9374F5E3AA808D68862F830384A21DBACD12A815",
   "fresh_install_msi": "Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"

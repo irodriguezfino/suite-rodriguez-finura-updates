@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.40
+Ultima revision: v1.4.41
 
 ## Para que sirve
 
@@ -77,6 +77,8 @@ Desde v1.4.38 el correo de `Control y Recepcion Maquilas` deja de adjuntar el TX
 Desde v1.4.39 el flujo de `Control y Recepcion Maquilas` sale de la tarjeta superior y se muestra bajo la cabecera, con un componente grafico comun que marca el siguiente paso. La cabecera usa el helper compartido de la suite con la linea roja Rodriguez y se aumenta ligeramente el tamano del titulo comun para todas las aplicaciones.
 
 Desde v1.4.40 se corrige el arranque de la suite tras la v1.4.39: el componente comun de flujo usa el color `principal_fg` desde la paleta compartida y deja de depender de una constante no definida.
+
+Desde v1.4.41 `Control y Recepcion Maquilas` mejora la deteccion automatica de iberico/blanco: si el codigo FAC del TXT pertenece a un articulo iberico de la configuracion interna, se valida como iberico aunque el precinto tenga GTIN incorrecto. Asi se vuelven a mostrar los fallos del TXT original para corregirlos.
 
 ## Aplicaciones incluidas
 
