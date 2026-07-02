@@ -1,12 +1,12 @@
 {
   "schema": "suite-rodriguez-finura-update-v1",
-  "version": "1.4.34",
-  "published_at": "2026-07-02T10:44:10+02:00",
+  "version": "1.4.35",
+  "published_at": "2026-07-02T11:18:10+02:00",
   "auto_update": {
     "type": "zip",
-    "file": "Suite_Rodriguez_Finura_v1.4.34_update.zip",
-    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.34_update.zip",
-    "sha256": "095CBE42339BD199983070D1C41F8AC01081F298865554FA9E36CA1E5E3B0D6B"
+    "file": "Suite_Rodriguez_Finura_v1.4.35_update.zip",
+    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.35_update.zip",
+    "sha256": "4D97FADE22D34FBB6AB4DEE0732925D741B703F2D12EC9357B6C2927DE2F698B"
   },
   "fresh_install": {
     "type": "msi",
@@ -14,11 +14,11 @@
     "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
     "sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"
   },
-  "notes": "- Recepcion Maquilas corrige Certificado Welfair para calcularlo desde los lotes origen del albaran.\n- Se cubre el caso en que el lote origen termina en W aunque el lote recibido del TXT no termine en W.",
+  "notes": "- Recepcion Maquilas rellena Control de temperatura y PH con OK por defecto, manteniendolos editables.\n- Se anade Observaciones como campo manual opcional en el PDF de rangos.\n- Observaciones solo aparece en el informe si contiene texto.",
   "package_type": "zip",
-  "package": "Suite_Rodriguez_Finura_v1.4.34_update.zip",
-  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.34_update.zip",
-  "sha256": "095CBE42339BD199983070D1C41F8AC01081F298865554FA9E36CA1E5E3B0D6B",
+  "package": "Suite_Rodriguez_Finura_v1.4.35_update.zip",
+  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.4.35_update.zip",
+  "sha256": "4D97FADE22D34FBB6AB4DEE0732925D741B703F2D12EC9357B6C2927DE2F698B",
   "fresh_install_msi": "Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"

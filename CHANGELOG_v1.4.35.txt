@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.4.35
+
+- Recepcion Maquilas: Control de temperatura y PH se rellenan por defecto con OK, manteniendose editables.
+- Recepcion Maquilas: se anade Observaciones como campo manual opcional para el PDF de rangos.
+- Recepcion Maquilas: Observaciones solo aparece en el informe si contiene texto.
+- Actualizacion preparada para distribucion automatica desde GitHub.

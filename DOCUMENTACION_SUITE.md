@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.34
+Ultima revision: v1.4.35
 
 ## Para que sirve
 
@@ -66,6 +66,8 @@ Desde v1.4.33 el informe de rangos muestra `Fecha recepcion` desde el TXT de FAC
 
 Desde v1.4.34 `Certificado Welfair` se calcula con los lotes origen del albaran, no con el lote recibido en el TXT.
 
+Desde v1.4.35 `Control de temperatura` y `PH` se rellenan por defecto con `OK`, siguen siendo editables, y `Observaciones` aparece en el informe de rangos solo si se rellena.
+
 ## Aplicaciones incluidas
 
 ### Merma jamones FAC embutidos Rodriguez
@@ -103,7 +105,7 @@ Genera informes PDF en A4 vertical a partir del TXT recibido de FAC, el Excel of
 
 El informe de rangos agrupa las piezas por codigo FAC, lote real del TXT y rango de peso, mostrando lote, rango ajustado, piezas, peso total y peso medio. Incluye una tabla propia de lotes origen SealsReport, sin resumen truncado en cabecera. Los rangos se calculan con maximo exclusivo para evitar doble conteo: un rango `10,5-12` cuenta desde `10,50` hasta `11,99`, de modo que una pieza de `12,00` entra solo en el rango siguiente.
 
-La pantalla permite completar ganadero, origen, DAC, contrato, control de temperatura, PH y especificacion antes de emitir el PDF de rangos. El albaran sale siempre de SealsReport; la cabecera mantiene `Lote:` para el lote del TXT y los lotes origen se muestran completos en el cuerpo del informe.
+La pantalla permite completar ganadero, origen, DAC, contrato, control de temperatura, PH, observaciones y especificacion antes de emitir el PDF de rangos. El albaran sale siempre de SealsReport; la cabecera mantiene `Lote:` para el lote del TXT y los lotes origen se muestran completos en el cuerpo del informe.
 
 ### Precintos Excel a CSV
 
