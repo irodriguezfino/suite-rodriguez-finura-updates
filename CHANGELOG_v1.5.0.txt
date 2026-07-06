@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.5.0
+
+- Suite PySide6 migrada como panel operativo principal.
+- Nuevo boton Acerca de con version instalada, diagnostico y busqueda manual de actualizaciones.
+- Toolbars, modo oscuro, paneles densos y flujo secuencial refinados para las 8 aplicaciones portadas.
+- Limpieza de codigo legacy no usado y apertura de aplicaciones refactorizada.
