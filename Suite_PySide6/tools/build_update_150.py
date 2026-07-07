@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.5.3"
+VERSION = "1.5.4"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 ROOT = Path(__file__).resolve().parents[2]
 PYSIDE_ROOT = ROOT / "Suite_PySide6"
@@ -18,7 +18,7 @@ LEGACY_RESOURCES = ROOT / "outputs" / "worktree_1_4_27" / "build_1_4_43"
 QT_ENV = ROOT / "qtv"
 RELEASE_ROOT = ROOT / "outputs" / f"release_{VERSION}"
 STAGING = RELEASE_ROOT / "Suite Rodriguez Finura"
-REMOTE_BASE = "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/refs/heads/main"
+REMOTE_BASE = "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main"
 
 
 PYSIDE_FILES = [
@@ -162,7 +162,7 @@ def update_manifest(package: Path) -> None:
     notes = (
         "- Nueva aplicacion Pesos para renombrar la primera hoja visible de varios Excel a Hoja1.\n"
         "- Area de trabajo Pesos integrada en el panel principal con acceso Alt+9.\n"
-        "- El actualizador automatico cierra la suite antes de copiar archivos PySide6 bloqueados.\n"
+        "- El actualizador automatico finaliza la suite antes de copiar archivos PySide6 bloqueados.\n"
         "- Reintentos de copia ante bloqueos temporales de DLLs durante la actualizacion."
     )
     manifest = {

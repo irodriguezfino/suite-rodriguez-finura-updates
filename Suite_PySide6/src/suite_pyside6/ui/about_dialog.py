@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, QTimer
+import os
+
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -128,9 +130,8 @@ class AboutDialog(QDialog):
             QMessageBox.warning(self, "Actualizaciones", f"No se pudo iniciar el actualizador:\n\n{exc}")
             return
         self.accept()
-        app = QApplication.instance()
-        if app is not None:
-            QTimer.singleShot(100, app.quit)
+        QApplication.processEvents()
+        os._exit(0)
 
     def copy_diagnostic(self) -> None:
         QApplication.clipboard().setText(diagnostic_text(self.result))
