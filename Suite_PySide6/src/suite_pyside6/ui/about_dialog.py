@@ -139,6 +139,9 @@ class AboutDialog(QDialog):
 
     def _close_open_windows_for_update(self) -> bool:
         parent = self.parent()
+        close_embedded = getattr(parent, "close_embedded_apps_for_update", None)
+        if callable(close_embedded):
+            return bool(close_embedded())
         open_windows = getattr(parent, "open_windows", {}) if parent is not None else {}
         for window in list(open_windows.values()):
             if not window.isVisible():

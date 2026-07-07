@@ -103,6 +103,10 @@ def base_qss() -> str:
     QMainWindow {{
         background: {BACKGROUND};
     }}
+    QMainWindow#EmbeddedAppWindow, QStackedWidget#WorkspaceStack, QWidget#DashboardPage {{
+        background: transparent;
+        border: 0;
+    }}
     QFrame#ContentShell {{
         background: transparent;
     }}

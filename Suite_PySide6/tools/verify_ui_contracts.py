@@ -19,6 +19,7 @@ VERIFY_SCRIPTS = (
     "verify_phase8.py",
     "verify_phase9.py",
     "verify_phase10.py",
+    "verify_phase11.py",
 )
 
 

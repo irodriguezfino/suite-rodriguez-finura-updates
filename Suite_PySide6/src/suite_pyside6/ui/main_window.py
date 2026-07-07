@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSizePolicy,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -60,6 +61,7 @@ class MainWindow(QMainWindow):
         self._last_columns = 0
         self.category_buttons: dict[str, QPushButton] = {}
         self.open_windows: dict[str, QMainWindow] = {}
+        self.app_pages: dict[str, QMainWindow] = {}
         self.setWindowTitle("Suite Rodriguez Finura")
         self.resize(1180, 760)
         self.setMinimumSize(720, 560)
@@ -161,12 +163,12 @@ class MainWindow(QMainWindow):
 
         title_box = QVBoxLayout()
         title_box.setSpacing(3)
-        title = QLabel("Centro de mando operativo")
-        title.setObjectName("WindowTitle")
-        subtitle = QLabel("Procesos de jamones, CSV, PDA y maquilas con acceso rapido y estado claro")
-        subtitle.setObjectName("WindowSubtitle")
-        title_box.addWidget(title)
-        title_box.addWidget(subtitle)
+        self.workspace_title = QLabel("Centro de mando operativo")
+        self.workspace_title.setObjectName("WindowTitle")
+        self.workspace_subtitle = QLabel("Procesos de jamones, CSV, PDA y maquilas con acceso rapido y estado claro")
+        self.workspace_subtitle.setObjectName("WindowSubtitle")
+        title_box.addWidget(self.workspace_title)
+        title_box.addWidget(self.workspace_subtitle)
         header_layout.addLayout(title_box, 1)
 
         self.search = QLineEdit()
@@ -183,8 +185,21 @@ class MainWindow(QMainWindow):
         about_button.clicked.connect(self.show_about)
         header_layout.addWidget(about_button, 0)
 
+        self.home_button = QPushButton("Inicio")
+        self.home_button.setToolTip("Volver al centro de mando sin cerrar el proceso actual.")
+        self.home_button.clicked.connect(self.show_dashboard)
+        header_layout.addWidget(self.home_button, 0)
+
         root_layout.addWidget(header)
         self._add_shadow(header, blur=22, y=4, alpha=28)
+
+        self.stack = QStackedWidget()
+        self.stack.setObjectName("WorkspaceStack")
+        self.dashboard_page = QWidget()
+        self.dashboard_page.setObjectName("DashboardPage")
+        dashboard_layout = QVBoxLayout(self.dashboard_page)
+        dashboard_layout.setContentsMargins(0, 0, 0, 0)
+        dashboard_layout.setSpacing(10)
 
         metrics = make_flow(spacing=10)
         metrics.setSpacing(10)
@@ -192,7 +207,7 @@ class MainWindow(QMainWindow):
         metrics.addWidget(self._metric_card(str(ported), "Procesos listos", "blue"))
         metrics.addWidget(self._metric_card(str(len(recent_app_keys())), "Recientes", "red"))
         metrics.addWidget(self._metric_card(str(len(favorite_app_keys())), "Favoritos", "green"))
-        root_layout.addLayout(metrics)
+        dashboard_layout.addLayout(metrics)
 
         content_shell = QFrame()
         content_shell.setObjectName("ContentShell")
@@ -215,7 +230,9 @@ class MainWindow(QMainWindow):
         self.scroll.setWidget(self.app_container)
         content_layout.addWidget(self.scroll, 1)
 
-        root_layout.addWidget(content_shell, 1)
+        dashboard_layout.addWidget(content_shell, 1)
+        self.stack.addWidget(self.dashboard_page)
+        root_layout.addWidget(self.stack, 1)
 
         self.status = QLabel("Suite operativa. Selecciona un proceso o usa el buscador para empezar.")
         self.status.setObjectName("StatusLabel")
@@ -223,6 +240,7 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(root)
         register_adaptive_layout(self, self.header_layout, breakpoint_width=840)
+        self.show_dashboard()
         self._apply_responsive_state()
 
     @staticmethod
@@ -254,6 +272,7 @@ class MainWindow(QMainWindow):
 
     def _select_category(self, category: str) -> None:
         self.current_category = category
+        self.show_dashboard()
         self._render_apps()
 
     def _on_search_changed(self, text: str) -> None:
@@ -341,26 +360,63 @@ class MainWindow(QMainWindow):
         remember_app_open(app.key)
         window_class = WINDOW_CLASSES.get(app.key)
         if window_class is not None:
-            self._show_app_window(app, window_class)
+            self._show_app_page(app, window_class)
             return
 
         self.status.setText("Proceso no disponible en el panel.")
         QMessageBox.warning(self, "No disponible", f"{app.title} no tiene una ventana asignada en el panel.")
 
+    def show_dashboard(self) -> None:
+        self.stack.setCurrentWidget(self.dashboard_page)
+        self.workspace_title.setText("Centro de mando operativo")
+        self.workspace_subtitle.setText("Procesos de jamones, CSV, PDA y maquilas con acceso rapido y estado claro")
+        self.home_button.setVisible(False)
+        self.status.setText("Suite operativa. Selecciona un proceso o usa el buscador para empezar.")
+
     def show_about(self) -> None:
         dialog = AboutDialog(self)
         dialog.exec()
 
-    def _show_app_window(self, app: AppDefinition, window_class: type[QMainWindow]) -> None:
-        window = self.open_windows.get(app.key)
+    def _show_app_page(self, app: AppDefinition, window_class: type[QMainWindow]) -> None:
+        window = self.app_pages.get(app.key)
         if window is None:
             window = window_class()
-            window.destroyed.connect(lambda _obj=None, key=app.key: self.open_windows.pop(key, None))
+            window.setObjectName("EmbeddedAppWindow")
+            window.setParent(self.stack)
+            window.setWindowFlags(Qt.Widget)
+            window.destroyed.connect(lambda _obj=None, key=app.key: self._forget_app_page(key))
             self.open_windows[app.key] = window
-        window.show()
-        window.raise_()
-        window.activateWindow()
-        self.status.setText(f"Abriendo {app.title} desde el panel")
+            self.app_pages[app.key] = window
+            self.stack.addWidget(window)
+        self.stack.setCurrentWidget(window)
+        self.workspace_title.setText(app.title)
+        self.workspace_subtitle.setText(app.description)
+        self.home_button.setVisible(True)
+        self.status.setText(f"{app.title} integrado en la ventana principal")
+        window.setFocus(Qt.ActiveWindowFocusReason)
+
+    def _forget_app_page(self, key: str) -> None:
+        self.open_windows.pop(key, None)
+        self.app_pages.pop(key, None)
+
+    def close_embedded_apps_for_update(self) -> bool:
+        for key, window in list(self.open_windows.items()):
+            if not window.close():
+                app = next((item for item in APP_REGISTRY if item.key == key), None)
+                if app is not None:
+                    self._show_app_page(app, type(window))
+                return False
+        return True
+
+    def closeEvent(self, event) -> None:  # noqa: N802 - Qt API
+        for key, window in list(self.open_windows.items()):
+            if not window.close():
+                app = next((item for item in APP_REGISTRY if item.key == key), None)
+                if app is not None:
+                    self._show_app_page(app, type(window))
+                event.ignore()
+                return
+        super().closeEvent(event)
 
     def toggle_favorite(self, app: AppDefinition) -> None:
         enabled = toggle_favorite_app(app.key)

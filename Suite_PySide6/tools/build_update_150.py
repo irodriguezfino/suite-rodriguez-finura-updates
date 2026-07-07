@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.5.7"
+VERSION = "1.5.8"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
@@ -246,10 +246,10 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
     full_digest = sha256(full_package)
     installer_digest = sha256(installer_bat)
     notes = (
-        "- Rediseno profesional del centro de mando: navegacion lateral, metricas operativas y tarjetas mas claras.\n"
-        "- Pulido visual de ventanas operativas con panel de contexto, siguiente accion y estados mas visibles.\n"
-        "- Barras de herramientas adaptativas, zonas de arrastre mas legibles y modo oscuro refinado.\n"
-        "- Contrato de calidad UI: verificaciones automatizadas sin cambios en la capa core de validaciones."
+        "- Integracion real en ventana unica: los 9 procesos se cargan dentro del shell principal.\n"
+        "- El centro de mando permanece como pagina de inicio con navegacion lateral fija y vuelta rapida a Inicio.\n"
+        "- Se mantiene la logica core de validaciones sin cambios y se refuerza el contrato automatizado de UI.\n"
+        "- Publicacion correctiva sobre 1.5.7 para alinear la suite con el enfoque de aplicacion unificada."
     )
     manifest = {
         "schema": "suite-rodriguez-finura-update-v1",

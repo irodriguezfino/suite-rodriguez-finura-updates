@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.5.8
+
+- Integracion real en ventana unica: los 9 procesos se cargan dentro del shell principal.
+- El centro de mando permanece como pagina de inicio con navegacion lateral fija y vuelta rapida a Inicio.
+- Se mantiene la logica core de validaciones sin cambios y se refuerza el contrato automatizado de UI.
+- Publicacion correctiva sobre 1.5.7 para alinear la suite con el enfoque de aplicacion unificada.
