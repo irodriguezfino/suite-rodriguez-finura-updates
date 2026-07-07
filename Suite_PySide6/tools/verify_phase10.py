@@ -133,7 +133,7 @@ def main() -> int:
 
     print("PHASE10_OK")
     print("app_portada=Precintos Jamones")
-    print("suite_pyside6_portada=8/8")
+    print(f"suite_pyside6_portada={len(APP_REGISTRY)}/{len(APP_REGISTRY)}")
     return 0
 
 

@@ -1,12 +1,12 @@
 {
   "schema": "suite-rodriguez-finura-update-v1",
-  "version": "1.5.4",
-  "published_at": "2026-07-07T09:50:20+02:00",
+  "version": "1.5.5",
+  "published_at": "2026-07-07T11:08:34+02:00",
   "auto_update": {
     "type": "zip",
-    "file": "Suite_Rodriguez_Finura_v1.5.4_update.zip",
-    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.5.4_update.zip",
-    "sha256": "0E7BFB1E62308155853FECDB9B3CFC182978A9817EA3591748E43210344A53B2"
+    "file": "Suite_Rodriguez_Finura_v1.5.5_update.zip",
+    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.5.5_update.zip",
+    "sha256": "26239096493A8EA544A83A688D38C2800C5D40D140775B5047000C0CC1B35043"
   },
   "fresh_install": {
     "type": "msi",
@@ -14,11 +14,11 @@
     "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
     "sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"
   },
-  "notes": "- Nueva aplicacion Pesos para renombrar la primera hoja visible de varios Excel a Hoja1.\n- Area de trabajo Pesos integrada en el panel principal con acceso Alt+9.\n- El actualizador automatico finaliza la suite antes de copiar archivos PySide6 bloqueados.\n- Reintentos de copia ante bloqueos temporales de DLLs durante la actualizacion.",
+  "notes": "- Bloque de profesionalizacion: versionado, verificaciones y paquete alineados a 9 aplicaciones.\n- Correo endurecido sin secretos incrustados y con STARTTLS para Office365.\n- Actualizador con cierre controlado de ventanas abiertas antes de instalar.\n- Paquete de actualizacion con dependencias funcionales de Excel y datos incluidas.",
   "package_type": "zip",
-  "package": "Suite_Rodriguez_Finura_v1.5.4_update.zip",
-  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.5.4_update.zip",
-  "sha256": "0E7BFB1E62308155853FECDB9B3CFC182978A9817EA3591748E43210344A53B2",
+  "package": "Suite_Rodriguez_Finura_v1.5.5_update.zip",
+  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.5.5_update.zip",
+  "sha256": "26239096493A8EA544A83A688D38C2800C5D40D140775B5047000C0CC1B35043",
   "fresh_install_msi": "Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518"

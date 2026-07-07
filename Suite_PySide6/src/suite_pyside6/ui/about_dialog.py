@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import os
-
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QApplication,
@@ -48,7 +46,7 @@ class AboutDialog(QDialog):
         header_layout.setContentsMargins(12, 10, 12, 10)
         title = QLabel("Suite Rodriguez Finura")
         title.setObjectName("WindowTitle")
-        subtitle = QLabel("Panel operativo PySide6")
+        subtitle = QLabel("Panel operativo profesional")
         subtitle.setObjectName("WindowSubtitle")
         header_layout.addWidget(title)
         header_layout.addWidget(subtitle)
@@ -124,6 +122,8 @@ class AboutDialog(QDialog):
         answer = QMessageBox.question(self, "Actualizaciones", text, QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if answer != QMessageBox.Yes:
             return
+        if not self._close_open_windows_for_update():
+            return
         try:
             start_update(package, self.result.remote_version)
         except Exception as exc:
@@ -131,8 +131,25 @@ class AboutDialog(QDialog):
             return
         self.accept()
         QApplication.processEvents()
-        os._exit(0)
+        QApplication.quit()
 
     def copy_diagnostic(self) -> None:
         QApplication.clipboard().setText(diagnostic_text(self.result))
         QMessageBox.information(self, "Diagnóstico", "Diagnóstico copiado al portapapeles.")
+
+    def _close_open_windows_for_update(self) -> bool:
+        parent = self.parent()
+        open_windows = getattr(parent, "open_windows", {}) if parent is not None else {}
+        for window in list(open_windows.values()):
+            if not window.isVisible():
+                continue
+            window.close()
+            QApplication.processEvents()
+            if window.isVisible():
+                QMessageBox.warning(
+                    self,
+                    "Actualizaciones",
+                    "La actualizacion se ha cancelado porque hay una ventana con trabajo pendiente.",
+                )
+                return False
+        return True

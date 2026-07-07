@@ -1,2 +1,2 @@
-"""Capa visual PySide6. Todavia no contiene ventanas funcionales."""
+"""Capa visual de Suite Rodriguez Finura."""
 

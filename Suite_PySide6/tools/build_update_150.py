@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.5.4"
+VERSION = "1.5.5"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 ROOT = Path(__file__).resolve().parents[2]
 PYSIDE_ROOT = ROOT / "Suite_PySide6"
@@ -49,6 +49,31 @@ PYSIDE_FILES = [
     "vcruntime140_1.dll",
 ]
 
+RUNTIME_PACKAGE_PATTERNS = [
+    "shiboken6",
+    "shiboken6-*.dist-info",
+    "pyside6-*.dist-info",
+    "pyside6_essentials-*.dist-info",
+    "openpyxl",
+    "openpyxl-*.dist-info",
+    "et_xmlfile",
+    "et_xmlfile-*.dist-info",
+    "pandas",
+    "pandas-*.dist-info",
+    "pandas.libs",
+    "numpy",
+    "numpy-*.dist-info",
+    "numpy.libs",
+    "dateutil",
+    "python_dateutil-*.dist-info",
+    "pytz",
+    "pytz-*.dist-info",
+    "tzdata",
+    "tzdata-*.dist-info",
+    "six.py",
+    "six-*.dist-info",
+]
+
 
 def copytree_clean(source: Path, destination: Path) -> None:
     ignore = shutil.ignore_patterns(
@@ -60,6 +85,15 @@ def copytree_clean(source: Path, destination: Path) -> None:
         ".ruff_cache",
     )
     shutil.copytree(source, destination, dirs_exist_ok=True, ignore=ignore)
+
+
+def copy_site_package(source: Path, destination: Path) -> None:
+    if source.is_dir():
+        copytree_clean(source, destination / source.name)
+        return
+    if source.is_file():
+        destination.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination / source.name)
 
 
 def write_text(path: Path, text: str) -> None:
@@ -137,13 +171,10 @@ if __name__ == "__main__":
         if source.exists():
             shutil.copy2(source, pyside_dst / name)
     shutil.copytree(pyside_src / "plugins", pyside_dst / "plugins", dirs_exist_ok=True)
-    for name in (
-        "shiboken6",
-        "shiboken6-6.11.1.dist-info",
-        "pyside6-6.11.1.dist-info",
-        "pyside6_essentials-6.11.1.dist-info",
-    ):
-        copytree_clean(QT_ENV / "Lib" / "site-packages" / name, site_packages / name)
+    qt_site_packages = QT_ENV / "Lib" / "site-packages"
+    for pattern in RUNTIME_PACKAGE_PATTERNS:
+        for source in qt_site_packages.glob(pattern):
+            copy_site_package(source, site_packages)
 
 
 def build_zip() -> Path:
@@ -160,10 +191,10 @@ def build_zip() -> Path:
 def update_manifest(package: Path) -> None:
     digest = sha256(package)
     notes = (
-        "- Nueva aplicacion Pesos para renombrar la primera hoja visible de varios Excel a Hoja1.\n"
-        "- Area de trabajo Pesos integrada en el panel principal con acceso Alt+9.\n"
-        "- El actualizador automatico finaliza la suite antes de copiar archivos PySide6 bloqueados.\n"
-        "- Reintentos de copia ante bloqueos temporales de DLLs durante la actualizacion."
+        "- Bloque de profesionalizacion: versionado, verificaciones y paquete alineados a 9 aplicaciones.\n"
+        "- Correo endurecido sin secretos incrustados y con STARTTLS para Office365.\n"
+        "- Actualizador con cierre controlado de ventanas abiertas antes de instalar.\n"
+        "- Paquete de actualizacion con dependencias funcionales de Excel y datos incluidas."
     )
     manifest = {
         "schema": "suite-rodriguez-finura-update-v1",

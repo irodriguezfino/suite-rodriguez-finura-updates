@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.5.5
+
+- Bloque de profesionalizacion: versionado, verificaciones y paquete alineados a 9 aplicaciones.
+- Correo endurecido sin secretos incrustados y con STARTTLS para Office365.
+- Actualizador con cierre controlado de ventanas abiertas antes de instalar.
+- Paquete de actualizacion con dependencias funcionales de Excel y datos incluidas.

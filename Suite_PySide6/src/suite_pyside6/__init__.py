@@ -1,3 +1,3 @@
-"""Port paralelo de Suite Rodriguez Finura a PySide6."""
+"""Suite Rodriguez Finura profesional en PySide6."""
 
-__version__ = "1.5.4"
+__version__ = "1.5.5"

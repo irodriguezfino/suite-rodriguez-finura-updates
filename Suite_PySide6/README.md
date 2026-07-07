@@ -1,13 +1,12 @@
-# Suite Rodriguez Finura PySide6
+# Suite Rodriguez Finura
 
-Proyecto paralelo para portar la suite a PySide6 sin tocar la version Tkinter
-estable.
+Suite operativa profesional para procesos Rodriguez Finura.
 
-## Objetivo de esta fase
+## Objetivo
 
-- Mantener intacta la suite actual.
-- Separar logica funcional reutilizable de la interfaz Tkinter.
-- Preparar una base donde la UI PySide6 pueda crecer por modulos.
+- Mantener una interfaz profesional y consistente.
+- Separar logica funcional reutilizable de la interfaz.
+- Publicar paquetes de actualizacion verificables para todos los equipos.
 
 ## Fuente de referencia
 
@@ -21,8 +20,8 @@ fuente para extraer comportamiento probado.
 ## Estructura
 
 - `src/suite_pyside6/core`: logica sin GUI.
-- `src/suite_pyside6/ui`: futura capa visual PySide6.
-- `tools`: verificaciones y utilidades de migracion.
+- `src/suite_pyside6/ui`: capa visual.
+- `tools`: verificaciones y utilidades de release.
 
 ## Primer modulo extraido
 
@@ -138,7 +137,7 @@ El core separado vive en:
 
 `suite_pyside6.core.precintos_jamones`
 
-Con esta fase, las 8 apps del menu estan marcadas como portadas en PySide6.
+Con esta fase, las 9 apps del menu estan disponibles en la suite profesional.
 
 ## Novena app portada
 

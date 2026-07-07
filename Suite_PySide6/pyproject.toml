@@ -1,7 +1,7 @@
 [project]
 name = "suite-rodriguez-finura-pyside6"
-version = "1.5.3"
-description = "Port paralelo de Suite Rodriguez Finura a PySide6."
+version = "1.5.5"
+description = "Suite Rodriguez Finura profesional en PySide6."
 requires-python = ">=3.11"
 dependencies = [
     "PySide6>=6.7",

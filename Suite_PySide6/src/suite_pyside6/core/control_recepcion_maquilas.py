@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from email.message import EmailMessage
 from pathlib import Path
 import csv
+import os
 import re
 import smtplib
 import tempfile
@@ -29,7 +30,8 @@ from suite_pyside6.core.precintos_jamones import (
 SMTP_HOST = "smtp.office365.com"
 SMTP_PORT = 587
 SMTP_USUARIO = "irodriguez@grupovall.com"
-SMTP_PASSWORD = ""
+SMTP_PASSWORD = os.environ.get("SUITE_CONTROL_SMTP_PASSWORD", "")
+SMTP_STARTTLS = os.environ.get("SUITE_CONTROL_SMTP_STARTTLS", "1").lower() in {"1", "true", "yes", "si"}
 ASUNTO_DEFECTO = "Recepcion maquilas - documentacion"
 MENSAJE_DEFECTO = (
     "Buenos dias,\n\n"
@@ -474,6 +476,7 @@ def send_control_email(
     smtp_port: int = SMTP_PORT,
     smtp_user: str = SMTP_USUARIO,
     smtp_password: str = SMTP_PASSWORD,
+    smtp_starttls: bool = SMTP_STARTTLS,
 ) -> EmailMessage:
     destinatarios = parsear_destinatarios(destinatarios_texto)
     if not destinatarios:
@@ -504,7 +507,13 @@ def send_control_email(
             maintype = "application" if subtype == "pdf" else "text"
             msg.add_attachment(path.read_bytes(), maintype=maintype, subtype=subtype, filename=path.name)
         with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as smtp:
-            if smtp_user:
+            smtp.ehlo()
+            if smtp_starttls:
+                smtp.starttls()
+                smtp.ehlo()
+            if smtp_user and smtp_password:
                 smtp.login(smtp_user, smtp_password)
+            elif smtp_user and smtp_starttls:
+                raise ValueError("Falta la password SMTP. Configura SUITE_CONTROL_SMTP_PASSWORD antes de enviar.")
             smtp.send_message(msg)
     return msg
