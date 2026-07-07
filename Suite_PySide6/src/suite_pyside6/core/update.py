@@ -236,6 +236,8 @@ def start_update(package: UpdatePackage, remote_version: str) -> None:
         package.sha256,
         str(app_dir()),
         str(remote_version),
+        "--wait-pid",
+        str(os.getpid()),
     ]
     subprocess.Popen(
         args,
