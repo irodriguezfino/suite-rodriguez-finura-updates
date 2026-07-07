@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.5.6
+
+- Correccion critica: el actualizador cierra procesos de la suite antes de copiar DLLs.
+- ZIP incremental rapido sin tocar numpy/pandas para evitar mezclas de runtime.
+- Instalador BAT completo desde cero con runtime, librerias y suite actual.
+- Reparacion prevista para instalaciones que quedaron rotas por la actualizacion 1.5.5.
