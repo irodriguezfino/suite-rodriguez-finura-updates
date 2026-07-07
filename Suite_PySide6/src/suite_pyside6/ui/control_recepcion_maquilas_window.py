@@ -505,9 +505,9 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         else:
             self.summary.setText("Sin archivos cargados")
             self.preview.setReadOnly(True)
-            self.preview.setPlainText("Carga TXT de FAC para empezar.")
+            self.preview.setPlainText("Arrastra TXT de FAC aqui o pulsa Cargar TXT FAC para empezar.\n\nDespues podras guardar TXT AX, cruzar SealsReport y generar PDF/correo.")
             self.issues.setPlainText("Sin incidencias.")
-            self.output.setPlainText("La salida TXT AX aparecerá después de procesar registros válidos.")
+            self.output.setPlainText("La salida TXT AX aparecera despues de procesar registros validos.")
         self._refresh_buttons_only()
 
     def _refresh_buttons_only(self) -> None:

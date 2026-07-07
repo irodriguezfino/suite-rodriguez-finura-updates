@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from suite_pyside6 import __version__
 from suite_pyside6.core.apps import APP_REGISTRY, AppDefinition, apps_for_category, categories
 from suite_pyside6.core.paths import resource_path
 from suite_pyside6.ui.about_dialog import AboutDialog
@@ -80,23 +81,28 @@ class MainWindow(QMainWindow):
 
     def _build_ui(self) -> None:
         root = QWidget()
-        root_layout = QVBoxLayout(root)
-        root_layout.setContentsMargins(18, 16, 18, 16)
-        root_layout.setSpacing(10)
+        root.setObjectName("SuiteShell")
+        root_layout = QHBoxLayout(root)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
 
-        header = QFrame()
-        header.setObjectName("Header")
-        self.header_layout = QBoxLayout(QBoxLayout.LeftToRight, header)
-        header_layout = self.header_layout
-        header_layout.setContentsMargins(12, 10, 12, 10)
-        header_layout.setSpacing(10)
+        self.sidebar = QFrame()
+        sidebar = self.sidebar
+        sidebar.setObjectName("NavRail")
+        sidebar.setMinimumWidth(244)
+        sidebar.setMaximumWidth(286)
+        sidebar_layout = QVBoxLayout(sidebar)
+        sidebar_layout.setContentsMargins(18, 18, 18, 16)
+        sidebar_layout.setSpacing(12)
 
         brand_panel = QFrame()
-        brand_panel.setObjectName("BrandPanel")
-        brand_layout = QHBoxLayout(brand_panel)
-        brand_layout.setContentsMargins(8, 6, 8, 6)
-        brand_layout.setSpacing(10)
-        for logo_name, width in (("RODRIGUEZ.png", 170), ("FINURA.png", 108)):
+        brand_panel.setObjectName("NavBrand")
+        brand_layout = QVBoxLayout(brand_panel)
+        brand_layout.setContentsMargins(12, 12, 12, 12)
+        brand_layout.setSpacing(8)
+        logo_row = QHBoxLayout()
+        logo_row.setSpacing(8)
+        for logo_name, width in (("RODRIGUEZ.png", 126), ("FINURA.png", 78)):
             logo_path = resource_path(logo_name)
             if logo_path.exists():
                 logo = QLabel()
@@ -106,14 +112,58 @@ class MainWindow(QMainWindow):
                     logo.setObjectName("BrandLogo")
                     logo.setPixmap(pixmap.scaledToWidth(width, Qt.SmoothTransformation))
                 logo.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
-                brand_layout.addWidget(logo, 0)
-        header_layout.addWidget(brand_panel, 0)
+                logo_row.addWidget(logo, 0)
+        logo_row.addStretch(1)
+        brand_layout.addLayout(logo_row)
+        nav_title = QLabel("Suite Rodriguez Finura")
+        nav_title.setObjectName("NavTitle")
+        nav_subtitle = QLabel("Centro operativo")
+        nav_subtitle.setObjectName("NavSubtitle")
+        brand_layout.addWidget(nav_title)
+        brand_layout.addWidget(nav_subtitle)
+        sidebar_layout.addWidget(brand_panel)
+
+        side_title = QLabel("Areas de trabajo")
+        side_title.setObjectName("SectionLabel")
+        sidebar_layout.addWidget(side_title)
+
+        nav_flow = make_flow(spacing=8)
+        for category in self._nav_items():
+            count = len(self._apps_for_view(category))
+            button = QPushButton(f"{category}  ({count})")
+            button.setProperty("nav", True)
+            button.setCheckable(True)
+            button.clicked.connect(lambda _checked=False, name=category: self._select_category(name))
+            self.category_buttons[category] = button
+            nav_flow.addWidget(button)
+        sidebar_layout.addLayout(nav_flow)
+        sidebar_layout.addStretch(1)
+
+        footer = QLabel(f"Version {__version__}\nLista para operar")
+        footer.setObjectName("NavFooter")
+        footer.setWordWrap(True)
+        sidebar_layout.addWidget(footer)
+        root_layout.addWidget(sidebar)
+
+        workspace = QWidget()
+        workspace.setObjectName("MainWorkspace")
+        root_layout.addWidget(workspace, 1)
+        root_layout = QVBoxLayout(workspace)
+        root_layout.setContentsMargins(18, 16, 18, 16)
+        root_layout.setSpacing(10)
+
+        header = QFrame()
+        header.setObjectName("Header")
+        self.header_layout = QBoxLayout(QBoxLayout.LeftToRight, header)
+        header_layout = self.header_layout
+        header_layout.setContentsMargins(14, 12, 14, 12)
+        header_layout.setSpacing(12)
 
         title_box = QVBoxLayout()
         title_box.setSpacing(3)
-        title = QLabel("Panel operativo Rodriguez Finura")
+        title = QLabel("Centro de mando operativo")
         title.setObjectName("WindowTitle")
-        subtitle = QLabel("Procesos de jamones, CSV, PDA y maquilas en un entorno de trabajo unico")
+        subtitle = QLabel("Procesos de jamones, CSV, PDA y maquilas con acceso rapido y estado claro")
         subtitle.setObjectName("WindowSubtitle")
         title_box.addWidget(title)
         title_box.addWidget(subtitle)
@@ -140,35 +190,9 @@ class MainWindow(QMainWindow):
         metrics.setSpacing(10)
         ported = sum(1 for app in APP_REGISTRY if app.migration_status == "ported")
         metrics.addWidget(self._metric_card(str(ported), "Procesos listos", "blue"))
-        metrics.addWidget(self._metric_card(str(len(categories()) - 1), "Areas", "red"))
-        metrics.addWidget(self._metric_card(str(len(APP_REGISTRY)), "Atajos activos", "green"))
+        metrics.addWidget(self._metric_card(str(len(recent_app_keys())), "Recientes", "red"))
+        metrics.addWidget(self._metric_card(str(len(favorite_app_keys())), "Favoritos", "green"))
         root_layout.addLayout(metrics)
-
-        self.body_layout = QBoxLayout(QBoxLayout.LeftToRight)
-        body = self.body_layout
-        body.setSpacing(14)
-
-        self.sidebar = QFrame()
-        sidebar = self.sidebar
-        sidebar.setObjectName("Sidebar")
-        sidebar.setMinimumWidth(214)
-        sidebar.setMaximumWidth(260)
-        sidebar_layout = make_flow(sidebar, margin=0, spacing=8)
-        sidebar_layout.setContentsMargins(12, 12, 12, 12)
-
-        side_title = QLabel("Areas de trabajo")
-        side_title.setObjectName("SectionLabel")
-        sidebar_layout.addWidget(side_title)
-
-        for category in self._nav_items():
-            count = len(self._apps_for_view(category))
-            button = QPushButton(f"{category}  ({count})")
-            button.setCheckable(True)
-            button.clicked.connect(lambda _checked=False, name=category: self._select_category(name))
-            self.category_buttons[category] = button
-            sidebar_layout.addWidget(button)
-        body.addWidget(sidebar)
-        self._add_shadow(sidebar, blur=16, y=2, alpha=18)
 
         content_shell = QFrame()
         content_shell.setObjectName("ContentShell")
@@ -191,8 +215,7 @@ class MainWindow(QMainWindow):
         self.scroll.setWidget(self.app_container)
         content_layout.addWidget(self.scroll, 1)
 
-        body.addWidget(content_shell, 1)
-        root_layout.addLayout(body, 1)
+        root_layout.addWidget(content_shell, 1)
 
         self.status = QLabel("Suite operativa. Selecciona un proceso o usa el buscador para empezar.")
         self.status.setObjectName("StatusLabel")
@@ -200,7 +223,6 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(root)
         register_adaptive_layout(self, self.header_layout, breakpoint_width=840)
-        register_adaptive_layout(self, self.body_layout, breakpoint_width=900)
         self._apply_responsive_state()
 
     @staticmethod
@@ -303,7 +325,7 @@ class MainWindow(QMainWindow):
             self._render_apps()
 
     def _column_count(self) -> int:
-        if self.width() < 920:
+        if self.width() < 900:
             return 1
         if self.width() < 1280:
             return 2
@@ -311,8 +333,8 @@ class MainWindow(QMainWindow):
 
     def _apply_responsive_state(self) -> None:
         compact = self.width() < 900
-        self.sidebar.setMaximumWidth(16777215 if compact else 260)
-        self.sidebar.setMinimumWidth(0 if compact else 214)
+        self.sidebar.setMaximumWidth(220 if compact else 286)
+        self.sidebar.setMinimumWidth(190 if compact else 244)
         self.search.setMinimumWidth(0)
 
     def open_app(self, app: AppDefinition) -> None:
@@ -371,7 +393,7 @@ class AppCard(QFrame):
         title.setObjectName("AppTitle")
         title.setWordWrap(True)
         top.addWidget(title, 1, Qt.AlignTop)
-        favorite_button = QPushButton("Favorito" if is_favorite_app(app.key) else "Marcar")
+        favorite_button = QPushButton("Fav" if is_favorite_app(app.key) else "Marcar")
         favorite_button.setCheckable(True)
         favorite_button.setChecked(is_favorite_app(app.key))
         favorite_button.setProperty("role", "favorite")
@@ -403,7 +425,8 @@ class AppCard(QFrame):
         bottom = QHBoxLayout()
         bottom.setSpacing(8)
         bottom.addStretch(1)
-        open_button = QPushButton("Abrir proceso")
+        open_button = QPushButton("Abrir")
+        open_button.setProperty("primary", True)
         open_button.setProperty("role", "open")
         open_button.setAccessibleName(f"Abrir {app.title}")
         open_button.setToolTip(f"Abrir {app.title} ({app.shortcut})")

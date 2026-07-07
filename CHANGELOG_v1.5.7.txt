@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.5.7
+
+- Rediseno profesional del centro de mando: navegacion lateral, metricas operativas y tarjetas mas claras.
+- Pulido visual de ventanas operativas con panel de contexto, siguiente accion y estados mas visibles.
+- Barras de herramientas adaptativas, zonas de arrastre mas legibles y modo oscuro refinado.
+- Contrato de calidad UI: verificaciones automatizadas sin cambios en la capa core de validaciones.

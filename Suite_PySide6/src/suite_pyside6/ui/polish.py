@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QColor, QIcon, QImage, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
@@ -37,7 +37,7 @@ def polish_window(
     widget: QWidget,
     *,
     brand_bar: bool = False,
-    context_panel: bool = False,
+    context_panel: bool = True,
     stepper: bool = True,
 ) -> None:
     """Apply small visual affordances shared by the suite windows."""
@@ -94,6 +94,7 @@ def polish_window(
         editor.setTabChangesFocus(True)
         if not editor.accessibleName():
             editor.setAccessibleName(f"Area de resultados {index} de {title}")
+        _patch_editor_empty_state(editor)
 
     for label_name in ("WindowSubtitle", "ResultLabel", "StatusLabel", "InlineBanner"):
         for label in widget.findChildren(QLabel, label_name):
@@ -167,10 +168,13 @@ def _inject_app_brand_bar(widget: QWidget) -> None:
 
     bar = QFrame()
     bar.setObjectName("AppBrandBar")
-    bar_layout = make_flow(bar, margin=0, spacing=10)
-    bar_layout.setContentsMargins(10, 6, 10, 6)
+    bar.setMinimumHeight(48)
+    bar.setMaximumHeight(56)
+    bar_layout = QHBoxLayout(bar)
+    bar_layout.setContentsMargins(12, 6, 12, 6)
+    bar_layout.setSpacing(10)
 
-    for logo_name, width in (("RODRIGUEZ.png", 126), ("FINURA.png", 82)):
+    for logo_name, size in (("RODRIGUEZ.png", QSize(116, 30)), ("FINURA.png", QSize(72, 28))):
         logo_path = resource_path(logo_name)
         if logo_path.exists():
             logo = QLabel()
@@ -178,7 +182,7 @@ def _inject_app_brand_bar(widget: QWidget) -> None:
             logo.setObjectName("BrandLogo")
             pixmap = brand_logo_pixmap(logo_path)
             if not pixmap.isNull():
-                logo.setPixmap(pixmap.scaledToWidth(width, Qt.SmoothTransformation))
+                logo.setPixmap(pixmap.scaled(size, Qt.KeepAspectRatio, Qt.SmoothTransformation))
                 logo.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
                 logo.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
                 bar_layout.addWidget(logo)
@@ -186,7 +190,8 @@ def _inject_app_brand_bar(widget: QWidget) -> None:
     caption = QLabel("Suite Rodriguez Finura")
     caption.setObjectName("BrandCaption")
     bar_layout.addWidget(caption)
-    bar_layout.addWidget(_theme_toggle_button())
+    bar_layout.addStretch(1)
+    bar_layout.addWidget(_theme_toggle_button(), 0, Qt.AlignVCenter)
     layout.insertWidget(0, bar)
 
 
@@ -253,7 +258,7 @@ def _wrap_toolbars_for_overflow(widget: QWidget) -> None:
     if not isinstance(widget, QMainWindow):
         return
     for toolbar in widget.findChildren(QFrame, "Toolbar"):
-        if toolbar.property("overflowWrapped"):
+        if toolbar.property("flowWrapped"):
             continue
         parent = toolbar.parentWidget()
         parent_layout = parent.layout() if parent is not None else None
@@ -262,22 +267,31 @@ def _wrap_toolbars_for_overflow(widget: QWidget) -> None:
         index = parent_layout.indexOf(toolbar)
         if index < 0:
             continue
+        original_layout = toolbar.layout()
+        if original_layout is None:
+            continue
 
-        scroll = QScrollArea(parent)
-        scroll.setObjectName("ToolbarScroll")
-        scroll.setWidgetResizable(False)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        flow_toolbar = QFrame(parent)
+        flow_toolbar.setObjectName("Toolbar")
+        flow_toolbar.setProperty("flowWrapped", True)
+        flow_toolbar.setProperty("lockFlowMinimumHeight", True)
+        if toolbar.property("preserveButtonText"):
+            flow_toolbar.setProperty("preserveButtonText", True)
+        flow_toolbar.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+        flow_layout = make_flow(flow_toolbar, margin=0, spacing=7)
+        flow_layout.setContentsMargins(4, 4, 4, 4)
 
-        parent_layout.replaceWidget(toolbar, scroll)
-        scroll.setWidget(toolbar)
-        toolbar.setProperty("overflowWrapped", True)
-        toolbar.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        toolbar.setMinimumWidth(toolbar.sizeHint().width())
-        scroll.setMinimumHeight(toolbar.sizeHint().height() + 8)
-        scroll.setMaximumHeight(toolbar.sizeHint().height() + 26)
+        while original_layout.count():
+            item = original_layout.takeAt(0)
+            child = item.widget()
+            if child is None:
+                continue
+            child.setParent(flow_toolbar)
+            flow_layout.addWidget(child)
+
+        parent_layout.replaceWidget(toolbar, flow_toolbar)
+        toolbar.setParent(None)
+        toolbar.deleteLater()
 
 
 def _wrap_operational_body(widget: QWidget) -> None:
@@ -347,12 +361,15 @@ def _inject_context_panel(widget: QWidget) -> None:
 
     panel = QFrame()
     panel.setObjectName("ContextPanel")
+    panel.setProperty("lockFlowMinimumHeight", True)
+    panel.setMinimumHeight(48)
     panel_layout = make_flow(panel, margin=0, spacing=8)
     panel_layout.setContentsMargins(10, 8, 10, 8)
 
-    for key, title in (("State", "Estado"), ("Next", "Siguiente"), ("Alerts", "Avisos")):
+    for key, title in (("State", "Estado"), ("Next", "Siguiente accion"), ("Alerts", "Avisos")):
         card = QFrame()
         card.setObjectName("ContextItem")
+        card.setMinimumWidth(210)
         card_layout = QHBoxLayout(card)
         card_layout.setContentsMargins(8, 5, 8, 5)
         card_layout.setSpacing(6)
@@ -421,6 +438,52 @@ def _patch_button_enabled(button: QPushButton, widget: QWidget) -> None:
     button.setEnabled = set_enabled  # type: ignore[method-assign]
     button.setProperty("enabledPatched", True)
     _update_disabled_tooltip(button, button.isEnabled())
+
+
+def _patch_editor_empty_state(editor: QPlainTextEdit) -> None:
+    if editor.property("emptyStatePatched"):
+        _update_editor_empty_state(editor, editor.toPlainText())
+        return
+    if editor.objectName() == "MailBody":
+        return
+    original = editor.setPlainText
+
+    def set_plain_text(text: str, *, _original=original, _editor=editor) -> None:
+        _original(text)
+        _update_editor_empty_state(_editor, text)
+
+    editor.setPlainText = set_plain_text  # type: ignore[method-assign]
+    editor.setProperty("emptyStatePatched", True)
+    if not editor.placeholderText():
+        editor.setPlaceholderText("Arrastra archivos aqui o usa la accion principal para empezar.")
+    editor.setProperty("baseLineWrapMode", int(editor.lineWrapMode().value))
+    _update_editor_empty_state(editor, editor.toPlainText())
+
+
+def _update_editor_empty_state(editor: QPlainTextEdit, text: str) -> None:
+    normalized = " ".join(text.strip().lower().split())
+    empty_markers = (
+        "",
+        "arrastra ",
+        "selecciona ",
+        "carga ",
+        "aqui se mostraran",
+        "aqui se mostrar",
+        "la revision ",
+        "la salida ",
+        "sin incidencias",
+        "pulsa ",
+        "archivos seleccionados:",
+    )
+    is_empty = not normalized or any(normalized.startswith(marker) for marker in empty_markers if marker)
+    editor.setProperty("emptyState", is_empty)
+    if is_empty:
+        editor.setLineWrapMode(QPlainTextEdit.WidgetWidth)
+    else:
+        base_mode = editor.property("baseLineWrapMode")
+        if isinstance(base_mode, int):
+            editor.setLineWrapMode(QPlainTextEdit.LineWrapMode(base_mode))
+    _refresh_style(editor)
 
 
 def _update_disabled_tooltip(button: QPushButton, enabled: bool) -> None:
@@ -618,8 +681,10 @@ def _update_context_panel(widget: QWidget) -> None:
     alerts = widget.findChild(QLabel, "ContextAlertsValue")
     if state is None or next_action is None or alerts is None:
         return
-    state.setText(_compact_text(state_text, 96))
-    next_action.setText(_next_action_text(widget))
+    state.setText(_compact_text(_state_summary(state_text, summary_text), 96))
+    next_button = _next_action_button(widget)
+    next_action.setText(_clean_text(next_button.text()) if next_button is not None else "Completa el paso actual")
+    _highlight_next_action(widget, next_button)
     alerts.setText(_alert_text(" ".join([state_text, summary_text])))
     _update_flow_indicator(widget, " ".join([state_text, summary_text]))
 
@@ -788,15 +853,52 @@ def _apply_stepper_state(
 
 
 def _next_action_text(widget: QWidget) -> str:
-    for button in widget.findChildren(QPushButton):
-        if button.objectName() == "ThemeToggle":
-            continue
+    button = _next_action_button(widget)
+    return _clean_text(button.text()) if button is not None else "Completa el paso actual"
+
+
+def _next_action_button(widget: QWidget) -> QPushButton | None:
+    buttons = [
+        button
+        for button in widget.findChildren(QPushButton)
+        if button.objectName() != "ThemeToggle" and _clean_text(button.text())
+    ]
+    for button in buttons:
+        text = _clean_text(button.text())
+        if button.isEnabled() and button.property("primary"):
+            return button
+    for button in buttons:
         text = _clean_text(button.text())
         if not text or text.lower() == "limpiar":
             continue
         if button.isEnabled():
-            return text
-    return "Completa el paso actual"
+            return button
+    return None
+
+
+def _highlight_next_action(widget: QWidget, next_button: QPushButton | None) -> None:
+    for button in widget.findChildren(QPushButton):
+        current = button is next_button and button.isEnabled()
+        if button.property("nextAction") == current:
+            continue
+        button.setProperty("nextAction", current)
+        _refresh_style(button)
+
+
+def _state_summary(status_text: str, summary_text: str) -> str:
+    combined = " ".join(part for part in (status_text, summary_text) if part)
+    normalized = combined.lower()
+    if "sin archivos" in normalized:
+        return "Esperando archivos"
+    if "guardado" in normalized or "enviado" in normalized:
+        return "Salida completada"
+    if any(word in normalized for word in ("incidencia", "pendiente", "no valido", "error")):
+        return "Requiere revision"
+    if any(word in normalized for word in ("cargado", "seleccion", "archivos:")):
+        return "Archivos preparados"
+    if any(word in normalized for word in ("correcta", "validos", "listos", "procesado")):
+        return "Datos validados"
+    return status_text or "Pendiente"
 
 
 def _alert_text(text: str) -> str:
@@ -816,6 +918,8 @@ def _compact_text(text: str, limit: int) -> str:
 def _theme_toggle_button() -> QPushButton:
     button = QPushButton("Claro" if is_dark_mode() else "Oscuro")
     button.setObjectName("ThemeToggle")
+    button.setFixedHeight(34)
+    button.setMinimumWidth(82)
     button.setCheckable(True)
     button.setChecked(is_dark_mode())
     button.setAccessibleName("Cambiar modo claro oscuro")

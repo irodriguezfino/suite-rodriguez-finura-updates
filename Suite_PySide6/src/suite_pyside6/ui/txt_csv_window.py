@@ -166,7 +166,7 @@ class TxtCsvWindow(QMainWindow):
             self.preview.setPlainText(
                 self.result.preview_text()
                 if self.result.selected_files
-                else "Selecciona archivos TXT para empezar."
+                else "Arrastra archivos TXT aqui o pulsa Seleccionar TXT para empezar.\n\nFormatos admitidos: .txt"
             )
 
         self.process_button.setEnabled(bool(self.paths))

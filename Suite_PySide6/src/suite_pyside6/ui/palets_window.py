@@ -225,13 +225,17 @@ class PaletsWindow(QMainWindow):
             self._set_review_text("No hay incidencias para revisar. Pulsa Procesar para validar las lecturas.", editable=False)
         else:
             self.summary.setText(self.result.summary())
-            self.preview.setPlainText(self.result.preview_text() if self.result.selected_files else "")
+            self.preview.setPlainText(
+                self.result.preview_text()
+                if self.result.selected_files
+                else "Arrastra TXT de PDA aqui o pulsa Seleccionar TXT para empezar.\n\nSe validaran incidencias antes de generar Stock01."
+            )
             if self.result.pending_correction:
                 self._set_review_text(self.result.correction_text(), editable=True)
             elif self.result.final_palets:
                 self._set_review_text("\n".join(self.result.final_palets), editable=True)
             else:
-                self._set_review_text("", editable=False)
+                self._set_review_text("La revision y el CSV final apareceran aqui despues de procesar.", editable=False)
 
         self.process_button.setEnabled(bool(self.paths) and not self.result.pending_correction)
         self.revalidate_button.setEnabled(bool(self.result.pending_correction or self.result.final_palets))

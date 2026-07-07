@@ -301,7 +301,7 @@ class PrecintosJamonesWindow(QMainWindow):
             official = self.official_excel.name if self.official_excel else "-"
             self.summary.setText(f"Archivos: {len(self.paths)} | Excel oficial: {official}")
             self.preview.setReadOnly(True)
-            self.preview.setPlainText("Selecciona TXT/CSV de precintos para empezar.")
+            self.preview.setPlainText("Arrastra TXT/CSV de precintos aqui o usa Cargar TXT/CSV para empezar.")
             self.issues.setPlainText("Sin incidencias.")
             self.output.setPlainText("La salida TXT/CSV aparecera despues de procesar registros validos.")
         self._refresh_buttons_only()

@@ -15,27 +15,27 @@ LIGHT = {
     "blue_soft": "#eef5ff",
     "ink": "#111827",
     "surface": "#ffffff",
-    "background": "#f3f6fa",
-    "muted": "#667085",
-    "border": "#d6deea",
-    "panel": "#f8fafd",
-    "field": "#fbfcfe",
-    "header": "#f0f4f9",
+    "background": "#f4f7fb",
+    "muted": "#5f6f85",
+    "border": "#d3ddea",
+    "panel": "#f7f9fc",
+    "field": "#fcfdff",
+    "header": "#edf2f8",
     "tooltip": "#111827",
     "shadow": "#0b264d",
 }
 
 DARK = {
-    "blue_dark": "#b8d2f5",
-    "blue_soft": "#1f334d",
-    "ink": "#e2e8f0",
-    "surface": "#20242b",
-    "background": "#151922",
+    "blue_dark": "#c7dcf8",
+    "blue_soft": "#17304f",
+    "ink": "#edf2f7",
+    "surface": "#1e232b",
+    "background": "#121418",
     "muted": "#a7b0bf",
-    "border": "#3a424f",
-    "panel": "#1c2129",
-    "field": "#181d25",
-    "header": "#242b35",
+    "border": "#38414d",
+    "panel": "#171b21",
+    "field": "#10141a",
+    "header": "#252b34",
     "tooltip": "#f7fbff",
     "shadow": "#000000",
 }
@@ -68,31 +68,31 @@ def base_qss() -> str:
     HEADER = palette["header"]
     TOOLTIP = palette["tooltip"]
     TOOLTIP_TEXT = "#ffffff" if not is_dark_mode() else "#0b111c"
-    FOCUS = "#8bbff7" if is_dark_mode() else "#1f6feb"
-    CARD_HOVER = "#242a33" if is_dark_mode() else "#fcfdff"
-    BUTTON_BG = "#262d37" if is_dark_mode() else "#ffffff"
-    BUTTON_HOVER = "#303845" if is_dark_mode() else "#f5f9ff"
-    PRIMARY_HOVER = "#0b5bb7" if is_dark_mode() else BRAND_BLUE_DARK
+    FOCUS = "#7fb7f2" if is_dark_mode() else "#1f6feb"
+    CARD_HOVER = "#252b33" if is_dark_mode() else "#fcfdff"
+    BUTTON_BG = "#242a33" if is_dark_mode() else "#ffffff"
+    BUTTON_HOVER = "#2d3540" if is_dark_mode() else "#f5f9ff"
+    PRIMARY_HOVER = "#0a5bb5" if is_dark_mode() else BRAND_BLUE_DARK
     CHECKED_TEXT = "#d8e9ff" if is_dark_mode() else BRAND_BLUE
-    TABLE_ALT = "#1d232c" if is_dark_mode() else "#f7f9fc"
-    DANGER_BG = "#3a2024" if is_dark_mode() else "#fff8f8"
-    DANGER_HOVER = "#44242a" if is_dark_mode() else "#fff0f1"
-    DISABLED_BG = "#253144" if is_dark_mode() else "#edf1f6"
-    DISABLED_TEXT = "#8995a7" if is_dark_mode() else "#94a0b2"
-    SOFT_BORDER = "#3b4b60" if is_dark_mode() else "#dbe4ef"
-    CHIP_BG = "#243854" if is_dark_mode() else "#f1f6ff"
-    SUCCESS_BG = "#193526" if is_dark_mode() else "#f2fbf6"
+    TABLE_ALT = "#151a21" if is_dark_mode() else "#f7f9fc"
+    DANGER_BG = "#351f23" if is_dark_mode() else "#fff8f8"
+    DANGER_HOVER = "#42242a" if is_dark_mode() else "#fff0f1"
+    DISABLED_BG = "#202935" if is_dark_mode() else "#edf1f6"
+    DISABLED_TEXT = "#8b96a6" if is_dark_mode() else "#94a0b2"
+    SOFT_BORDER = "#465569" if is_dark_mode() else "#dbe4ef"
+    CHIP_BG = "#1d3049" if is_dark_mode() else "#f1f6ff"
+    SUCCESS_BG = "#173421" if is_dark_mode() else "#f2fbf6"
     SUCCESS_BORDER = "#3f7d57" if is_dark_mode() else "#c9e7d3"
-    WARNING_BG = "#3b311d" if is_dark_mode() else "#fff8e7"
+    WARNING_BG = "#3a2f1a" if is_dark_mode() else "#fff8e7"
     WARNING_BORDER = "#8d6d26" if is_dark_mode() else "#ead49a"
     SUCCESS_FG = "#8ee3b0" if is_dark_mode() else SUCCESS
     WARNING_FG = "#f4cf72" if is_dark_mode() else WARNING
     SUCCESS_BADGE_TEXT = "#111827" if is_dark_mode() else "#ffffff"
     WARNING_BADGE_TEXT = "#111827" if is_dark_mode() else "#ffffff"
-    ERROR_BG = "#442126" if is_dark_mode() else "#fff0f1"
+    ERROR_BG = "#3f2024" if is_dark_mode() else "#fff0f1"
     ERROR_BORDER = "#9a4850" if is_dark_mode() else "#efb8bd"
-    SCROLL_BG = "#182233" if is_dark_mode() else "#edf2f8"
-    SCROLL_HANDLE = "#68798e" if is_dark_mode() else "#9fb0c9"
+    SCROLL_BG = "#161d27" if is_dark_mode() else "#edf2f8"
+    SCROLL_HANDLE = "#657384" if is_dark_mode() else "#9fb0c9"
     return f"""
     QWidget {{
         background: {BACKGROUND};
@@ -105,6 +105,36 @@ def base_qss() -> str:
     }}
     QFrame#ContentShell {{
         background: transparent;
+    }}
+    QWidget#SuiteShell {{
+        background: {BACKGROUND};
+    }}
+    QWidget#MainWorkspace {{
+        background: {BACKGROUND};
+    }}
+    QFrame#NavRail {{
+        background: {SURFACE};
+        border-right: 1px solid {BORDER};
+    }}
+    QFrame#NavBrand {{
+        background: {PANEL};
+        border: 1px solid {BORDER};
+        border-radius: 8px;
+    }}
+    QLabel#NavTitle {{
+        color: {BRAND_BLUE_DARK};
+        background: transparent;
+        font-size: 12pt;
+        font-weight: 800;
+    }}
+    QLabel#NavSubtitle, QLabel#NavFooter {{
+        color: {MUTED};
+        background: transparent;
+        font-weight: 650;
+    }}
+    QLabel#NavFooter {{
+        border-top: 1px solid {BORDER};
+        padding-top: 10px;
     }}
     QFrame#Sidebar {{
         background: {PANEL};
@@ -156,6 +186,9 @@ def base_qss() -> str:
     QLabel#SectionLabel, QLabel#ResultLabel {{
         font-weight: 700;
         letter-spacing: 0;
+    }}
+    QLabel#SectionLabel, QLabel#AppTitle, QLabel#AppDescription, QLabel#MetricLabel, QLabel#MetricValue {{
+        background: transparent;
     }}
     QLabel#ResultLabel {{
         background: {SURFACE};
@@ -231,6 +264,13 @@ def base_qss() -> str:
         font-family: Consolas, Segoe UI, monospace;
         padding: 6px;
     }}
+    QPlainTextEdit[emptyState="true"] {{
+        background: {PANEL};
+        border: 1px dashed {BORDER};
+        color: {MUTED};
+        font-weight: 600;
+        padding: 10px;
+    }}
     QPlainTextEdit:focus, QTableWidget:focus {{
         border: 2px solid {FOCUS};
     }}
@@ -301,6 +341,9 @@ def base_qss() -> str:
         min-width: 58px;
         padding-left: 8px;
         padding-right: 8px;
+    }}
+    QFrame#Toolbar QLineEdit {{
+        min-width: 118px;
     }}
     QLabel#GroupLabel {{
         color: {MUTED};
@@ -381,6 +424,7 @@ def base_qss() -> str:
         font-size: 12pt;
         font-weight: 750;
         color: {BRAND_BLUE_DARK};
+        background: transparent;
     }}
     QLabel#CategoryTag {{
         background: {CHIP_BG};
@@ -419,7 +463,7 @@ def base_qss() -> str:
         border-top: 4px solid {BRAND_BLUE};
         border-bottom: 2px solid {BRAND_RED};
         border-radius: 8px;
-        padding: 8px;
+        padding: 6px;
     }}
     QLabel#BrandCaption {{
         color: {BRAND_BLUE_DARK};
@@ -475,13 +519,17 @@ def base_qss() -> str:
         padding: 0 2px;
     }}
     QFrame#ContextPanel {{
-        background: transparent;
-        border: 0;
+        background: {PANEL};
+        border: 1px solid {BORDER};
+        border-radius: 8px;
+        padding: 6px;
     }}
     QFrame#ContextItem {{
         background: {SURFACE};
         border: 1px solid {BORDER};
         border-radius: 7px;
+        min-height: 34px;
+        padding: 1px;
     }}
     QLabel#ContextLabel {{
         color: {MUTED};
@@ -492,7 +540,7 @@ def base_qss() -> str:
     QLabel#ContextStateValue, QLabel#ContextNextValue, QLabel#ContextAlertsValue {{
         color: {INK};
         background: transparent;
-        font-weight: 650;
+        font-weight: 750;
     }}
     QLabel#InlineBanner {{
         background: {CHIP_BG};
@@ -530,6 +578,24 @@ def base_qss() -> str:
         padding: 6px 9px;
         font-weight: 600;
     }}
+    QPushButton[nav="true"] {{
+        min-height: 36px;
+        padding: 7px 10px;
+        text-align: left;
+        background: transparent;
+        border-color: transparent;
+        color: {INK};
+    }}
+    QPushButton[nav="true"]:hover {{
+        background: {BUTTON_HOVER};
+        border-color: {BORDER};
+    }}
+    QPushButton[nav="true"]:checked {{
+        background: {BRAND_BLUE_SOFT};
+        border-color: {BRAND_BLUE};
+        color: {CHECKED_TEXT};
+        font-weight: 750;
+    }}
     QPushButton:hover {{
         border-color: {BRAND_BLUE};
         background: {BUTTON_HOVER};
@@ -543,6 +609,15 @@ def base_qss() -> str:
         color: {CHECKED_TEXT};
         font-weight: 650;
     }}
+    QPushButton[role="open"], QPushButton[role="process"], QPushButton[role="save"] {{
+        color: {INK};
+        border-color: {BORDER};
+        background: {BUTTON_BG};
+    }}
+    QPushButton[role="open"]:hover, QPushButton[role="process"]:hover, QPushButton[role="save"]:hover {{
+        border-color: {BRAND_BLUE};
+        background: {BRAND_BLUE_SOFT};
+    }}
     QPushButton[primary="true"] {{
         background: {BRAND_BLUE};
         color: white;
@@ -551,15 +626,16 @@ def base_qss() -> str:
     }}
     QPushButton[primary="true"]:hover {{
         background: {PRIMARY_HOVER};
+        color: white;
         border-color: {PRIMARY_HOVER};
     }}
-    QPushButton[role="open"], QPushButton[role="process"], QPushButton[role="save"] {{
-        border-color: {BORDER};
-        background: {BUTTON_BG};
+    QPushButton[nextAction="true"] {{
+        border: 2px solid {FOCUS};
     }}
-    QPushButton[role="open"]:hover, QPushButton[role="process"]:hover, QPushButton[role="save"]:hover {{
-        border-color: {BRAND_BLUE};
-        background: {BRAND_BLUE_SOFT};
+    QPushButton[primary="true"][nextAction="true"] {{
+        background: {BRAND_BLUE};
+        color: white;
+        border: 2px solid {FOCUS};
     }}
     QPushButton[role="danger"] {{
         color: {BRAND_RED_DARK};
@@ -571,7 +647,7 @@ def base_qss() -> str:
         border-color: {BRAND_RED};
     }}
     QPushButton[role="favorite"] {{
-        min-width: 68px;
+        min-width: 58px;
         color: {BRAND_BLUE_DARK};
         background: {CHIP_BG};
         border-color: {BORDER};
