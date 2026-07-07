@@ -6,7 +6,7 @@ import sys
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QFrame, QLabel
 
 from suite_pyside6.core.apps import APP_REGISTRY
 from suite_pyside6.ui.main_window import MainWindow
@@ -26,6 +26,10 @@ def main() -> int:
         assert window.stack.currentWidget() is embedded
         assert embedded.parentWidget() is window.stack
         assert not embedded.isWindow()
+        assert embedded.minimumWidth() == 0
+        assert not any(bar.isVisible() for bar in embedded.findChildren(QFrame, "AppBrandBar"))
+        assert not any(label.isVisible() for label in embedded.findChildren(QLabel, "WindowTitle"))
+        assert not any(panel.isVisible() for panel in embedded.findChildren(QFrame, "ContextPanel"))
         assert window.home_button.isVisible()
         assert window.workspace_title.text() == target.title
 

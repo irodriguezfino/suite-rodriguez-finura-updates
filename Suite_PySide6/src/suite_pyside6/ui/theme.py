@@ -107,6 +107,17 @@ def base_qss() -> str:
         background: transparent;
         border: 0;
     }}
+    QMainWindow#EmbeddedAppWindow QFrame#Stepper {{
+        background: {SURFACE};
+        border: 1px solid {SOFT_BORDER};
+        border-radius: 8px;
+        padding: 6px;
+    }}
+    QMainWindow#EmbeddedAppWindow QFrame#ContextPanel,
+    QMainWindow#EmbeddedAppWindow QFrame#Toolbar {{
+        background: {PANEL};
+        border-color: {SOFT_BORDER};
+    }}
     QFrame#ContentShell {{
         background: transparent;
     }}
@@ -124,6 +135,9 @@ def base_qss() -> str:
         background: {PANEL};
         border: 1px solid {BORDER};
         border-radius: 8px;
+    }}
+    QFrame#NavBrand[compact="true"] {{
+        padding: 4px;
     }}
     QLabel#NavTitle {{
         color: {BRAND_BLUE_DARK};
@@ -153,6 +167,17 @@ def base_qss() -> str:
         border-bottom: 2px solid {BRAND_RED};
         border-radius: 8px;
         padding: 12px;
+    }}
+    QFrame#ShellContext {{
+        background: {PANEL};
+        border: 1px solid {SOFT_BORDER};
+        border-radius: 8px;
+        padding: 4px;
+    }}
+    QLabel#ShellContextLabel {{
+        color: {INK};
+        background: transparent;
+        font-weight: 650;
     }}
     QFrame#BrandPanel {{
         background: {PANEL};
@@ -415,6 +440,30 @@ def base_qss() -> str:
         border-radius: 8px;
         padding: 10px;
     }}
+    QFrame#DashboardPanel {{
+        background: {SURFACE};
+        border: 1px solid {BORDER};
+        border-radius: 8px;
+        padding: 8px;
+    }}
+    QLabel#DashboardPanelTitle {{
+        color: {BRAND_BLUE_DARK};
+        background: transparent;
+        font-weight: 800;
+    }}
+    QLabel#DashboardEmpty {{
+        color: {MUTED};
+        background: transparent;
+        font-weight: 650;
+    }}
+    QLabel#DashboardPath {{
+        color: {INK};
+        background: {PANEL};
+        border: 1px solid {SOFT_BORDER};
+        border-radius: 6px;
+        padding: 6px 8px;
+        font-weight: 600;
+    }}
     QFrame#MetricCard[accent="red"] {{
         border-top: 3px solid {BRAND_RED};
     }}
@@ -590,6 +639,10 @@ def base_qss() -> str:
         border-color: transparent;
         color: {INK};
     }}
+    QPushButton[nav="true"][compact="true"] {{
+        min-height: 34px;
+        padding: 6px 8px;
+    }}
     QPushButton[nav="true"]:hover {{
         background: {BUTTON_HOVER};
         border-color: {BORDER};
@@ -599,6 +652,15 @@ def base_qss() -> str:
         border-color: {BRAND_BLUE};
         color: {CHECKED_TEXT};
         font-weight: 750;
+    }}
+    QPushButton[dashboardAction="true"] {{
+        text-align: left;
+        background: {PANEL};
+        border-color: {SOFT_BORDER};
+    }}
+    QPushButton[dashboardAction="true"]:hover {{
+        background: {BUTTON_HOVER};
+        border-color: {BRAND_BLUE};
     }}
     QPushButton:hover {{
         border-color: {BRAND_BLUE};

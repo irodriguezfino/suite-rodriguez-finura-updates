@@ -1,0 +1,7 @@
+Suite Rodriguez Finura v1.6.0
+
+- Suite profesional unificada: modulos integrados como paginas reales dentro del shell principal.
+- Dashboard operativo con procesos abiertos, actividad reciente, favoritos y ultimas salidas.
+- Contexto global de modulo con estado, siguiente accion, avisos y accion directa.
+- Responsive profesional con navegacion compacta y paginas integradas sin minimos rigidos.
+- Refactor UI sin cambiar core: registro de ventanas separado y contratos automatizados ampliados.

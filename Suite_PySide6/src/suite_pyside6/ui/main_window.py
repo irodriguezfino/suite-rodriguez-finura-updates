@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QAction, QColor, QIcon
 from PySide6.QtWidgets import (
     QApplication,
@@ -25,32 +25,24 @@ from suite_pyside6 import __version__
 from suite_pyside6.core.apps import APP_REGISTRY, AppDefinition, apps_for_category, categories
 from suite_pyside6.core.paths import resource_path
 from suite_pyside6.ui.about_dialog import AboutDialog
-from suite_pyside6.ui.control_recepcion_maquilas_window import ControlRecepcionMaquilasWindow
-from suite_pyside6.ui.mermas_window import MermasWindow
-from suite_pyside6.ui.palets_window import PaletsWindow
-from suite_pyside6.ui.pesos_window import PesosWindow
-from suite_pyside6.ui.precintos_expedicion_window import PrecintosExpedicionWindow
-from suite_pyside6.ui.precintos_excel_window import PrecintosExcelWindow
-from suite_pyside6.ui.precintos_jamones_window import PrecintosJamonesWindow
-from suite_pyside6.ui.polish import brand_logo_pixmap, polish_window
+from suite_pyside6.ui.app_windows import WINDOW_CLASSES
+from suite_pyside6.ui.polish import (
+    brand_logo_pixmap,
+    operational_snapshot,
+    polish_window,
+    prepare_embedded_window,
+    trigger_next_action,
+)
 from suite_pyside6.ui.responsive import apply_adaptive_layouts, make_flow, register_adaptive_layout
-from suite_pyside6.ui.session import favorite_app_keys, is_favorite_app, recent_app_keys, remember_app_open, toggle_favorite_app
-from suite_pyside6.ui.recepcion_maquilas_window import RecepcionMaquilasWindow
+from suite_pyside6.ui.session import (
+    favorite_app_keys,
+    is_favorite_app,
+    recent_app_keys,
+    recent_paths,
+    remember_app_open,
+    toggle_favorite_app,
+)
 from suite_pyside6.ui.theme import base_qss, is_dark_mode
-from suite_pyside6.ui.txt_csv_window import TxtCsvWindow
-
-
-WINDOW_CLASSES: dict[str, type[QMainWindow]] = {
-    "exportar_precintos_excel": PrecintosExcelWindow,
-    "txt_csv": TxtCsvWindow,
-    "palets": PaletsWindow,
-    "mermas": MermasWindow,
-    "precintos_expedicion": PrecintosExpedicionWindow,
-    "precintos_jamones": PrecintosJamonesWindow,
-    "recepcion_maquilas": RecepcionMaquilasWindow,
-    "control_recepcion_maquilas": ControlRecepcionMaquilasWindow,
-    "pesos": PesosWindow,
-}
 
 
 class MainWindow(QMainWindow):
@@ -62,6 +54,10 @@ class MainWindow(QMainWindow):
         self.category_buttons: dict[str, QPushButton] = {}
         self.open_windows: dict[str, QMainWindow] = {}
         self.app_pages: dict[str, QMainWindow] = {}
+        self.metric_values: dict[str, QLabel] = {}
+        self._closing = False
+        self._current_app_key = ""
+        self._nav_compact = False
         self.setWindowTitle("Suite Rodriguez Finura")
         self.resize(1180, 760)
         self.setMinimumSize(720, 560)
@@ -97,9 +93,9 @@ class MainWindow(QMainWindow):
         sidebar_layout.setContentsMargins(18, 18, 18, 16)
         sidebar_layout.setSpacing(12)
 
-        brand_panel = QFrame()
-        brand_panel.setObjectName("NavBrand")
-        brand_layout = QVBoxLayout(brand_panel)
+        self.brand_panel = QFrame()
+        self.brand_panel.setObjectName("NavBrand")
+        brand_layout = QVBoxLayout(self.brand_panel)
         brand_layout.setContentsMargins(12, 12, 12, 12)
         brand_layout.setSpacing(8)
         logo_row = QHBoxLayout()
@@ -117,17 +113,17 @@ class MainWindow(QMainWindow):
                 logo_row.addWidget(logo, 0)
         logo_row.addStretch(1)
         brand_layout.addLayout(logo_row)
-        nav_title = QLabel("Suite Rodriguez Finura")
-        nav_title.setObjectName("NavTitle")
-        nav_subtitle = QLabel("Centro operativo")
-        nav_subtitle.setObjectName("NavSubtitle")
-        brand_layout.addWidget(nav_title)
-        brand_layout.addWidget(nav_subtitle)
-        sidebar_layout.addWidget(brand_panel)
+        self.nav_title = QLabel("Suite Rodriguez Finura")
+        self.nav_title.setObjectName("NavTitle")
+        self.nav_subtitle = QLabel("Centro operativo")
+        self.nav_subtitle.setObjectName("NavSubtitle")
+        brand_layout.addWidget(self.nav_title)
+        brand_layout.addWidget(self.nav_subtitle)
+        sidebar_layout.addWidget(self.brand_panel)
 
-        side_title = QLabel("Areas de trabajo")
-        side_title.setObjectName("SectionLabel")
-        sidebar_layout.addWidget(side_title)
+        self.side_title = QLabel("Areas de trabajo")
+        self.side_title.setObjectName("SectionLabel")
+        sidebar_layout.addWidget(self.side_title)
 
         nav_flow = make_flow(spacing=8)
         for category in self._nav_items():
@@ -141,10 +137,10 @@ class MainWindow(QMainWindow):
         sidebar_layout.addLayout(nav_flow)
         sidebar_layout.addStretch(1)
 
-        footer = QLabel(f"Version {__version__}\nLista para operar")
-        footer.setObjectName("NavFooter")
-        footer.setWordWrap(True)
-        sidebar_layout.addWidget(footer)
+        self.footer = QLabel(f"Version {__version__}\nLista para operar")
+        self.footer.setObjectName("NavFooter")
+        self.footer.setWordWrap(True)
+        sidebar_layout.addWidget(self.footer)
         root_layout.addWidget(sidebar)
 
         workspace = QWidget()
@@ -170,6 +166,24 @@ class MainWindow(QMainWindow):
         title_box.addWidget(self.workspace_title)
         title_box.addWidget(self.workspace_subtitle)
         header_layout.addLayout(title_box, 1)
+
+        self.process_context = QFrame()
+        self.process_context.setObjectName("ShellContext")
+        process_context_layout = QHBoxLayout(self.process_context)
+        process_context_layout.setContentsMargins(8, 6, 8, 6)
+        process_context_layout.setSpacing(8)
+        self.process_state = self._shell_context_label("Estado", "Pendiente")
+        self.process_next = self._shell_context_label("Siguiente", "Completa el paso actual")
+        self.process_alerts = self._shell_context_label("Avisos", "Sin avisos")
+        process_context_layout.addWidget(self.process_state, 1)
+        process_context_layout.addWidget(self.process_next, 1)
+        process_context_layout.addWidget(self.process_alerts, 0)
+        self.next_action_button = QPushButton("Ejecutar")
+        self.next_action_button.setProperty("primary", True)
+        self.next_action_button.setToolTip("Ejecuta la siguiente accion disponible del proceso abierto.")
+        self.next_action_button.clicked.connect(self._trigger_current_next_action)
+        process_context_layout.addWidget(self.next_action_button, 0)
+        header_layout.addWidget(self.process_context, 1)
 
         self.search = QLineEdit()
         self.search.setPlaceholderText("Buscar proceso, archivo o area")
@@ -204,10 +218,21 @@ class MainWindow(QMainWindow):
         metrics = make_flow(spacing=10)
         metrics.setSpacing(10)
         ported = sum(1 for app in APP_REGISTRY if app.migration_status == "ported")
-        metrics.addWidget(self._metric_card(str(ported), "Procesos listos", "blue"))
-        metrics.addWidget(self._metric_card(str(len(recent_app_keys())), "Recientes", "red"))
-        metrics.addWidget(self._metric_card(str(len(favorite_app_keys())), "Favoritos", "green"))
+        metrics.addWidget(self._metric_card("ready", str(ported), "Procesos listos", "blue"))
+        metrics.addWidget(self._metric_card("recent", str(len(recent_app_keys())), "Recientes", "red"))
+        metrics.addWidget(self._metric_card("favorites", str(len(favorite_app_keys())), "Favoritos", "green"))
         dashboard_layout.addLayout(metrics)
+
+        dashboard_panels = QBoxLayout(QBoxLayout.LeftToRight)
+        dashboard_panels.setSpacing(10)
+        self.open_processes_panel, self.open_processes_layout = self._dashboard_panel("Procesos abiertos")
+        self.recent_activity_panel, self.recent_activity_layout = self._dashboard_panel("Actividad reciente")
+        self.exports_panel, self.exports_layout = self._dashboard_panel("Ultimas salidas")
+        dashboard_panels.addWidget(self.open_processes_panel, 1)
+        dashboard_panels.addWidget(self.recent_activity_panel, 1)
+        dashboard_panels.addWidget(self.exports_panel, 1)
+        dashboard_layout.addLayout(dashboard_panels)
+        register_adaptive_layout(self, dashboard_panels, breakpoint_width=1040)
 
         content_shell = QFrame()
         content_shell.setObjectName("ContentShell")
@@ -239,7 +264,11 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(self.status)
 
         self.setCentralWidget(root)
-        register_adaptive_layout(self, self.header_layout, breakpoint_width=840)
+        register_adaptive_layout(self, self.header_layout, breakpoint_width=1120)
+        self.context_timer = QTimer(self)
+        self.context_timer.setInterval(700)
+        self.context_timer.timeout.connect(self._update_process_context)
+        self.context_timer.start()
         self.show_dashboard()
         self._apply_responsive_state()
 
@@ -254,7 +283,7 @@ class MainWindow(QMainWindow):
         shadow.setColor(QColor(0, 0, 0, 24 if is_dark_mode() else min(alpha, 8)))
         widget.setGraphicsEffect(shadow)
 
-    def _metric_card(self, value: str, label: str, accent: str) -> QFrame:
+    def _metric_card(self, key: str, value: str, label: str, accent: str) -> QFrame:
         card = QFrame()
         card.setObjectName("MetricCard")
         card.setProperty("accent", accent)
@@ -264,11 +293,110 @@ class MainWindow(QMainWindow):
         layout.setSpacing(0)
         value_label = QLabel(value)
         value_label.setObjectName("MetricValue")
+        self.metric_values[key] = value_label
         label_widget = QLabel(label)
         label_widget.setObjectName("MetricLabel")
         layout.addWidget(value_label)
         layout.addWidget(label_widget)
         return card
+
+    def _dashboard_panel(self, title: str) -> tuple[QFrame, QVBoxLayout]:
+        panel = QFrame()
+        panel.setObjectName("DashboardPanel")
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(12, 10, 12, 12)
+        layout.setSpacing(8)
+        label = QLabel(title)
+        label.setObjectName("DashboardPanelTitle")
+        layout.addWidget(label)
+        return panel, layout
+
+    @staticmethod
+    def _shell_context_label(title: str, value: str) -> QLabel:
+        label = QLabel(f"{title}: {value}")
+        label.setObjectName("ShellContextLabel")
+        label.setWordWrap(True)
+        return label
+
+    def _refresh_dashboard_overview(self) -> None:
+        if self._closing:
+            return
+        values = {
+            "ready": str(sum(1 for app in APP_REGISTRY if app.migration_status == "ported")),
+            "recent": str(len(recent_app_keys())),
+            "favorites": str(len(favorite_app_keys())),
+        }
+        for key, value in values.items():
+            label = self.metric_values.get(key)
+            if label is not None:
+                try:
+                    label.setText(value)
+                except RuntimeError:
+                    return
+        self._render_open_processes()
+        self._render_recent_activity()
+        self._render_recent_exports()
+
+    def _render_open_processes(self) -> None:
+        self._clear_dashboard_panel(self.open_processes_layout)
+        if not self.app_pages:
+            self.open_processes_layout.addWidget(self._dashboard_empty("Sin procesos abiertos"))
+            return
+        for key in self.open_windows:
+            app = self._app_from_key(key)
+            if app is None:
+                continue
+            button = QPushButton(app.title)
+            button.setProperty("dashboardAction", True)
+            button.setToolTip(f"Volver a {app.title} sin perder el estado actual.")
+            button.clicked.connect(lambda _checked=False, item=app: self.open_app(item))
+            self.open_processes_layout.addWidget(button)
+
+    def _render_recent_activity(self) -> None:
+        self._clear_dashboard_panel(self.recent_activity_layout)
+        recents = [self._app_from_key(key) for key in recent_app_keys()]
+        recents = [app for app in recents if app is not None][:5]
+        if not recents:
+            self.recent_activity_layout.addWidget(self._dashboard_empty("Sin actividad reciente"))
+            return
+        for app in recents:
+            button = QPushButton(app.title)
+            button.setProperty("dashboardAction", True)
+            button.setToolTip(f"Abrir {app.title}.")
+            button.clicked.connect(lambda _checked=False, item=app: self.open_app(item))
+            self.recent_activity_layout.addWidget(button)
+
+    def _render_recent_exports(self) -> None:
+        self._clear_dashboard_panel(self.exports_layout)
+        exports = recent_paths("exports")[:5]
+        if not exports:
+            self.exports_layout.addWidget(self._dashboard_empty("Sin salidas recientes"))
+            return
+        for path in exports:
+            label = QLabel(path)
+            label.setObjectName("DashboardPath")
+            label.setWordWrap(True)
+            label.setToolTip(path)
+            self.exports_layout.addWidget(label)
+
+    def _clear_dashboard_panel(self, layout: QVBoxLayout) -> None:
+        while layout.count() > 1:
+            item = layout.takeAt(1)
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
+                widget.deleteLater()
+
+    @staticmethod
+    def _dashboard_empty(text: str) -> QLabel:
+        label = QLabel(text)
+        label.setObjectName("DashboardEmpty")
+        label.setWordWrap(True)
+        return label
+
+    @staticmethod
+    def _app_from_key(key: str) -> AppDefinition | None:
+        return next((app for app in APP_REGISTRY if app.key == key), None)
 
     def _select_category(self, category: str) -> None:
         self.current_category = category
@@ -306,8 +434,9 @@ class MainWindow(QMainWindow):
         return list(apps_for_category(view))
 
     def _render_apps(self) -> None:
+        self._refresh_dashboard_overview()
         for button_category, button in self.category_buttons.items():
-            button.setText(f"{button_category}  ({len(self._apps_for_view(button_category))})")
+            button.setText(self._nav_button_text(button_category))
             button.setChecked(button_category == self.current_category)
 
         while self.app_grid.count():
@@ -344,20 +473,44 @@ class MainWindow(QMainWindow):
             self._render_apps()
 
     def _column_count(self) -> int:
-        if self.width() < 900:
+        available = self.stack.width() if hasattr(self, "stack") else self.width()
+        if available < 740:
             return 1
-        if self.width() < 1280:
+        if available < 1120:
             return 2
         return 3
 
     def _apply_responsive_state(self) -> None:
-        compact = self.width() < 900
-        self.sidebar.setMaximumWidth(220 if compact else 286)
-        self.sidebar.setMinimumWidth(190 if compact else 244)
+        compact = self.width() < 1060
+        self._nav_compact = compact
+        self.sidebar.setMaximumWidth(176 if compact else 286)
+        self.sidebar.setMinimumWidth(164 if compact else 244)
+        self.brand_panel.setProperty("compact", compact)
+        self.nav_title.setText("SRF" if compact else "Suite Rodriguez Finura")
+        self.nav_subtitle.setVisible(not compact)
+        self.side_title.setText("Areas" if compact else "Areas de trabajo")
+        self.footer.setText(f"v{__version__}" if compact else f"Version {__version__}\nLista para operar")
         self.search.setMinimumWidth(0)
+        for category, button in self.category_buttons.items():
+            button.setText(self._nav_button_text(category))
+            button.setProperty("compact", compact)
+
+    def _nav_button_text(self, category: str) -> str:
+        count = len(self._apps_for_view(category))
+        if not self._nav_compact:
+            return f"{category}  ({count})"
+        short = {
+            "Todas": "Todo",
+            "Favoritos": "Fav",
+            "Recientes": "Rec",
+            "Excel / CSV": "CSV",
+            "Palets y PDA": "PDA",
+        }.get(category, category.split()[0])
+        return f"{short} ({count})"
 
     def open_app(self, app: AppDefinition) -> None:
         remember_app_open(app.key)
+        self._refresh_dashboard_overview()
         window_class = WINDOW_CLASSES.get(app.key)
         if window_class is not None:
             self._show_app_page(app, window_class)
@@ -368,10 +521,13 @@ class MainWindow(QMainWindow):
 
     def show_dashboard(self) -> None:
         self.stack.setCurrentWidget(self.dashboard_page)
+        self._current_app_key = ""
         self.workspace_title.setText("Centro de mando operativo")
         self.workspace_subtitle.setText("Procesos de jamones, CSV, PDA y maquilas con acceso rapido y estado claro")
         self.home_button.setVisible(False)
+        self.process_context.setVisible(False)
         self.status.setText("Suite operativa. Selecciona un proceso o usa el buscador para empezar.")
+        self._refresh_dashboard_overview()
 
     def show_about(self) -> None:
         dialog = AboutDialog(self)
@@ -382,22 +538,48 @@ class MainWindow(QMainWindow):
         if window is None:
             window = window_class()
             window.setObjectName("EmbeddedAppWindow")
+            prepare_embedded_window(window)
             window.setParent(self.stack)
             window.setWindowFlags(Qt.Widget)
             window.destroyed.connect(lambda _obj=None, key=app.key: self._forget_app_page(key))
             self.open_windows[app.key] = window
             self.app_pages[app.key] = window
             self.stack.addWidget(window)
+            self._refresh_dashboard_overview()
         self.stack.setCurrentWidget(window)
+        self._current_app_key = app.key
         self.workspace_title.setText(app.title)
         self.workspace_subtitle.setText(app.description)
         self.home_button.setVisible(True)
+        self.process_context.setVisible(True)
         self.status.setText(f"{app.title} integrado en la ventana principal")
+        self._update_process_context()
         window.setFocus(Qt.ActiveWindowFocusReason)
+
+    def _update_process_context(self) -> None:
+        if self._closing or not self._current_app_key:
+            return
+        window = self.app_pages.get(self._current_app_key)
+        if window is None:
+            return
+        snapshot = operational_snapshot(window)
+        self.process_state.setText(f"Estado: {snapshot['state']}")
+        self.process_next.setText(f"Siguiente: {snapshot['next']}")
+        self.process_alerts.setText(f"Avisos: {snapshot['alerts']}")
+        self.next_action_button.setText(snapshot["next"])
+        self.next_action_button.setEnabled(snapshot["next"] != "Completa el paso actual")
+
+    def _trigger_current_next_action(self) -> None:
+        window = self.app_pages.get(self._current_app_key)
+        if window is None:
+            return
+        if trigger_next_action(window):
+            self._update_process_context()
 
     def _forget_app_page(self, key: str) -> None:
         self.open_windows.pop(key, None)
         self.app_pages.pop(key, None)
+        self._refresh_dashboard_overview()
 
     def close_embedded_apps_for_update(self) -> bool:
         for key, window in list(self.open_windows.items()):
@@ -409,8 +591,10 @@ class MainWindow(QMainWindow):
         return True
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt API
+        self._closing = True
         for key, window in list(self.open_windows.items()):
             if not window.close():
+                self._closing = False
                 app = next((item for item in APP_REGISTRY if item.key == key), None)
                 if app is not None:
                     self._show_app_page(app, type(window))
@@ -421,6 +605,7 @@ class MainWindow(QMainWindow):
     def toggle_favorite(self, app: AppDefinition) -> None:
         enabled = toggle_favorite_app(app.key)
         self.status.setText(f"{app.title} {'anadido a' if enabled else 'retirado de'} favoritos.")
+        self._refresh_dashboard_overview()
         self._render_apps()
 
 

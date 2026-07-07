@@ -106,6 +106,63 @@ def polish_window(
     _update_flow_indicator(widget)
 
 
+def prepare_embedded_window(widget: QMainWindow) -> None:
+    """Adapt an operational window so it reads as an in-shell page."""
+    widget.setProperty("embeddedPage", True)
+    widget.setMinimumSize(0, 0)
+    widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+    central = widget.centralWidget()
+    if central is not None:
+        central.setMinimumSize(0, 0)
+        central.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        layout = central.layout()
+        if layout is not None:
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setSpacing(max(6, min(layout.spacing(), 8)))
+
+    for bar in widget.findChildren(QFrame, "AppBrandBar"):
+        bar.setVisible(False)
+        bar.setMaximumHeight(0)
+    for label_name in ("WindowTitle", "WindowSubtitle"):
+        for label in widget.findChildren(QLabel, label_name):
+            label.setVisible(False)
+            label.setMaximumHeight(0)
+    for panel in widget.findChildren(QFrame, "ContextPanel"):
+        panel.setVisible(False)
+        panel.setMaximumHeight(0)
+    for scroll in widget.findChildren(QScrollArea, "WindowScroll"):
+        scroll.setMinimumSize(0, 0)
+        content = scroll.widget()
+        if content is not None:
+            content.setMinimumSize(0, 0)
+    _refresh_style(widget)
+
+
+def operational_snapshot(widget: QWidget) -> dict[str, str]:
+    """Return the compact operational state used by the shell header."""
+    _update_context_panel(widget)
+    status = widget.findChild(QLabel, "StatusLabel")
+    summary = widget.findChild(QLabel, "ResultLabel")
+    state_text = status.text() if status is not None and status.text() else "Pendiente"
+    summary_text = summary.text() if summary is not None else ""
+    next_button = _next_action_button(widget)
+    combined = " ".join(part for part in (state_text, summary_text) if part)
+    return {
+        "state": _compact_text(_state_summary(state_text, summary_text), 72),
+        "next": _compact_text(_clean_text(next_button.text()) if next_button is not None else "Completa el paso actual", 72),
+        "alerts": _alert_text(combined),
+    }
+
+
+def trigger_next_action(widget: QWidget) -> bool:
+    button = _next_action_button(widget)
+    if button is None or not button.isEnabled():
+        return False
+    button.click()
+    _update_context_panel(widget)
+    return True
+
+
 def show_inline_message(widget: QWidget, severity: str, text: str) -> None:
     banner = widget.findChild(QLabel, "InlineBanner")
     if banner is None:
