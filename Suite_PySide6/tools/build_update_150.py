@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.5.1"
+VERSION = "1.5.2"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 ROOT = Path(__file__).resolve().parents[2]
 PYSIDE_ROOT = ROOT / "Suite_PySide6"
@@ -18,7 +18,7 @@ LEGACY_RESOURCES = ROOT / "outputs" / "worktree_1_4_27" / "build_1_4_43"
 QT_ENV = ROOT / "qtv"
 RELEASE_ROOT = ROOT / "outputs" / f"release_{VERSION}"
 STAGING = RELEASE_ROOT / "Suite Rodriguez Finura"
-REMOTE_BASE = "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main"
+REMOTE_BASE = "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/refs/heads/main"
 
 
 PYSIDE_FILES = [
@@ -163,7 +163,7 @@ def update_manifest(package: Path) -> None:
         "- Nueva aplicacion Pesos para renombrar la primera hoja visible de varios Excel a Hoja1.\n"
         "- Area de trabajo Pesos integrada en el panel principal con acceso Alt+9.\n"
         "- Procesamiento conservador de XLSX/XLSM: solo se cambia el nombre de hoja en workbook.xml.\n"
-        "- Validaciones para archivos abiertos, formatos no soportados y duplicados de Hoja1."
+        "- Canal de actualizaciones ajustado a refs/heads/main para evitar cache antiguo de GitHub Raw."
     )
     manifest = {
         "schema": "suite-rodriguez-finura-update-v1",

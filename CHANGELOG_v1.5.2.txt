@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.5.2
+
+- Nueva aplicacion Pesos para renombrar la primera hoja visible de varios Excel a Hoja1.
+- Area de trabajo Pesos integrada en el panel principal con acceso Alt+9.
+- Procesamiento conservador de XLSX/XLSM: solo se cambia el nombre de hoja en workbook.xml.
+- Canal de actualizaciones ajustado a refs/heads/main para evitar cache antiguo de GitHub Raw.

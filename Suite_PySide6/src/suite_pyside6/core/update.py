@@ -23,7 +23,7 @@ LOCAL_VERSION_FILE = "version_local.json"
 UPDATE_CONFIG_FILE = "update_config.json"
 UPDATER_SCRIPT = "SuiteUpdater.py"
 RUNTIME_PYTHONW = Path("runtime") / "pythonw.exe"
-DEFAULT_VERSION_URL = "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/version.json"
+DEFAULT_VERSION_URL = "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/refs/heads/main/version.json"
 HTTP_TIMEOUT_SECONDS = 20
 UPDATE_LOG_FILE = (
     Path(os.environ.get("LOCALAPPDATA", tempfile.gettempdir()))
