@@ -140,6 +140,19 @@ El core separado vive en:
 
 Con esta fase, las 8 apps del menu estan marcadas como portadas en PySide6.
 
+## Novena app portada
+
+`Pesos` ya tiene ventana PySide6 propia:
+
+`suite_pyside6.ui.pesos_window.PesosWindow`
+
+El core separado vive en:
+
+`suite_pyside6.core.pesos`
+
+La aplicacion permite seleccionar varios XLSX/XLSM y renombrar la primera hoja
+visible a `Hoja1` sin modificar datos ni formatos.
+
 ## Pasada de paridad visual y funcional
 
 Se ha reforzado el tema global PySide6 con la identidad azul/rojo de Rodriguez:

@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.5.0"
+VERSION = "1.5.1"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 ROOT = Path(__file__).resolve().parents[2]
 PYSIDE_ROOT = ROOT / "Suite_PySide6"
@@ -160,10 +160,10 @@ def build_zip() -> Path:
 def update_manifest(package: Path) -> None:
     digest = sha256(package)
     notes = (
-        "- Suite PySide6 migrada como panel operativo principal.\n"
-        "- Nuevo boton Acerca de con version instalada, diagnostico y busqueda manual de actualizaciones.\n"
-        "- Toolbars, modo oscuro, paneles densos y flujo secuencial refinados para las 8 aplicaciones portadas.\n"
-        "- Limpieza de codigo legacy no usado y apertura de aplicaciones refactorizada."
+        "- Nueva aplicacion Pesos para renombrar la primera hoja visible de varios Excel a Hoja1.\n"
+        "- Area de trabajo Pesos integrada en el panel principal con acceso Alt+9.\n"
+        "- Procesamiento conservador de XLSX/XLSM: solo se cambia el nombre de hoja en workbook.xml.\n"
+        "- Validaciones para archivos abiertos, formatos no soportados y duplicados de Hoja1."
     )
     manifest = {
         "schema": "suite-rodriguez-finura-update-v1",

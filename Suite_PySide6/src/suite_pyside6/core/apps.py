@@ -87,6 +87,15 @@ APP_REGISTRY: tuple[AppDefinition, ...] = (
         shortcut="Alt+8",
         migration_status="ported",
     ),
+    AppDefinition(
+        key="pesos",
+        title="Pesos",
+        description="Renombra la primera hoja visible de varios Excel a Hoja1 sin cambiar datos.",
+        short_description="Excel de pesos con hoja Hoja1.",
+        category="Pesos",
+        shortcut="Alt+9",
+        migration_status="ported",
+    ),
 )
 
 

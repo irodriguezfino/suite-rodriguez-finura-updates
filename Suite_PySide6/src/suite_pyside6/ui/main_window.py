@@ -26,6 +26,7 @@ from suite_pyside6.ui.about_dialog import AboutDialog
 from suite_pyside6.ui.control_recepcion_maquilas_window import ControlRecepcionMaquilasWindow
 from suite_pyside6.ui.mermas_window import MermasWindow
 from suite_pyside6.ui.palets_window import PaletsWindow
+from suite_pyside6.ui.pesos_window import PesosWindow
 from suite_pyside6.ui.precintos_expedicion_window import PrecintosExpedicionWindow
 from suite_pyside6.ui.precintos_excel_window import PrecintosExcelWindow
 from suite_pyside6.ui.precintos_jamones_window import PrecintosJamonesWindow
@@ -46,6 +47,7 @@ WINDOW_CLASSES: dict[str, type[QMainWindow]] = {
     "precintos_jamones": PrecintosJamonesWindow,
     "recepcion_maquilas": RecepcionMaquilasWindow,
     "control_recepcion_maquilas": ControlRecepcionMaquilasWindow,
+    "pesos": PesosWindow,
 }
 
 
