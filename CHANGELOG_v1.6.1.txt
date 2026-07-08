@@ -1,0 +1,7 @@
+Suite Rodriguez Finura v1.6.1
+
+- Lanzamiento profesional sin ventanas CMD pequenas: acceso silencioso VBS y arranque por pythonw.
+- Instalador completo refinado: crea acceso directo limpio y abre la suite sin pasar por el .cmd.
+- Actualizador endurecido: cierre preventivo y subprocesos auxiliares ocultos durante la actualizacion.
+- Shell mas limpio en procesos integrados: cabecera menos saturada y siguiente accion mas controlada.
+- Refactor de empaquetado con contratos para impedir regresiones en el canal profesional.

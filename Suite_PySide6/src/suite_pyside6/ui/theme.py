@@ -622,6 +622,10 @@ def base_qss() -> str:
     QPushButton#ThemeToggle {{
         min-width: 72px;
     }}
+    QPushButton#ShellNextAction {{
+        padding-left: 12px;
+        padding-right: 12px;
+    }}
     QPushButton {{
         color: {INK};
         background: {BUTTON_BG};

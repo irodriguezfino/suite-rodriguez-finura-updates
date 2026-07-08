@@ -179,7 +179,10 @@ class MainWindow(QMainWindow):
         process_context_layout.addWidget(self.process_next, 1)
         process_context_layout.addWidget(self.process_alerts, 0)
         self.next_action_button = QPushButton("Ejecutar")
+        self.next_action_button.setObjectName("ShellNextAction")
         self.next_action_button.setProperty("primary", True)
+        self.next_action_button.setMinimumWidth(118)
+        self.next_action_button.setMaximumWidth(220)
         self.next_action_button.setToolTip("Ejecuta la siguiente accion disponible del proceso abierto.")
         self.next_action_button.clicked.connect(self._trigger_current_next_action)
         process_context_layout.addWidget(self.next_action_button, 0)
@@ -526,6 +529,7 @@ class MainWindow(QMainWindow):
         self.workspace_subtitle.setText("Procesos de jamones, CSV, PDA y maquilas con acceso rapido y estado claro")
         self.home_button.setVisible(False)
         self.process_context.setVisible(False)
+        self.search.setVisible(True)
         self.status.setText("Suite operativa. Selecciona un proceso o usa el buscador para empezar.")
         self._refresh_dashboard_overview()
 
@@ -552,6 +556,7 @@ class MainWindow(QMainWindow):
         self.workspace_subtitle.setText(app.description)
         self.home_button.setVisible(True)
         self.process_context.setVisible(True)
+        self.search.setVisible(False)
         self.status.setText(f"{app.title} integrado en la ventana principal")
         self._update_process_context()
         window.setFocus(Qt.ActiveWindowFocusReason)
@@ -566,8 +571,16 @@ class MainWindow(QMainWindow):
         self.process_state.setText(f"Estado: {snapshot['state']}")
         self.process_next.setText(f"Siguiente: {snapshot['next']}")
         self.process_alerts.setText(f"Avisos: {snapshot['alerts']}")
-        self.next_action_button.setText(snapshot["next"])
+        self.next_action_button.setText(self._compact_action_text(snapshot["next"]))
+        self.next_action_button.setToolTip(f"Siguiente accion: {snapshot['next']}")
         self.next_action_button.setEnabled(snapshot["next"] != "Completa el paso actual")
+
+    @staticmethod
+    def _compact_action_text(text: str, limit: int = 28) -> str:
+        clean = " ".join(str(text).split())
+        if len(clean) <= limit:
+            return clean
+        return clean[: max(0, limit - 3)].rstrip() + "..."
 
     def _trigger_current_next_action(self) -> None:
         window = self.app_pages.get(self._current_app_key)

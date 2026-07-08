@@ -9,10 +9,12 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.6.0"
+VERSION = "1.6.1"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
+SILENT_LAUNCHER_NAME = "Abrir_Suite_Rodriguez_Finura.vbs"
+LEGACY_CMD_LAUNCHER_NAME = "Abrir_Suite_Rodriguez_Finura.cmd"
 ROOT = Path(__file__).resolve().parents[2]
 PYSIDE_ROOT = ROOT / "Suite_PySide6"
 LEGACY_APP = ROOT / "outputs" / "suite_1_4_21_work" / "Suite Rodriguez Finura"
@@ -96,6 +98,45 @@ def sha256(path: Path) -> str:
     return digest.hexdigest().upper()
 
 
+def silent_launcher_vbs_text() -> str:
+    return '''Set fso = CreateObject("Scripting.FileSystemObject")
+base = fso.GetParentFolderName(WScript.ScriptFullName)
+Set shell = CreateObject("WScript.Shell")
+shell.CurrentDirectory = base
+command = """" & base & "\\runtime\\pythonw.exe" & """ """ & base & "\\SuiteLauncher.py" & """"
+shell.Run command, 0, False
+'''
+
+
+def compatibility_cmd_text() -> str:
+    return f"""@echo off
+setlocal
+wscript.exe "%~dp0{SILENT_LAUNCHER_NAME}"
+exit /b 0
+"""
+
+
+def harden_legacy_runtime_scripts(target: Path) -> None:
+    updater = target / "SuiteUpdater.py"
+    text = updater.read_text(encoding="utf-8-sig")
+    text = text.replace(
+        "            timeout=12,\n        )",
+        "            timeout=12,\n"
+        "            creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n"
+        "        )",
+    )
+    text = text.replace(
+        "result = subprocess.run(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)",
+        "result = subprocess.run(\n"
+        "        args,\n"
+        "        stdout=subprocess.DEVNULL,\n"
+        "        stderr=subprocess.DEVNULL,\n"
+        "        creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n"
+        "    )",
+    )
+    updater.write_text(text, encoding="utf-8")
+
+
 def remove_tree(path: Path) -> None:
     def on_error(func, failed_path, _exc_info):
         os.chmod(failed_path, 0o700)
@@ -106,8 +147,11 @@ def remove_tree(path: Path) -> None:
 
 def overlay_current_suite(target: Path) -> None:
     copytree_clean(PYSIDE_ROOT, target / "Suite_PySide6")
-    for name in ("SuiteLauncher.py", "SuiteUpdater.py", "Abrir_Suite_Rodriguez_Finura.cmd"):
+    for name in ("SuiteLauncher.py", "SuiteUpdater.py"):
         shutil.copy2(LEGACY_APP / name, target / name)
+    write_text(target / SILENT_LAUNCHER_NAME, silent_launcher_vbs_text())
+    write_text(target / LEGACY_CMD_LAUNCHER_NAME, compatibility_cmd_text())
+    harden_legacy_runtime_scripts(target)
     for name in (
         "RODRIGUEZ.png",
         "FINURA.png",
@@ -227,7 +271,8 @@ robocopy "%TEMP_ROOT%\\extract\\Suite Rodriguez Finura" "%INSTALL_DIR%" /E /NFL 
 if %ERRORLEVEL% GEQ 8 goto error
 
 echo Abriendo suite actualizada...
-start "" "%INSTALL_DIR%\\Abrir_Suite_Rodriguez_Finura.cmd"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ws=New-Object -ComObject WScript.Shell; $desktop=[Environment]::GetFolderPath('Desktop'); $shortcut=$ws.CreateShortcut((Join-Path $desktop 'Suite Rodriguez Finura.lnk')); $shortcut.TargetPath=(Join-Path $env:INSTALL_DIR '{SILENT_LAUNCHER_NAME}'); $shortcut.WorkingDirectory=$env:INSTALL_DIR; $shortcut.IconLocation=(Join-Path $env:INSTALL_DIR 'ICONO_SUITE.ico'); $shortcut.Save()"
+start "" "%INSTALL_DIR%\\runtime\\pythonw.exe" "%INSTALL_DIR%\\SuiteLauncher.py"
 echo Instalacion completada.
 pause
 exit /b 0
@@ -246,11 +291,11 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
     full_digest = sha256(full_package)
     installer_digest = sha256(installer_bat)
     notes = (
-        "- Suite profesional unificada: modulos integrados como paginas reales dentro del shell principal.\n"
-        "- Dashboard operativo con procesos abiertos, actividad reciente, favoritos y ultimas salidas.\n"
-        "- Contexto global de modulo con estado, siguiente accion, avisos y accion directa.\n"
-        "- Responsive profesional con navegacion compacta y paginas integradas sin minimos rigidos.\n"
-        "- Refactor UI sin cambiar core: registro de ventanas separado y contratos automatizados ampliados."
+        "- Lanzamiento profesional sin ventanas CMD pequenas: acceso silencioso VBS y arranque por pythonw.\n"
+        "- Instalador completo refinado: crea acceso directo limpio y abre la suite sin pasar por el .cmd.\n"
+        "- Actualizador endurecido: cierre preventivo y subprocesos auxiliares ocultos durante la actualizacion.\n"
+        "- Shell mas limpio en procesos integrados: cabecera menos saturada y siguiente accion mas controlada.\n"
+        "- Refactor de empaquetado con contratos para impedir regresiones en el canal profesional."
     )
     manifest = {
         "schema": "suite-rodriguez-finura-update-v1",
