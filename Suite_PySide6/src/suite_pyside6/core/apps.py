@@ -36,7 +36,7 @@ APP_REGISTRY: tuple[AppDefinition, ...] = (
     AppDefinition(
         key="palets",
         title="Palets PDA",
-        description="Valida codigos de pallet de PDA, permite correcciones y genera Stock01.csv.",
+        description="Valida códigos de pallet de PDA, permite correcciones y genera Stock01.csv.",
         short_description="Valida palets y Stock01.csv.",
         category="Palets y PDA",
         shortcut="Alt+3",
@@ -45,7 +45,7 @@ APP_REGISTRY: tuple[AppDefinition, ...] = (
     AppDefinition(
         key="precintos_jamones",
         title="Precintos Jamones",
-        description="Valida precintos, GTIN-12 para iberico, duplicados, oficial y correo.",
+        description="Valida precintos, GTIN-12 para ibérico, duplicados, oficial y correo.",
         short_description="Valida precintos y TXT/CSV.",
         category="Jamones",
         shortcut="Alt+4",
@@ -53,8 +53,8 @@ APP_REGISTRY: tuple[AppDefinition, ...] = (
     ),
     AppDefinition(
         key="precintos_expedicion",
-        title="Precintos Expedicion",
-        description="Genera el TXT de expedicion de jamones desde Excel de entrada y salida de AX.",
+        title="Precintos Expedición",
+        description="Genera el TXT de expedición de jamones desde Excel de entrada y salida de AX.",
         short_description="Excel entrada/salida a TXT AX.",
         category="Jamones",
         shortcut="Alt+5",
@@ -63,7 +63,7 @@ APP_REGISTRY: tuple[AppDefinition, ...] = (
     AppDefinition(
         key="exportar_precintos_excel",
         title="Precintos Excel a CSV",
-        description="Extrae la columna Identificacion de Excel y genera .csv.",
+        description="Extrae la columna Identificación de Excel y genera .csv.",
         short_description="Identificaciones Excel a CSV.",
         category="Excel / CSV",
         shortcut="Alt+6",
@@ -71,7 +71,7 @@ APP_REGISTRY: tuple[AppDefinition, ...] = (
     ),
     AppDefinition(
         key="recepcion_maquilas",
-        title="Recepcion Maquilas",
+        title="Recepción Maquilas",
         description="Compara TXT recibido con SealsReport y genera PDFs de diferencias y rangos.",
         short_description="TXT, SealsReport y rangos PDF.",
         category="Jamones",
@@ -80,8 +80,8 @@ APP_REGISTRY: tuple[AppDefinition, ...] = (
     ),
     AppDefinition(
         key="control_recepcion_maquilas",
-        title="Control y Recepcion Maquilas",
-        description="Corrige TXT de precintos, genera rangos y envia correo final con adjuntos.",
+        title="Control y Recepción Maquilas",
+        description="Corrige TXT de precintos, genera rangos y envía correo final con adjuntos.",
         short_description="TXT AX, rangos y correo.",
         category="Jamones",
         shortcut="Alt+8",
@@ -103,7 +103,7 @@ def app_by_key(key: str) -> AppDefinition:
     for app in APP_REGISTRY:
         if app.key == key:
             return app
-    raise KeyError(f"Aplicacion no registrada: {key}")
+    raise KeyError(f"Aplicación no registrada: {key}")
 
 
 def categories() -> tuple[str, ...]:

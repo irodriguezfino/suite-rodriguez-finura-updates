@@ -99,7 +99,7 @@ class PrecintosJamonesWindow(QMainWindow):
         self.official_button.clicked.connect(self.select_official)
         actions_layout.addWidget(self.official_button)
 
-        validacion_label = QLabel("VALIDACION")
+        validacion_label = QLabel("VALIDACIÓN")
         validacion_label.setObjectName("GroupLabel")
         actions_layout.addWidget(validacion_label)
 
@@ -114,12 +114,14 @@ class PrecintosJamonesWindow(QMainWindow):
         self.weight_min = QLineEdit()
         self.weight_min.setObjectName("CompactField")
         self.weight_min.setPlaceholderText("Peso min.")
+        self.weight_min.setAccessibleDescription("Peso mínimo para filtrar registros, disponible tras procesar.")
         self.weight_min.setMaximumWidth(96)
         actions_layout.addWidget(self.weight_min)
 
         self.weight_max = QLineEdit()
         self.weight_max.setObjectName("CompactField")
         self.weight_max.setPlaceholderText("Peso max.")
+        self.weight_max.setAccessibleDescription("Peso máximo para filtrar registros, disponible tras procesar.")
         self.weight_max.setMaximumWidth(96)
         actions_layout.addWidget(self.weight_max)
 
@@ -330,6 +332,12 @@ class PrecintosJamonesWindow(QMainWindow):
         self.weight_button.setEnabled(bool(self.result.validos and not self.result.invalidos))
         self.clear_filter_button.setEnabled(bool(self.result.validos or self.result.invalidos or self.weight_filter_pending))
         self.clear_button.setEnabled(bool(self.paths or self.result.validos or self.result.invalidos or self.official_excel))
+        self._sync_weight_filter_controls()
+
+    def _sync_weight_filter_controls(self) -> None:
+        visible = bool(self.weight_button.isEnabled() or self.weight_filter_pending)
+        self.weight_min.setVisible(visible)
+        self.weight_max.setVisible(visible)
 
     def _template_values(self) -> dict[str, str]:
         return {

@@ -102,6 +102,7 @@ def polish_window(
         for label in widget.findChildren(QLabel, label_name):
             label.setWordWrap(True)
 
+    _update_toolbar_group_visibility(widget)
     _apply_tab_order(widget)
     _patch_context_labels(widget)
     _update_context_panel(widget)
@@ -497,6 +498,7 @@ def _patch_button_enabled(button: QPushButton, widget: QWidget) -> None:
     def set_enabled(enabled: bool, *, _original=original, _button=button, _widget=widget) -> None:
         _original(enabled)
         _update_disabled_tooltip(_button, enabled)
+        _update_toolbar_group_visibility(_widget)
         _update_context_panel(_widget)
         _update_flow_indicator(_widget)
 
@@ -620,17 +622,27 @@ def _should_defer_disabled_action(button: QPushButton) -> bool:
         return False
     text = _clean_text(str(button.property("fullText") or button.property("baseTooltip") or button.text())).lower()
     deferred_words = (
+        "cargar sealsreport",
+        "configurar rangos",
         "guardar",
         "generar pdf",
         "generar ambos",
         "enviar correo",
         "revalidar",
+        "cruzar",
         "sugerir",
+        "filtrar",
         "limpiar",
         "restaurar",
         "correo",
     )
     return any(word in text for word in deferred_words)
+
+
+def _update_toolbar_group_visibility(widget: QWidget) -> None:
+    for toolbar in widget.findChildren(QFrame, "Toolbar"):
+        for label in toolbar.findChildren(QLabel, "GroupLabel"):
+            label.setVisible(True)
 
 
 def _compact_toolbar_button(button: QPushButton, original_text: str) -> None:

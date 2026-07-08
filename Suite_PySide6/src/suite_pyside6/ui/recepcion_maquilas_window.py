@@ -134,7 +134,7 @@ class RecepcionMaquilasWindow(QMainWindow):
         metadata_layout.setContentsMargins(10, 7, 10, 7)
         self.ganadero = QLineEdit("EMBUTIDOS RODRIGUEZ")
         self.ganadero.setPlaceholderText("Ganadero")
-        self.origen = QLineEdit("Espana")
+        self.origen = QLineEdit("España")
         self.origen.setPlaceholderText("Origen")
         self.dac = QLineEdit()
         self.dac.setPlaceholderText("N DAC")
@@ -145,7 +145,7 @@ class RecepcionMaquilasWindow(QMainWindow):
         self.ph = QLineEdit("OK")
         self.ph.setPlaceholderText("PH")
         self.especificacion = QLineEdit("Anexo 5,5 ER Rev 13 FES 01")
-        self.especificacion.setPlaceholderText("Especificacion")
+        self.especificacion.setPlaceholderText("Especificación")
         self.observaciones = QLineEdit()
         self.observaciones.setPlaceholderText("Observaciones")
         make_widgets_resizable(
@@ -330,7 +330,7 @@ class RecepcionMaquilasWindow(QMainWindow):
     def _default_metadata(self) -> dict[str, str]:
         return {
             "ganadero": "EMBUTIDOS RODRIGUEZ",
-            "origen": "Espana",
+            "origen": "España",
             "dac": "",
             "contrato": "",
             "control_temperatura": "OK",

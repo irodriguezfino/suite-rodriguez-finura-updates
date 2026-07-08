@@ -100,7 +100,7 @@ class PrecintosExpedicionWindow(QMainWindow):
         self.select_button.clicked.connect(self.select_files)
         actions_layout.addWidget(self.select_button)
 
-        validacion_label = QLabel("VALIDACION")
+        validacion_label = QLabel("VALIDACIÓN")
         validacion_label.setObjectName("GroupLabel")
         actions_layout.addWidget(validacion_label)
 

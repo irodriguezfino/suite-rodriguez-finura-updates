@@ -1,0 +1,9 @@
+Suite Rodriguez Finura v1.6.7
+
+- Higiene de copy visible: títulos, descripciones, tooltips y etiquetas críticas usan acentos correctos.
+- Nueva prueba anti-mojibake para evitar texto corrupto o metadatos visibles sin normalizar.
+- Toolbars más limpias: acciones secundarias bloqueadas se difieren hasta que aportan valor.
+- Los filtros de peso se ocultan hasta que el proceso tiene datos válidos para filtrarlos.
+- El piloto de Control y Recepción Maquilas mejora descripciones accesibles de métricas, progreso, avisos y siguiente acción.
+- Nueva prueba de ruido inicial valida que los módulos no arranquen con exceso de botones o campos sueltos.
+- Se mantiene intacta la lógica de negocio y la paridad funcional validada.

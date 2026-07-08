@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.6.6"
+VERSION = "1.6.7"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
@@ -291,13 +291,13 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
     full_digest = sha256(full_package)
     installer_digest = sha256(installer_bat)
     notes = (
-        "- Control y Recepcion Maquilas estrena pantalla piloto tipo consola: vista previa tabular, incidencias y rail operativo.\n"
-        "- Los campos manuales y la plantilla de correo pasan al panel lateral para liberar la zona principal de trabajo.\n"
-        "- Nuevo rail derecho con estado actual, progreso, siguiente accion, avisos, salida y secciones desplegables.\n"
-        "- Vista previa profesional con tabla de lineas, articulo, precinto, peso, lote y estado.\n"
-        "- Metricas inferiores en el piloto: validos, pendientes, invalidos y archivos cargados.\n"
-        "- Estados vacios, labels accesibles y estilos especificos acercan el modulo al boceto de referencia.\n"
-        "- Se mantiene intacta la capa core y la paridad funcional validada."
+        "- Higiene de copy visible: títulos, descripciones, tooltips y etiquetas críticas usan acentos correctos.\n"
+        "- Nueva prueba anti-mojibake para evitar texto corrupto o metadatos visibles sin normalizar.\n"
+        "- Toolbars más limpias: acciones secundarias bloqueadas se difieren hasta que aportan valor.\n"
+        "- Los filtros de peso se ocultan hasta que el proceso tiene datos válidos para filtrarlos.\n"
+        "- El piloto de Control y Recepción Maquilas mejora descripciones accesibles de métricas, progreso, avisos y siguiente acción.\n"
+        "- Nueva prueba de ruido inicial valida que los módulos no arranquen con exceso de botones o campos sueltos.\n"
+        "- Se mantiene intacta la lógica de negocio y la paridad funcional validada."
     )
     manifest = {
         "schema": "suite-rodriguez-finura-update-v1",

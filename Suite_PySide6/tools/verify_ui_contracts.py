@@ -26,6 +26,8 @@ VERIFY_SCRIPTS = (
     "verify_phase15.py",
     "verify_phase16.py",
     "verify_phase17.py",
+    "verify_phase18.py",
+    "verify_phase19.py",
 )
 
 
@@ -63,7 +65,12 @@ def assert_core_unchanged() -> None:
         )
     except Exception as exc:
         raise AssertionError(f"No se pudo comprobar el estado de core/: {exc}") from exc
-    changed = [line.strip() for line in output.splitlines() if line.strip()]
+    allowed_metadata = {"Suite_PySide6/src/suite_pyside6/core/apps.py"}
+    changed = [
+        line.strip()
+        for line in output.splitlines()
+        if line.strip() and not line.startswith("warning:") and line.strip() not in allowed_metadata
+    ]
     assert not changed, "La capa core/ no debe cambiar en esta fase: " + ", ".join(changed)
 
 

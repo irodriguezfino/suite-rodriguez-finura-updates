@@ -65,7 +65,7 @@ class AboutDialog(QDialog):
         self.notes = QPlainTextEdit()
         self.notes.setReadOnly(True)
         self.notes.setLineWrapMode(QPlainTextEdit.WidgetWidth)
-        self.notes.setPlaceholderText("Las notas de la version remota apareceran aqui al buscar actualizaciones.")
+        self.notes.setPlaceholderText("Las notas de la versión remota aparecerán aquí al buscar actualizaciones.")
         layout.addWidget(self.notes, 1)
 
         actions = QHBoxLayout()
@@ -152,7 +152,7 @@ class AboutDialog(QDialog):
                 QMessageBox.warning(
                     self,
                     "Actualizaciones",
-                    "La actualizacion se ha cancelado porque hay una ventana con trabajo pendiente.",
+                    "La actualización se ha cancelado porque hay una ventana con trabajo pendiente.",
                 )
                 return False
         return True

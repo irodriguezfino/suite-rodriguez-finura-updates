@@ -268,7 +268,7 @@ class MainWindow(QMainWindow):
 
         help_button = QPushButton("Ayuda")
         help_button.setObjectName("HelpButton")
-        help_button.setToolTip("Ver informacion de la suite y soporte.")
+        help_button.setToolTip("Ver información de la suite y soporte.")
         help_button.clicked.connect(self.show_about)
         self.header_layout.addWidget(help_button, 0)
 
@@ -278,7 +278,7 @@ class MainWindow(QMainWindow):
         self.header_layout.addWidget(self.profile_button, 0)
 
         self.home_button = QPushButton("Inicio")
-        self.home_button.setToolTip("Volver a la pestana Inicio sin cerrar procesos.")
+        self.home_button.setToolTip("Volver a la pestaña Inicio sin cerrar procesos.")
         self.home_button.clicked.connect(self.show_dashboard)
         self.header_layout.addWidget(self.home_button, 0)
         self.context_button = QPushButton("Contexto")
@@ -316,7 +316,7 @@ class MainWindow(QMainWindow):
         self.next_action_button = QPushButton("Ejecutar")
         self.next_action_button.setObjectName("ShellNextAction")
         self.next_action_button.setProperty("primary", True)
-        self.next_action_button.setToolTip("Ejecuta la siguiente accion disponible del proceso abierto.")
+        self.next_action_button.setToolTip("Ejecuta la siguiente acción disponible del proceso abierto.")
         self.next_action_button.clicked.connect(self._trigger_current_next_action)
         next_layout.addWidget(self.next_action_button)
         layout.addWidget(next_panel)

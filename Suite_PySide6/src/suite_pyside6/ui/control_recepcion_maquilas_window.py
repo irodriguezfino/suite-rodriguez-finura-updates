@@ -107,7 +107,7 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         self.seals_button.clicked.connect(self.select_seals)
         actions_layout.addWidget(self.seals_button)
 
-        validacion_label = QLabel("VALIDACION")
+        validacion_label = QLabel("VALIDACIÓN")
         validacion_label.setObjectName("GroupLabel")
         actions_layout.addWidget(validacion_label)
 
@@ -118,12 +118,14 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         self.weight_min = QLineEdit()
         self.weight_min.setObjectName("CompactField")
         self.weight_min.setPlaceholderText("Peso min.")
+        self.weight_min.setAccessibleDescription("Peso mínimo para filtrar registros, disponible tras validar el TXT.")
         self.weight_min.setMaximumWidth(96)
         actions_layout.addWidget(self.weight_min)
 
         self.weight_max = QLineEdit()
         self.weight_max.setObjectName("CompactField")
         self.weight_max.setPlaceholderText("Peso max.")
+        self.weight_max.setAccessibleDescription("Peso máximo para filtrar registros, disponible tras validar el TXT.")
         self.weight_max.setMaximumWidth(96)
         actions_layout.addWidget(self.weight_max)
 
@@ -199,7 +201,7 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         metadata_layout.setContentsMargins(10, 7, 10, 7)
         self.ganadero = QLineEdit("EMBUTIDOS RODRIGUEZ")
         self.ganadero.setPlaceholderText("Ganadero")
-        self.origen = QLineEdit("Espana")
+        self.origen = QLineEdit("España")
         self.origen.setPlaceholderText("Origen")
         self.dac = QLineEdit()
         self.dac.setPlaceholderText("N DAC")
@@ -210,7 +212,7 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         self.ph = QLineEdit("OK")
         self.ph.setPlaceholderText("PH")
         self.especificacion = QLineEdit("Anexo 5,5 ER Rev 13 FES 01")
-        self.especificacion.setPlaceholderText("Especificacion")
+        self.especificacion.setPlaceholderText("Especificación")
         self.observaciones = QLineEdit()
         self.observaciones.setPlaceholderText("Observaciones")
         make_widgets_resizable(
@@ -258,15 +260,15 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         preview_header = QHBoxLayout()
         preview_title = QLabel("Vista previa")
         preview_title.setObjectName("SectionLabel")
-        self.preview_count = QLabel("0 lineas")
+        self.preview_count = QLabel("0 líneas")
         self.preview_count.setObjectName("ControlCountPill")
         preview_header.addWidget(preview_title)
         preview_header.addStretch(1)
         preview_header.addWidget(self.preview_count)
         self.preview_table = QTableWidget(0, 6)
         self.preview_table.setObjectName("ControlPreviewTable")
-        self.preview_table.setAccessibleName("Vista previa de lineas del TXT FAC")
-        self.preview_table.setHorizontalHeaderLabels(["Linea", "Articulo", "Precinto", "Peso (kg)", "Lote", "Estado"])
+        self.preview_table.setAccessibleName("Vista previa de líneas del TXT FAC")
+        self.preview_table.setHorizontalHeaderLabels(["Línea", "Artículo", "Precinto", "Peso (kg)", "Lote", "Estado"])
         self.preview_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         self.preview_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
         self.preview_table.verticalHeader().setVisible(False)
@@ -282,9 +284,9 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         metrics_layout.setContentsMargins(8, 7, 8, 7)
         metrics_layout.setHorizontalSpacing(8)
         metrics_layout.setVerticalSpacing(4)
-        self.metric_valid = self._metric_pair(metrics_layout, 0, "Validos", "0")
+        self.metric_valid = self._metric_pair(metrics_layout, 0, "Válidos", "0")
         self.metric_pending = self._metric_pair(metrics_layout, 1, "Pendientes", "0")
-        self.metric_invalid = self._metric_pair(metrics_layout, 2, "Invalidos", "0")
+        self.metric_invalid = self._metric_pair(metrics_layout, 2, "Inválidos", "0")
         self.metric_files = self._metric_pair(metrics_layout, 3, "Archivos", "0")
         preview_layout.addWidget(self.metrics_strip)
 
@@ -333,14 +335,14 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         rail_title.setObjectName("SectionLabel")
         self.rail_state = QLabel("Pendiente de TXT")
         self.rail_state.setObjectName("ControlRailState")
-        self.rail_detail = QLabel("Carga un TXT FAC para iniciar la validacion.")
+        self.rail_detail = QLabel("Carga un TXT FAC para iniciar la validación.")
         self.rail_detail.setObjectName("ControlRailDetail")
         self.rail_detail.setWordWrap(True)
         self.rail_progress = QProgressBar()
         self.rail_progress.setObjectName("ControlProgress")
         self.rail_progress.setRange(0, 100)
         self.rail_progress.setTextVisible(True)
-        next_title = QLabel("Siguiente accion")
+        next_title = QLabel("Siguiente acción")
         next_title.setObjectName("SectionLabel")
         self.rail_next = QLabel("Cargar TXT FAC")
         self.rail_next.setObjectName("ControlRailAction")
@@ -384,6 +386,8 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
     def _metric_pair(self, layout: QGridLayout, column: int, label: str, value: str) -> QLabel:
         value_label = QLabel(value)
         value_label.setObjectName("ControlMetricValue")
+        value_label.setAccessibleName(label)
+        value_label.setAccessibleDescription(f"{label}: {value}")
         text_label = QLabel(label)
         text_label.setObjectName("ControlMetricLabel")
         layout.addWidget(value_label, 0, column)
@@ -579,7 +583,7 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
     def _default_metadata(self) -> dict[str, str]:
         return {
             "ganadero": "EMBUTIDOS RODRIGUEZ",
-            "origen": "Espana",
+            "origen": "España",
             "dac": "",
             "contrato": "",
             "control_temperatura": "OK",
@@ -660,7 +664,13 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         self.weight_button.setEnabled(bool(self.result.validos and not self.result.invalidos))
         self.clear_corrections_button.setEnabled(bool(self.result.validos or self.result.invalidos or self.weight_filter_pending))
         self.clear_button.setEnabled(bool(self.paths or self.result.validos or self.result.invalidos))
+        self._sync_weight_filter_controls()
         self._refresh_pilot_state()
+
+    def _sync_weight_filter_controls(self) -> None:
+        visible = bool(self.weight_button.isEnabled() or self.weight_filter_pending)
+        self.weight_min.setVisible(visible)
+        self.weight_max.setVisible(visible)
 
     def _populate_preview_table(self) -> None:
         rows: list[tuple[str, str, str, str, str, str]] = []
@@ -693,7 +703,7 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
                 if column == 5 and value.startswith("Pendiente"):
                     item.setToolTip(value)
                 self.preview_table.setItem(row_index, column, item)
-        self.preview_count.setText(f"{len(rows)} lineas" if rows else "0 lineas")
+        self.preview_count.setText(f"{len(rows)} líneas" if rows else "0 líneas")
 
     def _refresh_pilot_state(self) -> None:
         validos = len(self.result.validos)
@@ -704,7 +714,17 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         self.metric_pending.setText(str(pendientes))
         self.metric_invalid.setText(str(invalidos))
         self.metric_files.setText(str(files))
+        for label, value in (
+            (self.metric_valid, validos),
+            (self.metric_pending, pendientes),
+            (self.metric_invalid, invalidos),
+            (self.metric_files, files),
+        ):
+            label.setAccessibleDescription(f"{label.accessibleName()}: {value}")
         self.issues_count.setText(f"{pendientes} detectadas" if pendientes else "0 detectadas")
+        self.issues_count.setAccessibleDescription(
+            f"Incidencias detectadas: {pendientes}. Revisa el panel central si hay pendientes."
+        )
 
         has_issues = bool(self.result.invalidos or self.result.duplicados or self.result.recepcion)
         needs_corrections = bool(self.result.invalidos or self.weight_filter_pending)
@@ -714,10 +734,15 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
 
         state, detail, progress = self._pilot_state_text()
         self.rail_state.setText(state)
+        self.rail_state.setAccessibleDescription(f"Estado actual: {state}. {detail}")
         self.rail_detail.setText(detail)
         self.rail_progress.setValue(progress)
+        self.rail_progress.setAccessibleName("Progreso del proceso")
+        self.rail_progress.setAccessibleDescription(f"Progreso estimado del proceso: {progress} por ciento.")
         self.rail_next.setText(self._next_action_text())
+        self.rail_next.setAccessibleDescription(f"Siguiente acción recomendada: {self.rail_next.text()}")
         self.rail_alerts.setText(self._alerts_text())
+        self.rail_alerts.setAccessibleDescription("Avisos del proceso: " + self.rail_alerts.text().replace("\n", ". "))
         self.issues_empty.setText(self._empty_issue_text())
 
     def _pilot_state_text(self) -> tuple[str, str, int]:
@@ -729,7 +754,7 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         if self.result.recepcion is not None:
             return "Cruce completado", "Revisa diferencias y genera el PDF de rangos.", 75
         if self.result.invalidos or self.weight_filter_pending:
-            return "Revision pendiente", "Corrige las lineas marcadas y pulsa Revalidar.", 45
+            return "Revisión pendiente", "Corrige las líneas marcadas y pulsa Revalidar.", 45
         if self._requires_txt_save():
             return "TXT modificado", "Guarda el TXT AX antes de cruzar SealsReport.", 58
         if self._can_continue_to_seals() and self.seals_file is not None:
@@ -762,7 +787,7 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
     def _alerts_text(self) -> str:
         alerts: list[str] = []
         if self.result.invalidos:
-            alerts.append(f"{len(self.result.invalidos)} lineas pendientes")
+            alerts.append(f"{len(self.result.invalidos)} líneas pendientes")
         if self.result.duplicados:
             alerts.append(f"{len(self.result.duplicados)} duplicados suprimidos")
         if self.weight_filter_pending:
@@ -777,7 +802,7 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
 
     def _empty_issue_text(self) -> str:
         if not self.paths and not self.result.validos:
-            return "No hay incidencias para mostrar.\n\nArrastra aqui los TXT FAC o usa Cargar TXT FAC."
+            return "No hay incidencias para mostrar.\n\nArrastra aquí los TXT FAC o usa Cargar TXT FAC."
         if self.result.validos and not self.result.invalidos:
             return "Sin incidencias pendientes.\n\nContinua con SealsReport y salida."
         return "No hay incidencias para mostrar."
