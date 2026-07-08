@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QTimer, QSize, Qt
 from PySide6.QtGui import QColor, QIcon, QImage, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
@@ -69,6 +69,7 @@ def polish_window(
         _append_shortcut_tooltip(button)
         _compact_toolbar_button(button, original_text)
         _patch_button_enabled(button, widget)
+        _patch_button_busy_feedback(button)
         _refresh_style(button)
 
     title = widget.windowTitle() or "Suite Rodriguez Finura"
@@ -127,6 +128,9 @@ def prepare_embedded_window(widget: QMainWindow) -> None:
         for label in widget.findChildren(QLabel, label_name):
             label.setVisible(False)
             label.setMaximumHeight(0)
+    for status in widget.findChildren(QLabel, "StatusLabel"):
+        status.setVisible(False)
+        status.setMaximumHeight(0)
     for panel in widget.findChildren(QFrame, "ContextPanel"):
         panel.setVisible(False)
         panel.setMaximumHeight(0)
@@ -167,6 +171,8 @@ def show_inline_message(widget: QWidget, severity: str, text: str) -> None:
     banner = widget.findChild(QLabel, "InlineBanner")
     if banner is None:
         return
+    if severity == "error":
+        text = _friendly_error_text(text)
     banner.setProperty("severity", severity)
     banner.setText(text)
     banner.setVisible(True)
@@ -497,6 +503,39 @@ def _patch_button_enabled(button: QPushButton, widget: QWidget) -> None:
     _update_disabled_tooltip(button, button.isEnabled())
 
 
+def _patch_button_busy_feedback(button: QPushButton) -> None:
+    if button.property("busyPatched"):
+        return
+    role = str(button.property("role") or "")
+    if not (button.property("primary") or role in {"process", "save"}):
+        return
+    button.setProperty("busyPatched", True)
+
+    def mark_busy(*, _button=button) -> None:
+        if not _button.isEnabled():
+            return
+        if not _button.property("idleText"):
+            _button.setProperty("idleText", _button.text())
+        text = _clean_text(str(_button.property("fullText") or _button.text())).lower()
+        if any(word in text for word in ("procesar", "cruzar", "comprobar", "revalidar", "generar")):
+            _button.setText("Procesando...")
+        elif any(word in text for word in ("guardar", "enviar")):
+            _button.setText("Guardando...")
+        _button.setProperty("busy", True)
+        _refresh_style(_button)
+        QTimer.singleShot(350, lambda: _clear_busy(_button))
+
+    button.pressed.connect(mark_busy)
+
+
+def _clear_busy(button: QPushButton) -> None:
+    idle = button.property("idleText")
+    if idle:
+        button.setText(str(idle))
+    button.setProperty("busy", False)
+    _refresh_style(button)
+
+
 def _patch_editor_empty_state(editor: QPlainTextEdit) -> None:
     if editor.property("emptyStatePatched"):
         _update_editor_empty_state(editor, editor.toPlainText())
@@ -547,6 +586,8 @@ def _update_disabled_tooltip(button: QPushButton, enabled: bool) -> None:
     if not button.property("baseTooltip"):
         button.setProperty("baseTooltip", button.toolTip() or button.text())
     base = str(button.property("baseTooltip") or button.text())
+    if _should_defer_disabled_action(button):
+        button.setVisible(enabled)
     if enabled:
         button.setToolTip(base)
         button.setAccessibleDescription(base)
@@ -564,6 +605,24 @@ def _update_disabled_tooltip(button: QPushButton, enabled: bool) -> None:
         reason = "Completa el paso anterior para activar esta accion."
     button.setToolTip(f"{base}\nNo disponible ahora: {reason}")
     button.setAccessibleDescription(f"No disponible ahora: {reason}")
+
+
+def _should_defer_disabled_action(button: QPushButton) -> bool:
+    if button.property("primary"):
+        return False
+    text = _clean_text(str(button.property("fullText") or button.property("baseTooltip") or button.text())).lower()
+    deferred_words = (
+        "guardar",
+        "generar pdf",
+        "generar ambos",
+        "enviar correo",
+        "revalidar",
+        "sugerir",
+        "limpiar",
+        "restaurar",
+        "correo",
+    )
+    return any(word in text for word in deferred_words)
 
 
 def _compact_toolbar_button(button: QPushButton, original_text: str) -> None:
@@ -1150,8 +1209,6 @@ def _shortcut_for_text(text: str) -> str:
         return "Ctrl+Return"
     if any(word in text for word in ("guardar", "exportar")):
         return "Ctrl+S"
-    if "limpiar" in text:
-        return "Esc"
     return ""
 
 
@@ -1171,3 +1228,19 @@ def _append_shortcut_tooltip(button: QPushButton) -> None:
 def _refresh_style(widget: QWidget) -> None:
     widget.style().unpolish(widget)
     widget.style().polish(widget)
+
+
+def _friendly_error_text(text: str) -> str:
+    clean = " ".join(str(text).split())
+    lowered = clean.lower()
+    if any(word in lowered for word in ("permission", "permiso", "access is denied", "denegado")):
+        return "No se pudo acceder al archivo o carpeta. Cierra el archivo si esta abierto y revisa permisos de escritura."
+    if any(word in lowered for word in ("no such file", "not found", "no existe", "cannot find")):
+        return "No se encontro el archivo esperado. Verifica que no se haya movido o eliminado."
+    if any(word in lowered for word in ("excel", "workbook", "openpyxl", "xls")):
+        return "No se pudo leer el Excel. Comprueba que no este abierto, protegido o en un formato no compatible."
+    if any(word in lowered for word in ("pdf", "reportlab")):
+        return "No se pudo generar el PDF. Revisa la carpeta de destino y vuelve a intentarlo."
+    if len(clean) > 180:
+        return clean[:177].rstrip() + "..."
+    return clean

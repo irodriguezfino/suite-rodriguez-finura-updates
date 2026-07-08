@@ -24,6 +24,7 @@ from suite_pyside6.core.recepcion_maquilas import (
     generar_pdf_rangos,
     process_recepcion_maquilas,
 )
+from suite_pyside6.ui.components import labeled_field
 from suite_pyside6.ui.file_dialogs import choose_directory, open_file, save_file
 from suite_pyside6.ui.polish import collapsible_section, confirm_discard_work, show_inline_message, polish_window
 from suite_pyside6.ui.responsive import make_flow, make_widgets_resizable
@@ -142,14 +143,14 @@ class RecepcionMaquilasWindow(QMainWindow):
             self.especificacion,
             self.observaciones,
         )
-        metadata_layout.addWidget(self.ganadero, 0, 0)
-        metadata_layout.addWidget(self.origen, 0, 1)
-        metadata_layout.addWidget(self.dac, 0, 2)
-        metadata_layout.addWidget(self.contrato, 0, 3)
-        metadata_layout.addWidget(self.control_temperatura, 1, 0)
-        metadata_layout.addWidget(self.ph, 1, 1)
-        metadata_layout.addWidget(self.especificacion, 1, 2)
-        metadata_layout.addWidget(self.observaciones, 1, 3)
+        metadata_layout.addWidget(labeled_field("Ganadero", self.ganadero), 0, 0)
+        metadata_layout.addWidget(labeled_field("Origen", self.origen), 0, 1)
+        metadata_layout.addWidget(labeled_field("N DAC", self.dac), 0, 2)
+        metadata_layout.addWidget(labeled_field("Contrato", self.contrato), 0, 3)
+        metadata_layout.addWidget(labeled_field("Control temperatura", self.control_temperatura), 1, 0)
+        metadata_layout.addWidget(labeled_field("PH", self.ph), 1, 1)
+        metadata_layout.addWidget(labeled_field("Especificacion", self.especificacion), 1, 2)
+        metadata_layout.addWidget(labeled_field("Observaciones", self.observaciones), 1, 3)
         for field in (
             self.ganadero,
             self.origen,

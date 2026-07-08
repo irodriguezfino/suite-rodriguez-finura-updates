@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtCore import QTimer, Qt
-from PySide6.QtGui import QAction, QColor, QIcon
+from PySide6.QtGui import QAction, QColor, QFont, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QBoxLayout,
@@ -59,6 +61,7 @@ class MainWindow(QMainWindow):
         self._closing = False
         self._current_app_key = ""
         self._nav_compact = False
+        self._context_forced_open = False
         self.setWindowTitle("Suite Rodriguez Finura")
         self.resize(1220, 780)
         self.setMinimumSize(760, 560)
@@ -264,6 +267,10 @@ class MainWindow(QMainWindow):
         self.home_button.setToolTip("Volver a la pestana Inicio sin cerrar procesos.")
         self.home_button.clicked.connect(self.show_dashboard)
         self.header_layout.addWidget(self.home_button, 0)
+        self.context_button = QPushButton("Contexto")
+        self.context_button.setToolTip("Mostrar u ocultar el panel de contexto del proceso.")
+        self.context_button.clicked.connect(self._toggle_context_rail)
+        self.header_layout.addWidget(self.context_button, 0)
         return header
 
     def _build_context_rail(self) -> QFrame:
@@ -314,7 +321,7 @@ class MainWindow(QMainWindow):
         self.open_processes_panel, self.open_processes_layout = self._dashboard_panel("Procesos abiertos")
         self.recent_activity_panel, self.recent_activity_layout = self._dashboard_panel("Continuar recientes")
         self.favorites_panel, self.favorites_layout = self._dashboard_panel("Favoritos")
-        self.exports_panel, self.exports_layout = self._dashboard_panel("Ultimas salidas")
+        self.exports_panel, self.exports_layout = self._dashboard_panel("Actividad y salidas")
         dashboard_panels.addWidget(self.open_processes_panel, 1)
         dashboard_panels.addWidget(self.recent_activity_panel, 1)
         dashboard_panels.addWidget(self.favorites_panel, 1)
@@ -417,7 +424,10 @@ class MainWindow(QMainWindow):
             self.recent_activity_layout.addWidget(self._dashboard_empty("Sin actividad reciente"))
             return
         for app in recents:
-            button = self._dashboard_button(app.title, f"Abrir {app.title}.")
+            button = self._dashboard_button(
+                app.title,
+                f"Abrir {app.title}. {app.short_description}",
+            )
             button.clicked.connect(lambda _checked=False, item=app: self.open_app(item))
             self.recent_activity_layout.addWidget(button)
 
@@ -437,7 +447,15 @@ class MainWindow(QMainWindow):
         self._clear_dashboard_panel(self.exports_layout)
         exports = recent_paths("exports")[:5]
         if not exports:
-            self.exports_layout.addWidget(self._dashboard_empty("Sin salidas recientes"))
+            recents = [self._app_from_key(key) for key in recent_app_keys()]
+            recents = [app for app in recents if app is not None][:3]
+            if not recents:
+                self.exports_layout.addWidget(self._dashboard_empty("Sin actividad registrada"))
+                return
+            for app in recents:
+                self.exports_layout.addWidget(
+                    self._dashboard_empty(f"Ultimo proceso: {app.title}")
+                )
             return
         for path in exports:
             self.exports_layout.addWidget(self._path_label(path))
@@ -460,10 +478,12 @@ class MainWindow(QMainWindow):
 
     @staticmethod
     def _path_label(path: str) -> QLabel:
-        label = QLabel(path)
+        display = Path(path).name or path
+        label = QLabel(display)
         label.setObjectName("DashboardPath")
         label.setWordWrap(True)
         label.setToolTip(path)
+        label.setAccessibleName(f"Salida reciente: {display}")
         return label
 
     def _clear_dashboard_panel(self, layout: QVBoxLayout) -> None:
@@ -569,10 +589,12 @@ class MainWindow(QMainWindow):
 
     def _apply_responsive_state(self) -> None:
         compact = self.width() < 1060
+        narrow = self.width() < 960
         self._nav_compact = compact
-        self.sidebar.setMaximumWidth(176 if compact else 286)
-        self.sidebar.setMinimumWidth(164 if compact else 244)
+        self.sidebar.setMaximumWidth(132 if narrow else 176 if compact else 286)
+        self.sidebar.setMinimumWidth(118 if narrow else 164 if compact else 244)
         self.brand_panel.setProperty("compact", compact)
+        self.brand_panel.setVisible(not narrow)
         self.nav_title.setText("SRF" if compact else "Suite Rodriguez Finura")
         self.nav_subtitle.setVisible(not compact)
         self.side_title.setText("Areas" if compact else "Areas de trabajo")
@@ -580,6 +602,11 @@ class MainWindow(QMainWindow):
         self.footer.setText(f"v{__version__}" if compact else f"Version {__version__}\nLista para operar")
         self.search.setMinimumWidth(0)
         self.process_context.setMaximumWidth(252 if compact else 288)
+        if hasattr(self, "context_button"):
+            show_context_toggle = bool(self._current_app_key and narrow)
+            self.context_button.setVisible(show_context_toggle)
+            if self._current_app_key:
+                self.process_context.setVisible((not narrow) or self._context_forced_open)
         for category, button in self.category_buttons.items():
             button.setText(self._nav_button_text(category))
             button.setProperty("compact", compact)
@@ -615,7 +642,9 @@ class MainWindow(QMainWindow):
         self.workspace_title.setText("Suite Rodriguez Finura")
         self.workspace_subtitle.setText("Centro de trabajo unificado con procesos en pestanas")
         self.home_button.setVisible(False)
+        self.context_button.setVisible(False)
         self.process_context.setVisible(False)
+        self._context_forced_open = False
         self.search.setVisible(True)
         self.status.setText("Suite operativa. Selecciona un proceso o usa el buscador para empezar.")
         self._refresh_dashboard_overview()
@@ -648,10 +677,19 @@ class MainWindow(QMainWindow):
         self.workspace_subtitle.setText(app.description)
         self.context_app_title.setText(app.title)
         self.home_button.setVisible(True)
-        self.process_context.setVisible(True)
+        narrow = self.width() < 960
+        self.context_button.setVisible(narrow)
+        self.process_context.setVisible((not narrow) or self._context_forced_open)
         self.search.setVisible(False)
         self.status.setText(f"{app.title} integrado en la ventana principal")
         self._update_process_context()
+        self._apply_responsive_state()
+
+    def _toggle_context_rail(self) -> None:
+        if not self._current_app_key:
+            return
+        self._context_forced_open = not self.process_context.isVisible()
+        self.process_context.setVisible(self._context_forced_open)
 
     def _on_tab_changed(self, index: int) -> None:
         widget = self.tabs.widget(index)
@@ -787,12 +825,17 @@ class AppCard(QFrame):
         title.setObjectName("AppTitle")
         title.setWordWrap(True)
         top.addWidget(title, 1, Qt.AlignTop)
-        favorite_button = QPushButton("Fav" if is_favorite_app(app.key) else "Marcar")
+        favorite_button = QPushButton("★" if is_favorite_app(app.key) else "☆")
         favorite_button.setCheckable(True)
         favorite_button.setChecked(is_favorite_app(app.key))
         favorite_button.setProperty("role", "favorite")
-        favorite_button.setAccessibleName(f"Alternar favorito {app.title}")
-        favorite_button.setToolTip("Anade o retira este proceso de Favoritos.")
+        favorite_button.setAccessibleName(f"Alternar favorito: {app.title}")
+        favorite_button.setAccessibleDescription(
+            "Marcado como favorito." if is_favorite_app(app.key) else "No marcado como favorito."
+        )
+        favorite_button.setToolTip(
+            "Quitar de Favoritos." if is_favorite_app(app.key) else "Anadir a Favoritos."
+        )
         favorite_button.clicked.connect(lambda _checked=False: window.toggle_favorite(app))
         top.addWidget(favorite_button, 0, Qt.AlignTop)
         layout.addLayout(top)
@@ -852,6 +895,7 @@ def run() -> int:
     import sys
 
     app = QApplication(sys.argv)
+    app.setFont(QFont("Segoe UI", 10))
     window = MainWindow()
     window.show()
     return app.exec()

@@ -78,7 +78,7 @@ def base_qss() -> str:
     DANGER_BG = "#351f23" if is_dark_mode() else "#fff8f8"
     DANGER_HOVER = "#42242a" if is_dark_mode() else "#fff0f1"
     DISABLED_BG = "#202935" if is_dark_mode() else "#edf1f6"
-    DISABLED_TEXT = "#8b96a6" if is_dark_mode() else "#94a0b2"
+    DISABLED_TEXT = "#aeb8c7" if is_dark_mode() else "#5f6f85"
     SOFT_BORDER = "#465569" if is_dark_mode() else "#dbe4ef"
     CHIP_BG = "#1d3049" if is_dark_mode() else "#f1f6ff"
     SUCCESS_BG = "#173421" if is_dark_mode() else "#f2fbf6"
@@ -301,6 +301,21 @@ def base_qss() -> str:
         border: 1px solid {BORDER};
         border-radius: 6px;
         padding: 0 10px;
+    }}
+    QWidget#FieldGroup {{
+        background: transparent;
+    }}
+    QWidget#FieldGroup[compact="true"] QLineEdit,
+    QWidget#FieldGroup[compact="true"] QComboBox {{
+        min-width: 72px;
+        max-width: 110px;
+    }}
+    QLabel#FieldLabel {{
+        background: transparent;
+        color: {MUTED};
+        font-size: 8.7pt;
+        font-weight: 700;
+        padding-left: 2px;
     }}
     QComboBox {{
         min-width: 104px;
@@ -692,6 +707,9 @@ def base_qss() -> str:
         text-align: left;
         background: {PANEL};
         border-color: {SOFT_BORDER};
+        min-height: 40px;
+        padding-top: 8px;
+        padding-bottom: 8px;
     }}
     QPushButton[dashboardAction="true"]:hover {{
         background: {BUTTON_HOVER};
@@ -733,6 +751,11 @@ def base_qss() -> str:
     QPushButton[nextAction="true"] {{
         border: 2px solid {FOCUS};
     }}
+    QPushButton[busy="true"] {{
+        border: 2px solid {FOCUS};
+        background: {BRAND_BLUE_SOFT};
+        color: {BRAND_BLUE_DARK};
+    }}
     QPushButton[primary="true"][nextAction="true"] {{
         background: {BRAND_BLUE};
         color: white;
@@ -748,10 +771,15 @@ def base_qss() -> str:
         border-color: {BRAND_RED};
     }}
     QPushButton[role="favorite"] {{
-        min-width: 58px;
+        min-width: 34px;
+        max-width: 38px;
         color: {BRAND_BLUE_DARK};
         background: {CHIP_BG};
         border-color: {BORDER};
+        font-size: 12pt;
+        font-weight: 800;
+        padding-left: 0;
+        padding-right: 0;
     }}
     QPushButton[role="favorite"]:checked {{
         color: white;

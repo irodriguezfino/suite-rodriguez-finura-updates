@@ -1,0 +1,8 @@
+Suite Rodriguez Finura v1.6.3
+
+- Mejora UX/UI profesional: acciones secundarias deshabilitadas se ocultan hasta estar disponibles.
+- Accesibilidad reforzada: labels persistentes en formularios criticos y contraste disabled AA.
+- Favoritos mas claros con control de estrella accesible y tooltips de estado.
+- Responsive mejorado: panel de contexto bajo demanda en anchuras medias y sidebar mas compacta.
+- Dashboard mas operativo: actividad reciente y salidas mostradas como archivos escaneables.
+- Feedback de ejecucion y errores mas accionables sin tocar la logica core de validaciones.

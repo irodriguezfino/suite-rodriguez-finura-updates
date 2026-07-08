@@ -1,34 +1,34 @@
 {
   "schema": "suite-rodriguez-finura-update-v1",
-  "version": "1.6.2",
-  "published_at": "2026-07-08T07:57:39+02:00",
+  "version": "1.6.3",
+  "published_at": "2026-07-08T08:30:32+02:00",
   "auto_update": {
     "type": "zip",
-    "file": "Suite_Rodriguez_Finura_v1.6.2_update.zip",
-    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.6.2_update.zip",
-    "sha256": "D636C8F6134DBC3635261D380352D2B7C7EA04474D84CAEED91148376E4F7AF8"
+    "file": "Suite_Rodriguez_Finura_v1.6.3_update.zip",
+    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.6.3_update.zip",
+    "sha256": "11E3622C78CF7569891C28AE9D76889F462D4A9A9D0BAB79BC85038F5BD2C0F5"
   },
   "fresh_install": {
     "type": "bat",
-    "file": "Instalar_Suite_Rodriguez_Finura_v1.6.2.bat",
-    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Instalar_Suite_Rodriguez_Finura_v1.6.2.bat",
-    "sha256": "3AA973C3691AE9E967A4233C3AD33913A7C4D413D1893279B22A0D79C48172D1",
-    "full_package": "Suite_Rodriguez_Finura_v1.6.2_full.zip",
-    "full_package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.6.2_full.zip",
-    "full_package_sha256": "8817CA52A1356976257DA4AA1951C988644D93F139789E0BFC47ACFFC2DA9CFE"
+    "file": "Instalar_Suite_Rodriguez_Finura_v1.6.3.bat",
+    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Instalar_Suite_Rodriguez_Finura_v1.6.3.bat",
+    "sha256": "E61B69B39458B78F5E9C28489BAAF72BCFD1F9CE24A0787C34D03683EF2789C6",
+    "full_package": "Suite_Rodriguez_Finura_v1.6.3_full.zip",
+    "full_package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.6.3_full.zip",
+    "full_package_sha256": "131D2F7F121FA190461F79F03B5FA210740380EC4B6BAA54157179EB0319027D"
   },
-  "notes": "- Shell profesional con pestanas: Inicio y procesos abiertos conviven sin perder estado.\n- Inicio operativo compacto: sin metricas superiores, con abiertos, recientes, favoritos y salidas.\n- Panel contextual lateral para estado, siguiente accion, avisos y salidas recientes.\n- Pulido visual corporativo: cabecera mas ligera, pestanas claras y sidebar con resumen discreto.\n- Usabilidad diaria: atajos Ctrl+Tab, Ctrl+Shift+Tab, Ctrl+W y Ctrl+L.\n- Se mantiene el updater silencioso sin ventanas CMD y sin tocar la logica core de validaciones.",
+  "notes": "- Mejora UX/UI profesional: acciones secundarias deshabilitadas se ocultan hasta estar disponibles.\n- Accesibilidad reforzada: labels persistentes en formularios criticos y contraste disabled AA.\n- Favoritos mas claros con control de estrella accesible y tooltips de estado.\n- Responsive mejorado: panel de contexto bajo demanda en anchuras medias y sidebar mas compacta.\n- Dashboard mas operativo: actividad reciente y salidas mostradas como archivos escaneables.\n- Feedback de ejecucion y errores mas accionables sin tocar la logica core de validaciones.",
   "package_type": "zip",
-  "package": "Suite_Rodriguez_Finura_v1.6.2_update.zip",
-  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.6.2_update.zip",
-  "sha256": "D636C8F6134DBC3635261D380352D2B7C7EA04474D84CAEED91148376E4F7AF8",
+  "package": "Suite_Rodriguez_Finura_v1.6.3_update.zip",
+  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.6.3_update.zip",
+  "sha256": "11E3622C78CF7569891C28AE9D76889F462D4A9A9D0BAB79BC85038F5BD2C0F5",
   "fresh_install_msi": "Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518",
-  "full_install_bat": "Instalar_Suite_Rodriguez_Finura_v1.6.2.bat",
-  "full_install_bat_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Instalar_Suite_Rodriguez_Finura_v1.6.2.bat",
-  "full_install_bat_sha256": "3AA973C3691AE9E967A4233C3AD33913A7C4D413D1893279B22A0D79C48172D1",
-  "full_install_package": "Suite_Rodriguez_Finura_v1.6.2_full.zip",
-  "full_install_package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.6.2_full.zip",
-  "full_install_package_sha256": "8817CA52A1356976257DA4AA1951C988644D93F139789E0BFC47ACFFC2DA9CFE"
+  "full_install_bat": "Instalar_Suite_Rodriguez_Finura_v1.6.3.bat",
+  "full_install_bat_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Instalar_Suite_Rodriguez_Finura_v1.6.3.bat",
+  "full_install_bat_sha256": "E61B69B39458B78F5E9C28489BAAF72BCFD1F9CE24A0787C34D03683EF2789C6",
+  "full_install_package": "Suite_Rodriguez_Finura_v1.6.3_full.zip",
+  "full_install_package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.6.3_full.zip",
+  "full_install_package_sha256": "131D2F7F121FA190461F79F03B5FA210740380EC4B6BAA54157179EB0319027D"
 }

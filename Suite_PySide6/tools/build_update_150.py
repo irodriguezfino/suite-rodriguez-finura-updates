@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.6.2"
+VERSION = "1.6.3"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
@@ -291,12 +291,12 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
     full_digest = sha256(full_package)
     installer_digest = sha256(installer_bat)
     notes = (
-        "- Shell profesional con pestanas: Inicio y procesos abiertos conviven sin perder estado.\n"
-        "- Inicio operativo compacto: sin metricas superiores, con abiertos, recientes, favoritos y salidas.\n"
-        "- Panel contextual lateral para estado, siguiente accion, avisos y salidas recientes.\n"
-        "- Pulido visual corporativo: cabecera mas ligera, pestanas claras y sidebar con resumen discreto.\n"
-        "- Usabilidad diaria: atajos Ctrl+Tab, Ctrl+Shift+Tab, Ctrl+W y Ctrl+L.\n"
-        "- Se mantiene el updater silencioso sin ventanas CMD y sin tocar la logica core de validaciones."
+        "- Mejora UX/UI profesional: acciones secundarias deshabilitadas se ocultan hasta estar disponibles.\n"
+        "- Accesibilidad reforzada: labels persistentes en formularios criticos y contraste disabled AA.\n"
+        "- Favoritos mas claros con control de estrella accesible y tooltips de estado.\n"
+        "- Responsive mejorado: panel de contexto bajo demanda en anchuras medias y sidebar mas compacta.\n"
+        "- Dashboard mas operativo: actividad reciente y salidas mostradas como archivos escaneables.\n"
+        "- Feedback de ejecucion y errores mas accionables sin tocar la logica core de validaciones."
     )
     manifest = {
         "schema": "suite-rodriguez-finura-update-v1",

@@ -34,6 +34,7 @@ from suite_pyside6.core.control_recepcion_maquilas import (
     MENSAJE_DEFECTO,
 )
 from suite_pyside6.core.paths import resource_path
+from suite_pyside6.ui.components import labeled_field
 from suite_pyside6.ui.file_dialogs import open_file, open_files, save_file
 from suite_pyside6.ui.polish import collapsible_section, confirm_discard_work, show_inline_message, polish_window
 from suite_pyside6.ui.responsive import make_flow, make_widgets_resizable
@@ -160,15 +161,15 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         make_widgets_resizable(self.recipients, self.subject)
         self.save_template_button = QPushButton("Guardar plantilla")
         self.save_template_button.clicked.connect(self.save_email_template)
-        email_layout.addWidget(self.recipients, 2)
-        email_layout.addWidget(self.subject, 2)
+        email_layout.addWidget(labeled_field("Destinatarios", self.recipients), 2)
+        email_layout.addWidget(labeled_field("Asunto", self.subject), 2)
         email_layout.addWidget(self.save_template_button)
         self.body_editor = QPlainTextEdit()
         self.body_editor.setObjectName("MailBody")
         self.body_editor.setMaximumHeight(72)
         self.body_editor.setPlaceholderText("Mensaje del correo")
         email_panel_layout.addWidget(email_fields)
-        email_panel_layout.addWidget(self.body_editor)
+        email_panel_layout.addWidget(labeled_field("Mensaje del correo", self.body_editor))
         layout.addWidget(collapsible_section("Correo", email_panel))
 
         metadata = QFrame()
@@ -201,14 +202,14 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
             self.especificacion,
             self.observaciones,
         )
-        metadata_layout.addWidget(self.ganadero, 0, 0)
-        metadata_layout.addWidget(self.origen, 0, 1)
-        metadata_layout.addWidget(self.dac, 0, 2)
-        metadata_layout.addWidget(self.contrato, 0, 3)
-        metadata_layout.addWidget(self.control_temperatura, 1, 0)
-        metadata_layout.addWidget(self.ph, 1, 1)
-        metadata_layout.addWidget(self.especificacion, 1, 2)
-        metadata_layout.addWidget(self.observaciones, 1, 3)
+        metadata_layout.addWidget(labeled_field("Ganadero", self.ganadero), 0, 0)
+        metadata_layout.addWidget(labeled_field("Origen", self.origen), 0, 1)
+        metadata_layout.addWidget(labeled_field("N DAC", self.dac), 0, 2)
+        metadata_layout.addWidget(labeled_field("Contrato", self.contrato), 0, 3)
+        metadata_layout.addWidget(labeled_field("Control temperatura", self.control_temperatura), 1, 0)
+        metadata_layout.addWidget(labeled_field("PH", self.ph), 1, 1)
+        metadata_layout.addWidget(labeled_field("Especificacion", self.especificacion), 1, 2)
+        metadata_layout.addWidget(labeled_field("Observaciones", self.observaciones), 1, 3)
         for field in (
             self.ganadero,
             self.origen,
