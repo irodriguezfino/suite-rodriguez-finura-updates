@@ -7,14 +7,18 @@ from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
+    QGridLayout,
+    QHeaderView,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMainWindow,
+    QProgressBar,
     QPushButton,
     QPlainTextEdit,
     QSizePolicy,
-    QTabWidget,
+    QTableWidget,
+    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -51,7 +55,7 @@ class PrecintosJamonesWindow(QMainWindow):
             self.setWindowIcon(QIcon(str(icon_path)))
         self.setStyleSheet(base_qss())
         self._build_ui()
-        polish_window(self)
+        polish_window(self, context_panel=False)
         self._refresh()
 
     def flow_steps(self) -> tuple[str, ...]:
@@ -101,6 +105,7 @@ class PrecintosJamonesWindow(QMainWindow):
 
         validacion_label = QLabel("VALIDACIÓN")
         validacion_label.setObjectName("GroupLabel")
+        validacion_label.setText("VALIDACION")
         actions_layout.addWidget(validacion_label)
 
         self.process_button = QPushButton("Procesar control")
@@ -115,6 +120,7 @@ class PrecintosJamonesWindow(QMainWindow):
         self.weight_min.setObjectName("CompactField")
         self.weight_min.setPlaceholderText("Peso min.")
         self.weight_min.setAccessibleDescription("Peso mínimo para filtrar registros, disponible tras procesar.")
+        self.weight_min.setAccessibleDescription("Peso minimo para filtrar registros, disponible tras procesar.")
         self.weight_min.setMaximumWidth(96)
         actions_layout.addWidget(self.weight_min)
 
@@ -122,6 +128,7 @@ class PrecintosJamonesWindow(QMainWindow):
         self.weight_max.setObjectName("CompactField")
         self.weight_max.setPlaceholderText("Peso max.")
         self.weight_max.setAccessibleDescription("Peso máximo para filtrar registros, disponible tras procesar.")
+        self.weight_max.setAccessibleDescription("Peso maximo para filtrar registros, disponible tras procesar.")
         self.weight_max.setMaximumWidth(96)
         actions_layout.addWidget(self.weight_max)
 
@@ -153,40 +160,155 @@ class PrecintosJamonesWindow(QMainWindow):
 
         self.summary = QLabel("Sin archivos cargados")
         self.summary.setObjectName("ResultLabel")
+        self.summary.setVisible(False)
+        self.summary.setMaximumHeight(0)
         layout.addWidget(self.summary)
 
-        panel = QFrame()
-        panel.setObjectName("AppCard")
-        panel_layout = QVBoxLayout(panel)
-        panel_layout.setContentsMargins(12, 9, 12, 12)
-        panel_title = QLabel("Panel de trabajo")
-        panel_title.setObjectName("SectionLabel")
-        tabs = QTabWidget()
-        tabs.setObjectName("WorkTabs")
+        workspace = QFrame()
+        workspace.setObjectName("ControlPilotWorkspace")
+        workspace_layout = QHBoxLayout(workspace)
+        workspace_layout.setContentsMargins(0, 0, 0, 0)
+        workspace_layout.setSpacing(10)
+
+        preview_panel = QFrame()
+        preview_panel.setObjectName("ControlPreviewPanel")
+        preview_layout = QVBoxLayout(preview_panel)
+        preview_layout.setContentsMargins(12, 10, 12, 10)
+        preview_layout.setSpacing(8)
+        preview_header = QHBoxLayout()
+        preview_title = QLabel("Vista previa")
+        preview_title.setObjectName("SectionLabel")
+        self.preview_count = QLabel("0 lineas")
+        self.preview_count.setObjectName("ControlCountPill")
+        preview_header.addWidget(preview_title)
+        preview_header.addStretch(1)
+        preview_header.addWidget(self.preview_count)
+        self.preview_table = QTableWidget(0, 6)
+        self.preview_table.setObjectName("ControlPreviewTable")
+        self.preview_table.setAccessibleName("Vista previa de precintos de jamones")
+        self.preview_table.setHorizontalHeaderLabels(["Linea", "Codigo", "Precinto", "Peso", "Lote", "Estado"])
+        self.preview_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.preview_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+        self.preview_table.verticalHeader().setVisible(False)
+        self.preview_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.preview_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.preview_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        preview_layout.addLayout(preview_header)
+        preview_layout.addWidget(self.preview_table, 1)
+
+        self.metrics_strip = QFrame()
+        self.metrics_strip.setObjectName("ControlMetricStrip")
+        metrics_layout = QGridLayout(self.metrics_strip)
+        metrics_layout.setContentsMargins(8, 7, 8, 7)
+        metrics_layout.setHorizontalSpacing(8)
+        metrics_layout.setVerticalSpacing(4)
+        self.metric_valid = self._metric_pair(metrics_layout, 0, "Validos", "0")
+        self.metric_pending = self._metric_pair(metrics_layout, 1, "Pendientes", "0")
+        self.metric_duplicate = self._metric_pair(metrics_layout, 2, "Duplicados", "0")
+        self.metric_files = self._metric_pair(metrics_layout, 3, "Archivos", "0")
+        preview_layout.addWidget(self.metrics_strip)
+
+        issues_panel = QFrame()
+        issues_panel.setObjectName("ControlIssuesPanel")
+        issues_layout = QVBoxLayout(issues_panel)
+        issues_layout.setContentsMargins(12, 10, 12, 10)
+        issues_layout.setSpacing(8)
+        issues_header = QHBoxLayout()
+        issues_title = QLabel("Incidencias")
+        issues_title.setObjectName("SectionLabel")
+        self.issues_count = QLabel("0 detectadas")
+        self.issues_count.setObjectName("ControlIssuePill")
+        issues_header.addWidget(issues_title)
+        issues_header.addStretch(1)
+        issues_header.addWidget(self.issues_count)
+        self.issues_empty = QLabel("No hay incidencias para mostrar")
+        self.issues_empty.setObjectName("ControlDropzone")
+        self.issues_empty.setAccessibleName("Estado vacio de incidencias")
+        self.issues_empty.setAlignment(Qt.AlignCenter)
+        self.issues_empty.setWordWrap(True)
         self.preview = QPlainTextEdit()
+        self.preview.setObjectName("CorrectionEditor")
+        self.preview.setAccessibleName("Editor de correcciones de precintos")
         self.preview.setReadOnly(True)
-        self.preview.setLineWrapMode(QPlainTextEdit.NoWrap)
+        self.preview.setLineWrapMode(QPlainTextEdit.WidgetWidth)
         self.preview.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.issues = QPlainTextEdit()
+        self.issues.setObjectName("IssuesText")
+        self.issues.setAccessibleName("Listado de incidencias de precintos")
         self.issues.setReadOnly(True)
         self.issues.setLineWrapMode(QPlainTextEdit.WidgetWidth)
         self.issues.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        issues_layout.addLayout(issues_header)
+        issues_layout.addWidget(self.issues_empty, 1)
+        issues_layout.addWidget(self.issues, 1)
+        issues_layout.addWidget(self.preview, 1)
+
+        rail = QFrame()
+        rail.setObjectName("ControlStatusRail")
+        rail.setMinimumWidth(245)
+        rail_layout = QVBoxLayout(rail)
+        rail_layout.setContentsMargins(12, 10, 12, 10)
+        rail_layout.setSpacing(9)
+        rail_title = QLabel("Estado actual")
+        rail_title.setObjectName("SectionLabel")
+        self.rail_state = QLabel("Pendiente de TXT/CSV")
+        self.rail_state.setObjectName("ControlRailState")
+        self.rail_detail = QLabel("Carga uno o varios ficheros para iniciar la validacion.")
+        self.rail_detail.setObjectName("ControlRailDetail")
+        self.rail_detail.setWordWrap(True)
+        self.rail_progress = QProgressBar()
+        self.rail_progress.setObjectName("ControlProgress")
+        self.rail_progress.setRange(0, 100)
+        self.rail_progress.setTextVisible(True)
+        next_title = QLabel("Siguiente accion")
+        next_title.setObjectName("SectionLabel")
+        self.rail_next = QLabel("Cargar TXT/CSV")
+        self.rail_next.setObjectName("ControlRailAction")
+        self.rail_next.setWordWrap(True)
+        alerts_title = QLabel("Avisos")
+        alerts_title.setObjectName("SectionLabel")
+        self.rail_alerts = QLabel("Sin avisos.")
+        self.rail_alerts.setObjectName("ControlRailDetail")
+        self.rail_alerts.setWordWrap(True)
         self.output = QPlainTextEdit()
+        self.output.setObjectName("OutputText")
+        self.output.setAccessibleName("Vista de salida TXT/CSV")
         self.output.setReadOnly(True)
-        self.output.setLineWrapMode(QPlainTextEdit.NoWrap)
-        self.output.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        tabs.addTab(self.preview, "Resumen")
-        tabs.addTab(self.issues, "Incidencias")
-        tabs.addTab(self.output, "Salida")
-        panel_layout.addWidget(panel_title)
-        panel_layout.addWidget(tabs, 1)
-        layout.addWidget(panel, 1)
+        self.output.setLineWrapMode(QPlainTextEdit.WidgetWidth)
+        self.output.setMaximumHeight(150)
+        rail_layout.addWidget(rail_title)
+        rail_layout.addWidget(self.rail_state)
+        rail_layout.addWidget(self.rail_detail)
+        rail_layout.addWidget(self.rail_progress)
+        rail_layout.addWidget(next_title)
+        rail_layout.addWidget(self.rail_next)
+        rail_layout.addWidget(alerts_title)
+        rail_layout.addWidget(self.rail_alerts)
+        rail_layout.addWidget(QLabel("Salida"))
+        rail_layout.addWidget(self.output)
+        rail_layout.addStretch(1)
+
+        workspace_layout.addWidget(preview_panel, 5)
+        workspace_layout.addWidget(issues_panel, 3)
+        workspace_layout.addWidget(rail, 2)
+        layout.addWidget(workspace, 1)
 
         self.status = QLabel("Sin archivos cargados")
         self.status.setObjectName("StatusLabel")
         self.status.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.status)
         self.setCentralWidget(root)
+
+    def _metric_pair(self, layout: QGridLayout, column: int, label: str, value: str) -> QLabel:
+        value_label = QLabel(value)
+        value_label.setObjectName("ControlMetricValue")
+        value_label.setAccessibleName(label)
+        value_label.setAccessibleDescription(f"{label}: {value}")
+        text_label = QLabel(label)
+        text_label.setObjectName("ControlMetricLabel")
+        layout.addWidget(value_label, 0, column)
+        layout.addWidget(text_label, 1, column)
+        return value_label
 
     def select_files(self) -> None:
         files = open_files(
@@ -321,6 +443,7 @@ class PrecintosJamonesWindow(QMainWindow):
             self.preview.setPlainText("Arrastra TXT/CSV de precintos aqui o usa Cargar TXT/CSV para empezar.")
             self.issues.setPlainText("Sin incidencias.")
             self.output.setPlainText("La salida TXT/CSV aparecera despues de procesar registros validos.")
+        self._populate_preview_table()
         self._refresh_buttons_only()
 
     def _refresh_buttons_only(self) -> None:
@@ -333,11 +456,134 @@ class PrecintosJamonesWindow(QMainWindow):
         self.clear_filter_button.setEnabled(bool(self.result.validos or self.result.invalidos or self.weight_filter_pending))
         self.clear_button.setEnabled(bool(self.paths or self.result.validos or self.result.invalidos or self.official_excel))
         self._sync_weight_filter_controls()
+        self._refresh_pilot_state()
 
     def _sync_weight_filter_controls(self) -> None:
         visible = bool(self.weight_button.isEnabled() or self.weight_filter_pending)
         self.weight_min.setVisible(visible)
         self.weight_max.setVisible(visible)
+
+    def _populate_preview_table(self) -> None:
+        rows: list[tuple[str, str, str, str, str, str]] = []
+        for registro in self.result.validos[:120]:
+            rows.append(
+                (
+                    str(registro.linea),
+                    registro.codigo_articulo or "-",
+                    registro.precinto or "-",
+                    registro.peso or "-",
+                    registro.lote or "-",
+                    "Valido",
+                )
+            )
+        for registro, motivo in self.result.invalidos[:80]:
+            rows.append(
+                (
+                    str(registro.linea),
+                    registro.codigo_articulo or "-",
+                    registro.precinto or "-",
+                    registro.peso or "-",
+                    registro.lote or "-",
+                    f"Pendiente: {motivo}",
+                )
+            )
+        self.preview_table.setRowCount(len(rows))
+        for row_index, row in enumerate(rows):
+            for column, value in enumerate(row):
+                item = QTableWidgetItem(value)
+                if column == 5 and value.startswith("Pendiente"):
+                    item.setToolTip(value)
+                self.preview_table.setItem(row_index, column, item)
+        self.preview_count.setText(f"{len(rows)} lineas" if rows else "0 lineas")
+
+    def _refresh_pilot_state(self) -> None:
+        validos = len(self.result.validos)
+        invalidos = len(self.result.invalidos)
+        duplicados = len(self.result.duplicados)
+        pendientes = invalidos + int(self.weight_filter_pending)
+        files = len(self.paths)
+        self.metric_valid.setText(str(validos))
+        self.metric_pending.setText(str(pendientes))
+        self.metric_duplicate.setText(str(duplicados))
+        self.metric_files.setText(str(files))
+        for label, value in (
+            (self.metric_valid, validos),
+            (self.metric_pending, pendientes),
+            (self.metric_duplicate, duplicados),
+            (self.metric_files, files),
+        ):
+            label.setAccessibleDescription(f"{label.accessibleName()}: {value}")
+        self.issues_count.setText(f"{pendientes} detectadas" if pendientes else "0 detectadas")
+        self.issues_count.setAccessibleDescription(
+            f"Incidencias detectadas: {pendientes}. Revisa el panel central si hay pendientes."
+        )
+
+        has_issues = bool(self.result.invalidos or self.result.duplicados or self.result.oficiales)
+        needs_corrections = bool(self.result.invalidos or self.weight_filter_pending)
+        self.issues_empty.setVisible(not has_issues and not needs_corrections)
+        self.issues.setVisible(has_issues)
+        self.preview.setVisible(needs_corrections)
+
+        state, detail, progress = self._pilot_state_text()
+        self.rail_state.setText(state)
+        self.rail_state.setAccessibleDescription(f"Estado actual: {state}. {detail}")
+        self.rail_detail.setText(detail)
+        self.rail_progress.setValue(progress)
+        self.rail_progress.setAccessibleName("Progreso del proceso")
+        self.rail_progress.setAccessibleDescription(f"Progreso estimado del proceso: {progress} por ciento.")
+        self.rail_next.setText(self._next_action_text())
+        self.rail_next.setAccessibleDescription(f"Siguiente accion recomendada: {self.rail_next.text()}")
+        self.rail_alerts.setText(self._alerts_text())
+        self.rail_alerts.setAccessibleDescription("Avisos del proceso: " + self.rail_alerts.text().replace("\n", ". "))
+        self.issues_empty.setText(self._empty_issue_text())
+
+    def _pilot_state_text(self) -> tuple[str, str, int]:
+        status = self.status.text().lower()
+        if "guardado" in status:
+            return "Salida guardada", "El archivo de salida se ha generado correctamente.", 100
+        if self.result.invalidos or self.weight_filter_pending:
+            return "Revision pendiente", "Corrige las lineas marcadas y pulsa Revalidar.", 55
+        if self.result.validos:
+            return "Validado", "Los precintos estan listos para guardar TXT o CSV.", 80
+        if self.paths:
+            return "Archivos cargados", "Pulsa Procesar control para validar los registros.", 25
+        if self.official_excel:
+            return "Excel oficial cargado", "Carga TXT/CSV de precintos para comparar contra el oficial.", 15
+        return "Pendiente de TXT/CSV", "Carga uno o varios ficheros para iniciar la validacion.", 0
+
+    def _next_action_text(self) -> str:
+        if not self.paths and not self.result.validos:
+            return "Cargar TXT/CSV"
+        if self.paths and not (self.result.validos or self.result.invalidos):
+            return "Procesar control"
+        if self.result.invalidos or self.weight_filter_pending:
+            return "Revalidar correcciones"
+        if self.result.validos:
+            return "Guardar TXT o CSV"
+        return "Completa el paso actual"
+
+    def _alerts_text(self) -> str:
+        alerts: list[str] = []
+        if self.result.invalidos:
+            alerts.append(f"{len(self.result.invalidos)} lineas pendientes")
+        if self.result.duplicados:
+            alerts.append(f"{len(self.result.duplicados)} duplicados suprimidos")
+        if self.weight_filter_pending:
+            alerts.append("Filtro de peso pendiente de revalidar")
+        if self.result.oficiales:
+            extra, missing = self.result.differences()
+            if extra:
+                alerts.append(f"{len(extra)} precintos fuera del Excel oficial")
+            if missing:
+                alerts.append(f"{len(missing)} precintos oficiales no leidos")
+        return "\n".join(alerts) if alerts else "Sin avisos."
+
+    def _empty_issue_text(self) -> str:
+        if not self.paths and not self.result.validos:
+            return "No hay incidencias para mostrar.\n\nArrastra aqui los TXT/CSV de precintos o usa Cargar TXT/CSV."
+        if self.result.validos and not self.result.invalidos:
+            return "Sin incidencias pendientes.\n\nLos registros estan preparados para salida."
+        return "No hay incidencias para mostrar."
 
     def _template_values(self) -> dict[str, str]:
         return {

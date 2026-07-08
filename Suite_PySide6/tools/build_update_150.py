@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.6.7"
+VERSION = "1.6.8"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
@@ -291,13 +291,12 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
     full_digest = sha256(full_package)
     installer_digest = sha256(installer_bat)
     notes = (
-        "- Higiene de copy visible: títulos, descripciones, tooltips y etiquetas críticas usan acentos correctos.\n"
-        "- Nueva prueba anti-mojibake para evitar texto corrupto o metadatos visibles sin normalizar.\n"
-        "- Toolbars más limpias: acciones secundarias bloqueadas se difieren hasta que aportan valor.\n"
-        "- Los filtros de peso se ocultan hasta que el proceso tiene datos válidos para filtrarlos.\n"
-        "- El piloto de Control y Recepción Maquilas mejora descripciones accesibles de métricas, progreso, avisos y siguiente acción.\n"
-        "- Nueva prueba de ruido inicial valida que los módulos no arranquen con exceso de botones o campos sueltos.\n"
-        "- Se mantiene intacta la lógica de negocio y la paridad funcional validada."
+        "- Precintos Jamones adopta el layout operativo profesional: tabla de vista previa, metricas, panel de incidencias y rail de estado.\n"
+        "- Se eliminan las pestanas antiguas del modulo para reducir friccion y acercar la experiencia al boceto profesional.\n"
+        "- El nuevo rail muestra progreso, siguiente accion y avisos sin depender de tarjetas superiores poco relevantes.\n"
+        "- Mejora de accesibilidad: nombres accesibles en tabla, progreso, incidencias y descripciones de estado.\n"
+        "- Nuevo contrato de UI bloquea regresiones: sin WorkTabs, sin contexto duplicado y con datos reales reflejados en tabla.\n"
+        "- Se mantiene intacta la logica de negocio y la paridad funcional validada."
     )
     manifest = {
         "schema": "suite-rodriguez-finura-update-v1",

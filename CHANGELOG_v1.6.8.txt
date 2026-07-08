@@ -1,0 +1,8 @@
+Suite Rodriguez Finura v1.6.8
+
+- Precintos Jamones adopta el layout operativo profesional: tabla de vista previa, metricas, panel de incidencias y rail de estado.
+- Se eliminan las pestanas antiguas del modulo para reducir friccion y acercar la experiencia al boceto profesional.
+- El nuevo rail muestra progreso, siguiente accion y avisos sin depender de tarjetas superiores poco relevantes.
+- Mejora de accesibilidad: nombres accesibles en tabla, progreso, incidencias y descripciones de estado.
+- Nuevo contrato de UI bloquea regresiones: sin WorkTabs, sin contexto duplicado y con datos reales reflejados en tabla.
+- Se mantiene intacta la logica de negocio y la paridad funcional validada.

@@ -1,34 +1,34 @@
 {
   "schema": "suite-rodriguez-finura-update-v1",
-  "version": "1.6.7",
-  "published_at": "2026-07-08T12:04:25+02:00",
+  "version": "1.6.8",
+  "published_at": "2026-07-08T12:30:20+02:00",
   "auto_update": {
     "type": "zip",
-    "file": "Suite_Rodriguez_Finura_v1.6.7_update.zip",
-    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.6.7_update.zip",
-    "sha256": "2680F5CA84B00B327199EA580D6DC6FC11BB592288C10573516B8F0AB7713B62"
+    "file": "Suite_Rodriguez_Finura_v1.6.8_update.zip",
+    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.6.8_update.zip",
+    "sha256": "D507C39738B956AE709707D3298DDE455ED494AB94CB303F3376A7ADD91937F2"
   },
   "fresh_install": {
     "type": "bat",
-    "file": "Instalar_Suite_Rodriguez_Finura_v1.6.7.bat",
-    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Instalar_Suite_Rodriguez_Finura_v1.6.7.bat",
-    "sha256": "0B4688E3683CBBB3043F79B591A91576F45E0BD39A475121CAC8E5288B344D83",
-    "full_package": "Suite_Rodriguez_Finura_v1.6.7_full.zip",
-    "full_package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.6.7_full.zip",
-    "full_package_sha256": "C7CA683F2AD373F0DC96B7A4D279F8FDC2B86B0B8E4C213EF8ED9F91A4F6A8FB"
+    "file": "Instalar_Suite_Rodriguez_Finura_v1.6.8.bat",
+    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Instalar_Suite_Rodriguez_Finura_v1.6.8.bat",
+    "sha256": "D627DAB4DF9CF00EB5A88383E13E96D84ED6BFAFD61B2BE655A2B2FE4F96EF70",
+    "full_package": "Suite_Rodriguez_Finura_v1.6.8_full.zip",
+    "full_package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.6.8_full.zip",
+    "full_package_sha256": "EA36BCF9B88560255E88E0A07E827B085AC1646025FC7B7F7F87FF806CCC4DD4"
   },
-  "notes": "- Higiene de copy visible: títulos, descripciones, tooltips y etiquetas críticas usan acentos correctos.\n- Nueva prueba anti-mojibake para evitar texto corrupto o metadatos visibles sin normalizar.\n- Toolbars más limpias: acciones secundarias bloqueadas se difieren hasta que aportan valor.\n- Los filtros de peso se ocultan hasta que el proceso tiene datos válidos para filtrarlos.\n- El piloto de Control y Recepción Maquilas mejora descripciones accesibles de métricas, progreso, avisos y siguiente acción.\n- Nueva prueba de ruido inicial valida que los módulos no arranquen con exceso de botones o campos sueltos.\n- Se mantiene intacta la lógica de negocio y la paridad funcional validada.",
+  "notes": "- Precintos Jamones adopta el layout operativo profesional: tabla de vista previa, metricas, panel de incidencias y rail de estado.\n- Se eliminan las pestanas antiguas del modulo para reducir friccion y acercar la experiencia al boceto profesional.\n- El nuevo rail muestra progreso, siguiente accion y avisos sin depender de tarjetas superiores poco relevantes.\n- Mejora de accesibilidad: nombres accesibles en tabla, progreso, incidencias y descripciones de estado.\n- Nuevo contrato de UI bloquea regresiones: sin WorkTabs, sin contexto duplicado y con datos reales reflejados en tabla.\n- Se mantiene intacta la logica de negocio y la paridad funcional validada.",
   "package_type": "zip",
-  "package": "Suite_Rodriguez_Finura_v1.6.7_update.zip",
-  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.6.7_update.zip",
-  "sha256": "2680F5CA84B00B327199EA580D6DC6FC11BB592288C10573516B8F0AB7713B62",
+  "package": "Suite_Rodriguez_Finura_v1.6.8_update.zip",
+  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.6.8_update.zip",
+  "sha256": "D507C39738B956AE709707D3298DDE455ED494AB94CB303F3376A7ADD91937F2",
   "fresh_install_msi": "Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518",
-  "full_install_bat": "Instalar_Suite_Rodriguez_Finura_v1.6.7.bat",
-  "full_install_bat_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Instalar_Suite_Rodriguez_Finura_v1.6.7.bat",
-  "full_install_bat_sha256": "0B4688E3683CBBB3043F79B591A91576F45E0BD39A475121CAC8E5288B344D83",
-  "full_install_package": "Suite_Rodriguez_Finura_v1.6.7_full.zip",
-  "full_install_package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.6.7_full.zip",
-  "full_install_package_sha256": "C7CA683F2AD373F0DC96B7A4D279F8FDC2B86B0B8E4C213EF8ED9F91A4F6A8FB"
+  "full_install_bat": "Instalar_Suite_Rodriguez_Finura_v1.6.8.bat",
+  "full_install_bat_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Instalar_Suite_Rodriguez_Finura_v1.6.8.bat",
+  "full_install_bat_sha256": "D627DAB4DF9CF00EB5A88383E13E96D84ED6BFAFD61B2BE655A2B2FE4F96EF70",
+  "full_install_package": "Suite_Rodriguez_Finura_v1.6.8_full.zip",
+  "full_install_package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.6.8_full.zip",
+  "full_install_package_sha256": "EA36BCF9B88560255E88E0A07E827B085AC1646025FC7B7F7F87FF806CCC4DD4"
 }
