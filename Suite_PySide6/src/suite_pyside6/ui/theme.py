@@ -437,6 +437,111 @@ def base_qss() -> str:
         border-color: {BRAND_BLUE};
         background: {CARD_HOVER};
     }}
+    QFrame#ControlPilotWorkspace {{
+        background: transparent;
+        border: 0;
+    }}
+    QFrame#ControlPreviewPanel,
+    QFrame#ControlIssuesPanel,
+    QFrame#ControlStatusRail {{
+        background: {SURFACE};
+        border: 1px solid {SOFT_BORDER};
+        border-radius: 8px;
+    }}
+    QFrame#ControlPreviewPanel,
+    QFrame#ControlIssuesPanel {{
+        min-height: 360px;
+    }}
+    QTableWidget#ControlPreviewTable {{
+        font-family: Segoe UI, Arial, sans-serif;
+        font-size: 9.2pt;
+        background: {FIELD};
+        border: 1px solid {SOFT_BORDER};
+        border-radius: 7px;
+        padding: 0;
+    }}
+    QLabel#ControlCountPill,
+    QLabel#ControlIssuePill {{
+        color: {BRAND_BLUE_DARK};
+        background: {CHIP_BG};
+        border: 1px solid {SOFT_BORDER};
+        border-radius: 5px;
+        padding: 3px 7px;
+        font-size: 8.6pt;
+        font-weight: 750;
+    }}
+    QLabel#ControlIssuePill {{
+        color: {WARNING_FG};
+        background: {WARNING_BG};
+        border-color: {WARNING_BORDER};
+    }}
+    QLabel#ControlDropzone {{
+        color: {MUTED};
+        background: {PANEL};
+        border: 1px dashed {FOCUS};
+        border-radius: 8px;
+        padding: 22px;
+        font-size: 11pt;
+        font-weight: 650;
+    }}
+    QFrame#ControlMetricStrip {{
+        background: {PANEL};
+        border: 1px solid {SOFT_BORDER};
+        border-radius: 7px;
+    }}
+    QLabel#ControlMetricValue {{
+        color: {BRAND_BLUE_DARK};
+        background: transparent;
+        font-size: 15pt;
+        font-weight: 850;
+    }}
+    QLabel#ControlMetricLabel {{
+        color: {MUTED};
+        background: transparent;
+        font-size: 8.4pt;
+        font-weight: 700;
+    }}
+    QLabel#ControlRailState {{
+        color: {SUCCESS_FG};
+        background: {SUCCESS_BG};
+        border: 1px solid {SUCCESS_BORDER};
+        border-radius: 7px;
+        padding: 8px 10px;
+        font-weight: 850;
+    }}
+    QLabel#ControlRailAction {{
+        color: white;
+        background: {BRAND_BLUE};
+        border-radius: 6px;
+        padding: 8px 10px;
+        font-weight: 800;
+    }}
+    QLabel#ControlRailDetail {{
+        color: {MUTED};
+        background: transparent;
+        font-weight: 650;
+    }}
+    QProgressBar#ControlProgress {{
+        background: {PANEL};
+        border: 1px solid {SOFT_BORDER};
+        border-radius: 5px;
+        min-height: 10px;
+        max-height: 16px;
+        text-align: center;
+        color: {MUTED};
+        font-size: 8pt;
+    }}
+    QProgressBar#ControlProgress::chunk {{
+        background: {SUCCESS_FG};
+        border-radius: 4px;
+    }}
+    QPlainTextEdit#CorrectionEditor,
+    QPlainTextEdit#IssuesText,
+    QPlainTextEdit#OutputText {{
+        font-family: Segoe UI, Arial, sans-serif;
+        font-size: 9.1pt;
+        border-color: {SOFT_BORDER};
+    }}
     QFrame#Toolbar {{
         background: {SURFACE};
         border: 1px solid {SOFT_BORDER};

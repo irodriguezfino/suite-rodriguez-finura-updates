@@ -1,0 +1,9 @@
+Suite Rodriguez Finura v1.6.6
+
+- Control y Recepcion Maquilas estrena pantalla piloto tipo consola: vista previa tabular, incidencias y rail operativo.
+- Los campos manuales y la plantilla de correo pasan al panel lateral para liberar la zona principal de trabajo.
+- Nuevo rail derecho con estado actual, progreso, siguiente accion, avisos, salida y secciones desplegables.
+- Vista previa profesional con tabla de lineas, articulo, precinto, peso, lote y estado.
+- Metricas inferiores en el piloto: validos, pendientes, invalidos y archivos cargados.
+- Estados vacios, labels accesibles y estilos especificos acercan el modulo al boceto de referencia.
+- Se mantiene intacta la capa core y la paridad funcional validada.

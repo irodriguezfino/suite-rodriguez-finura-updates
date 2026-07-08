@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.6.5"
+VERSION = "1.6.6"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
@@ -291,11 +291,12 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
     full_digest = sha256(full_package)
     installer_digest = sha256(installer_bat)
     notes = (
-        "- Menos ruido visual: se eliminan resumenes redundantes del sidebar y metadatos secundarios de las tarjetas.\n"
-        "- Panel derecho mas util: Estado actual y Avisos usan metricas reales de archivos, pendientes, incidencias y prerequisitos.\n"
-        "- Flujos mas robustos: stepper declarativo por modulo con descripcion accesible para lector de pantalla.\n"
-        "- Estados vacios mas claros y accesibles en paneles de trabajo, con instrucciones y descripcion semantica.\n"
-        "- Toolbars agrupadas por fases Entrada, Validacion/Proceso y Salida en los modulos principales.\n"
+        "- Control y Recepcion Maquilas estrena pantalla piloto tipo consola: vista previa tabular, incidencias y rail operativo.\n"
+        "- Los campos manuales y la plantilla de correo pasan al panel lateral para liberar la zona principal de trabajo.\n"
+        "- Nuevo rail derecho con estado actual, progreso, siguiente accion, avisos, salida y secciones desplegables.\n"
+        "- Vista previa profesional con tabla de lineas, articulo, precinto, peso, lote y estado.\n"
+        "- Metricas inferiores en el piloto: validos, pendientes, invalidos y archivos cargados.\n"
+        "- Estados vacios, labels accesibles y estilos especificos acercan el modulo al boceto de referencia.\n"
         "- Se mantiene intacta la capa core y la paridad funcional validada."
     )
     manifest = {

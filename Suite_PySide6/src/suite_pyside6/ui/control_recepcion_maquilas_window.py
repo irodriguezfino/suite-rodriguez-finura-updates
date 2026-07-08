@@ -6,14 +6,18 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QFrame,
+    QGridLayout,
+    QHeaderView,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMainWindow,
+    QProgressBar,
     QPushButton,
     QPlainTextEdit,
     QSizePolicy,
-    QTabWidget,
+    QTableWidget,
+    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -61,7 +65,7 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         self.setStyleSheet(base_qss())
         self._build_ui()
         self._load_email_template()
-        polish_window(self)
+        polish_window(self, context_panel=False)
         self._refresh()
 
     def flow_steps(self) -> tuple[str, ...]:
@@ -159,6 +163,8 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
 
         self.summary = QLabel("Sin archivos cargados")
         self.summary.setObjectName("ResultLabel")
+        self.summary.setVisible(False)
+        self.summary.setMaximumHeight(0)
         layout.addWidget(self.summary)
 
         email_panel = QFrame()
@@ -185,7 +191,7 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         self.body_editor.setPlaceholderText("Mensaje del correo")
         email_panel_layout.addWidget(email_fields)
         email_panel_layout.addWidget(labeled_field("Mensaje del correo", self.body_editor))
-        layout.addWidget(collapsible_section("Correo", email_panel))
+        self.email_section = collapsible_section("Correo", email_panel)
 
         metadata = QFrame()
         metadata.setObjectName("FormPanel")
@@ -236,40 +242,153 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
             self.observaciones,
         ):
             field.textChanged.connect(self._mark_metadata_changed)
-        layout.addWidget(collapsible_section("Campos manuales informe", metadata))
+        self.metadata_section = collapsible_section("Campos manuales informe", metadata)
 
-        panel = QFrame()
-        panel.setObjectName("AppCard")
-        panel_layout = QVBoxLayout(panel)
-        panel_layout.setContentsMargins(12, 9, 12, 12)
-        panel_title = QLabel("Panel de trabajo")
-        panel_title.setObjectName("SectionLabel")
-        tabs = QTabWidget()
-        tabs.setObjectName("WorkTabs")
+        workspace = QFrame()
+        workspace.setObjectName("ControlPilotWorkspace")
+        workspace_layout = QHBoxLayout(workspace)
+        workspace_layout.setContentsMargins(0, 0, 0, 0)
+        workspace_layout.setSpacing(10)
+
+        preview_panel = QFrame()
+        preview_panel.setObjectName("ControlPreviewPanel")
+        preview_layout = QVBoxLayout(preview_panel)
+        preview_layout.setContentsMargins(12, 10, 12, 10)
+        preview_layout.setSpacing(8)
+        preview_header = QHBoxLayout()
+        preview_title = QLabel("Vista previa")
+        preview_title.setObjectName("SectionLabel")
+        self.preview_count = QLabel("0 lineas")
+        self.preview_count.setObjectName("ControlCountPill")
+        preview_header.addWidget(preview_title)
+        preview_header.addStretch(1)
+        preview_header.addWidget(self.preview_count)
+        self.preview_table = QTableWidget(0, 6)
+        self.preview_table.setObjectName("ControlPreviewTable")
+        self.preview_table.setAccessibleName("Vista previa de lineas del TXT FAC")
+        self.preview_table.setHorizontalHeaderLabels(["Linea", "Articulo", "Precinto", "Peso (kg)", "Lote", "Estado"])
+        self.preview_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.preview_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+        self.preview_table.verticalHeader().setVisible(False)
+        self.preview_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.preview_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.preview_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        preview_layout.addLayout(preview_header)
+        preview_layout.addWidget(self.preview_table, 1)
+
+        self.metrics_strip = QFrame()
+        self.metrics_strip.setObjectName("ControlMetricStrip")
+        metrics_layout = QGridLayout(self.metrics_strip)
+        metrics_layout.setContentsMargins(8, 7, 8, 7)
+        metrics_layout.setHorizontalSpacing(8)
+        metrics_layout.setVerticalSpacing(4)
+        self.metric_valid = self._metric_pair(metrics_layout, 0, "Validos", "0")
+        self.metric_pending = self._metric_pair(metrics_layout, 1, "Pendientes", "0")
+        self.metric_invalid = self._metric_pair(metrics_layout, 2, "Invalidos", "0")
+        self.metric_files = self._metric_pair(metrics_layout, 3, "Archivos", "0")
+        preview_layout.addWidget(self.metrics_strip)
+
+        issues_panel = QFrame()
+        issues_panel.setObjectName("ControlIssuesPanel")
+        issues_layout = QVBoxLayout(issues_panel)
+        issues_layout.setContentsMargins(12, 10, 12, 10)
+        issues_layout.setSpacing(8)
+        issues_header = QHBoxLayout()
+        issues_title = QLabel("Incidencias")
+        issues_title.setObjectName("SectionLabel")
+        self.issues_count = QLabel("0 detectadas")
+        self.issues_count.setObjectName("ControlIssuePill")
+        issues_header.addWidget(issues_title)
+        issues_header.addStretch(1)
+        issues_header.addWidget(self.issues_count)
+        self.issues_empty = QLabel("No hay incidencias para mostrar")
+        self.issues_empty.setObjectName("ControlDropzone")
+        self.issues_empty.setAccessibleName("Estado vacio de incidencias")
+        self.issues_empty.setAlignment(Qt.AlignCenter)
+        self.issues_empty.setWordWrap(True)
         self.preview = QPlainTextEdit()
+        self.preview.setObjectName("CorrectionEditor")
+        self.preview.setAccessibleName("Editor de correcciones de TXT FAC")
         self.preview.setReadOnly(True)
-        self.preview.setLineWrapMode(QPlainTextEdit.NoWrap)
+        self.preview.setLineWrapMode(QPlainTextEdit.WidgetWidth)
         self.preview.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.issues = QPlainTextEdit()
+        self.issues.setObjectName("IssuesText")
+        self.issues.setAccessibleName("Listado de incidencias del proceso")
         self.issues.setReadOnly(True)
         self.issues.setLineWrapMode(QPlainTextEdit.WidgetWidth)
         self.issues.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        issues_layout.addLayout(issues_header)
+        issues_layout.addWidget(self.issues_empty, 1)
+        issues_layout.addWidget(self.issues, 1)
+        issues_layout.addWidget(self.preview, 1)
+
+        rail = QFrame()
+        rail.setObjectName("ControlStatusRail")
+        rail.setMinimumWidth(245)
+        rail_layout = QVBoxLayout(rail)
+        rail_layout.setContentsMargins(12, 10, 12, 10)
+        rail_layout.setSpacing(9)
+        rail_title = QLabel("Estado actual")
+        rail_title.setObjectName("SectionLabel")
+        self.rail_state = QLabel("Pendiente de TXT")
+        self.rail_state.setObjectName("ControlRailState")
+        self.rail_detail = QLabel("Carga un TXT FAC para iniciar la validacion.")
+        self.rail_detail.setObjectName("ControlRailDetail")
+        self.rail_detail.setWordWrap(True)
+        self.rail_progress = QProgressBar()
+        self.rail_progress.setObjectName("ControlProgress")
+        self.rail_progress.setRange(0, 100)
+        self.rail_progress.setTextVisible(True)
+        next_title = QLabel("Siguiente accion")
+        next_title.setObjectName("SectionLabel")
+        self.rail_next = QLabel("Cargar TXT FAC")
+        self.rail_next.setObjectName("ControlRailAction")
+        self.rail_next.setWordWrap(True)
+        alerts_title = QLabel("Avisos")
+        alerts_title.setObjectName("SectionLabel")
+        self.rail_alerts = QLabel("Sin avisos.")
+        self.rail_alerts.setObjectName("ControlRailDetail")
+        self.rail_alerts.setWordWrap(True)
         self.output = QPlainTextEdit()
+        self.output.setObjectName("OutputText")
+        self.output.setAccessibleName("Resumen de salida TXT AX")
         self.output.setReadOnly(True)
-        self.output.setLineWrapMode(QPlainTextEdit.NoWrap)
-        self.output.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        tabs.addTab(self.preview, "Resumen")
-        tabs.addTab(self.issues, "Incidencias")
-        tabs.addTab(self.output, "Salida")
-        panel_layout.addWidget(panel_title)
-        panel_layout.addWidget(tabs, 1)
-        layout.addWidget(panel, 1)
+        self.output.setLineWrapMode(QPlainTextEdit.WidgetWidth)
+        self.output.setMaximumHeight(112)
+        rail_layout.addWidget(rail_title)
+        rail_layout.addWidget(self.rail_state)
+        rail_layout.addWidget(self.rail_detail)
+        rail_layout.addWidget(self.rail_progress)
+        rail_layout.addWidget(next_title)
+        rail_layout.addWidget(self.rail_next)
+        rail_layout.addWidget(alerts_title)
+        rail_layout.addWidget(self.rail_alerts)
+        rail_layout.addWidget(self.metadata_section)
+        rail_layout.addWidget(QLabel("Salida"))
+        rail_layout.addWidget(self.output)
+        rail_layout.addWidget(self.email_section)
+        rail_layout.addStretch(1)
+
+        workspace_layout.addWidget(preview_panel, 5)
+        workspace_layout.addWidget(issues_panel, 3)
+        workspace_layout.addWidget(rail, 2)
+        layout.addWidget(workspace, 1)
 
         self.status = QLabel("Sin archivos cargados")
         self.status.setObjectName("StatusLabel")
         self.status.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.status)
         self.setCentralWidget(root)
+
+    def _metric_pair(self, layout: QGridLayout, column: int, label: str, value: str) -> QLabel:
+        value_label = QLabel(value)
+        value_label.setObjectName("ControlMetricValue")
+        text_label = QLabel(label)
+        text_label.setObjectName("ControlMetricLabel")
+        layout.addWidget(value_label, 0, column)
+        layout.addWidget(text_label, 1, column)
+        return value_label
 
     def select_txt(self) -> None:
         files = open_files(self, "control_recepcion_maquilas/txt", "Selecciona TXT de FAC", "TXT (*.txt);;Todos (*.*)")
@@ -321,6 +440,8 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
             self.result.txt_modified = True
         self.status.setText("Filtro aplicado. Revalida si has corregido registros.")
         self._refresh_buttons_only()
+        self._populate_preview_table()
+        self._refresh_pilot_state()
 
     def clear_corrections(self) -> None:
         self.weight_min.clear()
@@ -415,6 +536,7 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
             return
         self.status.setText("Correo enviado correctamente.")
         show_inline_message(self, "success", "Correo enviado correctamente.")
+        self._refresh()
 
     def save_email_template(self) -> None:
         app_settings = settings()
@@ -521,9 +643,11 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         else:
             self.summary.setText("Sin archivos cargados")
             self.preview.setReadOnly(True)
-            self.preview.setPlainText("Arrastra TXT de FAC aqui o pulsa Cargar TXT FAC para empezar.\n\nDespues podras guardar TXT AX, cruzar SealsReport y generar PDF/correo.")
+            self.preview.setPlainText("")
             self.issues.setPlainText("Sin incidencias.")
             self.output.setPlainText("La salida TXT AX aparecera despues de procesar registros validos.")
+        self._populate_preview_table()
+        self._refresh_pilot_state()
         self._refresh_buttons_only()
 
     def _refresh_buttons_only(self) -> None:
@@ -536,6 +660,127 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         self.weight_button.setEnabled(bool(self.result.validos and not self.result.invalidos))
         self.clear_corrections_button.setEnabled(bool(self.result.validos or self.result.invalidos or self.weight_filter_pending))
         self.clear_button.setEnabled(bool(self.paths or self.result.validos or self.result.invalidos))
+        self._refresh_pilot_state()
+
+    def _populate_preview_table(self) -> None:
+        rows: list[tuple[str, str, str, str, str, str]] = []
+        for registro in self.result.validos[:120]:
+            rows.append(
+                (
+                    str(registro.linea),
+                    registro.codigo_fac or "-",
+                    registro.precinto or "-",
+                    registro.peso or "-",
+                    registro.lote or "-",
+                    "Valido",
+                )
+            )
+        for registro, motivo in self.result.invalidos[:80]:
+            rows.append(
+                (
+                    str(registro.linea),
+                    registro.codigo_fac or "-",
+                    registro.precinto or "-",
+                    registro.peso or "-",
+                    registro.lote or "-",
+                    f"Pendiente: {motivo}",
+                )
+            )
+        self.preview_table.setRowCount(len(rows))
+        for row_index, row in enumerate(rows):
+            for column, value in enumerate(row):
+                item = QTableWidgetItem(value)
+                if column == 5 and value.startswith("Pendiente"):
+                    item.setToolTip(value)
+                self.preview_table.setItem(row_index, column, item)
+        self.preview_count.setText(f"{len(rows)} lineas" if rows else "0 lineas")
+
+    def _refresh_pilot_state(self) -> None:
+        validos = len(self.result.validos)
+        invalidos = len(self.result.invalidos)
+        pendientes = invalidos + int(self.weight_filter_pending)
+        files = len(self.paths)
+        self.metric_valid.setText(str(validos))
+        self.metric_pending.setText(str(pendientes))
+        self.metric_invalid.setText(str(invalidos))
+        self.metric_files.setText(str(files))
+        self.issues_count.setText(f"{pendientes} detectadas" if pendientes else "0 detectadas")
+
+        has_issues = bool(self.result.invalidos or self.result.duplicados or self.result.recepcion)
+        needs_corrections = bool(self.result.invalidos or self.weight_filter_pending)
+        self.issues_empty.setVisible(not has_issues and not needs_corrections)
+        self.issues.setVisible(has_issues)
+        self.preview.setVisible(needs_corrections)
+
+        state, detail, progress = self._pilot_state_text()
+        self.rail_state.setText(state)
+        self.rail_detail.setText(detail)
+        self.rail_progress.setValue(progress)
+        self.rail_next.setText(self._next_action_text())
+        self.rail_alerts.setText(self._alerts_text())
+        self.issues_empty.setText(self._empty_issue_text())
+
+    def _pilot_state_text(self) -> tuple[str, str, int]:
+        status = self.status.text().lower()
+        if "correo enviado" in status:
+            return "Completado", "Correo enviado correctamente.", 100
+        if self.result.pdf_rangos is not None or "pdf guardado" in status:
+            return "PDF listo", "Informe generado. El correo puede enviarse con la documentacion.", 90
+        if self.result.recepcion is not None:
+            return "Cruce completado", "Revisa diferencias y genera el PDF de rangos.", 75
+        if self.result.invalidos or self.weight_filter_pending:
+            return "Revision pendiente", "Corrige las lineas marcadas y pulsa Revalidar.", 45
+        if self._requires_txt_save():
+            return "TXT modificado", "Guarda el TXT AX antes de cruzar SealsReport.", 58
+        if self._can_continue_to_seals() and self.seals_file is not None:
+            return "Listo para cruzar", "SealsReport cargado. Comprueba el albaran.", 65
+        if self._can_continue_to_seals():
+            return "TXT validado", "Carga SealsReport para continuar.", 55
+        if self.result.validos:
+            return "Validado", "Los registros estan listos para salida.", 45
+        if self.paths:
+            return "TXT cargado", "Procesando datos de entrada.", 25
+        return "Pendiente de TXT", "Carga un TXT FAC para iniciar la validacion.", 0
+
+    def _next_action_text(self) -> str:
+        if not self.paths and not self.result.validos:
+            return "Cargar TXT FAC"
+        if self.result.invalidos or self.weight_filter_pending:
+            return "Revalidar correcciones"
+        if self._requires_txt_save():
+            return "Guardar TXT AX"
+        if self._can_continue_to_seals() and self.seals_file is None:
+            return "Cargar SealsReport"
+        if self._can_continue_to_seals() and self.seals_file is not None and self.result.recepcion is None:
+            return "Cruzar albaran"
+        if self.result.recepcion is not None and self.result.pdf_rangos is None:
+            return "Generar PDF"
+        if self.result.recepcion is not None:
+            return "Enviar correo"
+        return "Completa el paso actual"
+
+    def _alerts_text(self) -> str:
+        alerts: list[str] = []
+        if self.result.invalidos:
+            alerts.append(f"{len(self.result.invalidos)} lineas pendientes")
+        if self.result.duplicados:
+            alerts.append(f"{len(self.result.duplicados)} duplicados suprimidos")
+        if self.weight_filter_pending:
+            alerts.append("Filtro de peso pendiente de revalidar")
+        if self._can_continue_to_seals() and self.seals_file is None:
+            alerts.append("SealsReport no cargado")
+        if self.result.recepcion is not None and not self.recipients.text().strip():
+            alerts.append("Correo sin destinatarios")
+        if self.result.recepcion is not None and self._metadata_uses_defaults():
+            alerts.append("Campos manuales sin revisar")
+        return "\n".join(alerts) if alerts else "Sin avisos."
+
+    def _empty_issue_text(self) -> str:
+        if not self.paths and not self.result.validos:
+            return "No hay incidencias para mostrar.\n\nArrastra aqui los TXT FAC o usa Cargar TXT FAC."
+        if self.result.validos and not self.result.invalidos:
+            return "Sin incidencias pendientes.\n\nContinua con SealsReport y salida."
+        return "No hay incidencias para mostrar."
 
     def _issues_text(self) -> str:
         if not (self.result.invalidos or self.result.duplicados or self.result.recepcion):
