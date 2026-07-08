@@ -76,7 +76,7 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         subtitle.setObjectName("WindowSubtitle")
         layout.addWidget(title)
         layout.addWidget(subtitle)
-        steps = QLabel("1 Validar TXT  ->  2 Guardar TXT AX  ->  3 Cruzar albarán  ->  4 PDF/correo")
+        steps = QLabel("1 Cargar TXT  ->  2 Validar  ->  3 Cruzar SealsReport  ->  4 Generar PDF  ->  5 Enviar correo")
         steps.setObjectName("StepBar")
         layout.addWidget(steps)
 
@@ -87,10 +87,22 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         actions_layout.setContentsMargins(4, 4, 4, 4)
         actions_layout.setSpacing(7)
 
+        entrada_label = QLabel("ENTRADA")
+        entrada_label.setObjectName("GroupLabel")
+        actions_layout.addWidget(entrada_label)
+
         self.txt_button = QPushButton("Cargar TXT FAC")
         self.txt_button.setProperty("primary", True)
         self.txt_button.clicked.connect(self.select_txt)
         actions_layout.addWidget(self.txt_button)
+
+        self.seals_button = QPushButton("Cargar SealsReport")
+        self.seals_button.clicked.connect(self.select_seals)
+        actions_layout.addWidget(self.seals_button)
+
+        validacion_label = QLabel("VALIDACION")
+        validacion_label.setObjectName("GroupLabel")
+        actions_layout.addWidget(validacion_label)
 
         self.save_txt_button = QPushButton("Guardar TXT AX")
         self.save_txt_button.clicked.connect(self.save_txt_dialog)
@@ -120,9 +132,9 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         self.clear_corrections_button.clicked.connect(self.clear_corrections)
         actions_layout.addWidget(self.clear_corrections_button)
 
-        self.seals_button = QPushButton("Cargar SealsReport")
-        self.seals_button.clicked.connect(self.select_seals)
-        actions_layout.addWidget(self.seals_button)
+        salida_label = QLabel("SALIDA")
+        salida_label.setObjectName("GroupLabel")
+        actions_layout.addWidget(salida_label)
 
         self.process_seals_button = QPushButton("Cruzar albarán")
         self.process_seals_button.clicked.connect(self.process_seals)

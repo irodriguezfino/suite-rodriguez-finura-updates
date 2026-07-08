@@ -6,7 +6,7 @@ import sys
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtWidgets import QApplication, QLabel, QPushButton
+from PySide6.QtWidgets import QApplication
 
 from suite_pyside6.core.apps import APP_REGISTRY
 from suite_pyside6.ui.main_window import MainWindow
@@ -19,7 +19,8 @@ def main() -> int:
     app.processEvents()
 
     assert window.metric_values["ready"].text() == str(len(APP_REGISTRY))
-    assert window.open_processes_panel.findChild(QLabel, "DashboardEmpty") is not None
+    assert hasattr(window, "continue_strip")
+    assert not hasattr(window, "open_processes_panel")
 
     first = APP_REGISTRY[1]
     second = APP_REGISTRY[2]
@@ -29,25 +30,16 @@ def main() -> int:
     window.show_dashboard()
     app.processEvents()
 
-    open_buttons = [
-        button.text()
-        for button in window.open_processes_panel.findChildren(QPushButton)
-        if button.property("dashboardAction")
-    ]
-    recent_buttons = [
-        button.text()
-        for button in window.recent_activity_panel.findChildren(QPushButton)
-        if button.property("dashboardAction")
-    ]
-    assert first.title in open_buttons
-    assert second.title in open_buttons
-    assert second.title in recent_buttons
+    assert window.continue_strip.isVisible()
+    assert second.title in window.continue_title.text()
+    assert window._continue_app_key == second.key
+    assert "Abiertos 2" in window.continue_activity.text()
     assert int(window.metric_values["recent"].text()) >= 2
 
     window.close()
     print("PHASE12_OK")
-    print("dashboard_operativo=true")
-    print(f"procesos_abiertos={len(open_buttons)}")
+    print("dashboard_compacto=true")
+    print(f"continuar={window._continue_app_key}")
     return 0
 
 

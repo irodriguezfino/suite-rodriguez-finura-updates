@@ -60,6 +60,7 @@ class MainWindow(QMainWindow):
         self.metric_values: dict[str, QLabel] = {}
         self._closing = False
         self._current_app_key = ""
+        self._continue_app_key = ""
         self._nav_compact = False
         self._context_forced_open = False
         self.setWindowTitle("Suite Rodriguez Finura")
@@ -226,6 +227,29 @@ class MainWindow(QMainWindow):
         sidebar_layout.addWidget(self.sidebar_summary)
         sidebar_layout.addStretch(1)
 
+        self.user_panel = QFrame()
+        self.user_panel.setObjectName("UserPanel")
+        user_layout = QHBoxLayout(self.user_panel)
+        user_layout.setContentsMargins(10, 9, 10, 9)
+        user_layout.setSpacing(8)
+        avatar = QLabel("A")
+        avatar.setObjectName("UserAvatar")
+        avatar.setAlignment(Qt.AlignCenter)
+        user_layout.addWidget(avatar, 0, Qt.AlignTop)
+        user_text = QVBoxLayout()
+        user_text.setSpacing(1)
+        user_name = QLabel("Administrador")
+        user_name.setObjectName("UserName")
+        user_role = QLabel("Operaciones")
+        user_role.setObjectName("UserRole")
+        user_state = QLabel("En linea")
+        user_state.setObjectName("UserState")
+        user_text.addWidget(user_name)
+        user_text.addWidget(user_role)
+        user_text.addWidget(user_state)
+        user_layout.addLayout(user_text, 1)
+        sidebar_layout.addWidget(self.user_panel)
+
         self.footer = QLabel(f"Version {__version__}\nLista para operar")
         self.footer.setObjectName("NavFooter")
         self.footer.setWordWrap(True)
@@ -236,8 +260,13 @@ class MainWindow(QMainWindow):
         header = QFrame()
         header.setObjectName("Header")
         self.header_layout = QBoxLayout(QBoxLayout.LeftToRight, header)
-        self.header_layout.setContentsMargins(12, 10, 12, 10)
-        self.header_layout.setSpacing(10)
+        self.header_layout.setContentsMargins(14, 12, 14, 12)
+        self.header_layout.setSpacing(12)
+
+        self.menu_button = QPushButton("Menu")
+        self.menu_button.setObjectName("MenuButton")
+        self.menu_button.setToolTip("Mostrar navegacion principal.")
+        self.header_layout.addWidget(self.menu_button, 0)
 
         title_box = QVBoxLayout()
         title_box.setSpacing(2)
@@ -250,18 +279,29 @@ class MainWindow(QMainWindow):
         self.header_layout.addLayout(title_box, 1)
 
         self.search = QLineEdit()
-        self.search.setPlaceholderText("Buscar proceso, archivo o area")
+        self.search.setPlaceholderText("Buscar proceso, archivo, referencia...")
         self.search.setClearButtonEnabled(True)
         self.search.setAccessibleName("Buscar proceso")
         self.search.setToolTip("Filtra los procesos por nombre, area o descripcion.")
         self.search.textChanged.connect(self._on_search_changed)
-        self.header_layout.addWidget(self.search, 0)
+        self.header_layout.addWidget(self.search, 1)
 
-        about_button = QPushButton("Acerca de")
-        about_button.setObjectName("AboutButton")
-        about_button.setToolTip("Ver version instalada y buscar actualizaciones.")
-        about_button.clicked.connect(self.show_about)
-        self.header_layout.addWidget(about_button, 0)
+        self.update_button = QPushButton(f"Actualizado\nv{__version__}")
+        self.update_button.setObjectName("UpdateChip")
+        self.update_button.setToolTip("Ver version instalada y buscar actualizaciones.")
+        self.update_button.clicked.connect(self.show_about)
+        self.header_layout.addWidget(self.update_button, 0)
+
+        help_button = QPushButton("Ayuda")
+        help_button.setObjectName("HelpButton")
+        help_button.setToolTip("Ver informacion de la suite y soporte.")
+        help_button.clicked.connect(self.show_about)
+        self.header_layout.addWidget(help_button, 0)
+
+        self.profile_button = QPushButton("A")
+        self.profile_button.setObjectName("ProfileButton")
+        self.profile_button.setToolTip("Perfil de usuario: Administrador.")
+        self.header_layout.addWidget(self.profile_button, 0)
 
         self.home_button = QPushButton("Inicio")
         self.home_button.setToolTip("Volver a la pestana Inicio sin cerrar procesos.")
@@ -290,19 +330,27 @@ class MainWindow(QMainWindow):
         self.context_app_title.setWordWrap(True)
         layout.addWidget(self.context_app_title)
 
+        state_panel, state_layout = self._context_card("Estado actual")
         self.process_state = self._shell_context_label("Estado", "Pendiente")
+        state_layout.addWidget(self.process_state)
+        layout.addWidget(state_panel)
+
+        next_panel, next_layout = self._context_card("Siguiente accion")
         self.process_next = self._shell_context_label("Siguiente", "Completa el paso actual")
-        self.process_alerts = self._shell_context_label("Avisos", "Sin avisos")
-        layout.addWidget(self.process_state)
-        layout.addWidget(self.process_next)
-        layout.addWidget(self.process_alerts)
+        next_layout.addWidget(self.process_next)
 
         self.next_action_button = QPushButton("Ejecutar")
         self.next_action_button.setObjectName("ShellNextAction")
         self.next_action_button.setProperty("primary", True)
         self.next_action_button.setToolTip("Ejecuta la siguiente accion disponible del proceso abierto.")
         self.next_action_button.clicked.connect(self._trigger_current_next_action)
-        layout.addWidget(self.next_action_button)
+        next_layout.addWidget(self.next_action_button)
+        layout.addWidget(next_panel)
+
+        alerts_panel, alerts_layout = self._context_card("Avisos")
+        self.process_alerts = self._shell_context_label("Avisos", "Sin avisos")
+        alerts_layout.addWidget(self.process_alerts)
+        layout.addWidget(alerts_panel)
 
         self.context_files_panel, self.context_files_layout = self._dashboard_panel("Salidas recientes")
         layout.addWidget(self.context_files_panel)
@@ -316,18 +364,30 @@ class MainWindow(QMainWindow):
         dashboard_layout.setContentsMargins(0, 0, 0, 0)
         dashboard_layout.setSpacing(10)
 
-        dashboard_panels = QBoxLayout(QBoxLayout.LeftToRight)
-        dashboard_panels.setSpacing(10)
-        self.open_processes_panel, self.open_processes_layout = self._dashboard_panel("Procesos abiertos")
-        self.recent_activity_panel, self.recent_activity_layout = self._dashboard_panel("Continuar recientes")
-        self.favorites_panel, self.favorites_layout = self._dashboard_panel("Favoritos")
-        self.exports_panel, self.exports_layout = self._dashboard_panel("Actividad y salidas")
-        dashboard_panels.addWidget(self.open_processes_panel, 1)
-        dashboard_panels.addWidget(self.recent_activity_panel, 1)
-        dashboard_panels.addWidget(self.favorites_panel, 1)
-        dashboard_panels.addWidget(self.exports_panel, 1)
-        dashboard_layout.addLayout(dashboard_panels)
-        register_adaptive_layout(self, dashboard_panels, breakpoint_width=1180)
+        self.continue_strip = QFrame()
+        self.continue_strip.setObjectName("ContinueStrip")
+        continue_layout = QHBoxLayout(self.continue_strip)
+        continue_layout.setContentsMargins(12, 10, 12, 10)
+        continue_layout.setSpacing(10)
+        continue_text = QVBoxLayout()
+        continue_text.setSpacing(2)
+        self.continue_title = QLabel("Continuar trabajo")
+        self.continue_title.setObjectName("ContinueTitle")
+        self.continue_detail = QLabel("Sin actividad reciente")
+        self.continue_detail.setObjectName("ContinueDetail")
+        self.continue_detail.setWordWrap(True)
+        continue_text.addWidget(self.continue_title)
+        continue_text.addWidget(self.continue_detail)
+        continue_layout.addLayout(continue_text, 1)
+        self.continue_activity = QLabel("")
+        self.continue_activity.setObjectName("ContinueMeta")
+        continue_layout.addWidget(self.continue_activity, 0)
+        self.continue_button = QPushButton("Continuar")
+        self.continue_button.setProperty("primary", True)
+        self.continue_button.setToolTip("Abrir el ultimo proceso relevante.")
+        self.continue_button.clicked.connect(self._open_continue_app)
+        continue_layout.addWidget(self.continue_button, 0)
+        dashboard_layout.addWidget(self.continue_strip)
 
         content_shell = QFrame()
         content_shell.setObjectName("ContentShell")
@@ -375,6 +435,17 @@ class MainWindow(QMainWindow):
         layout.addWidget(label)
         return panel, layout
 
+    def _context_card(self, title: str) -> tuple[QFrame, QVBoxLayout]:
+        panel = QFrame()
+        panel.setObjectName("ContextCard")
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(12, 10, 12, 12)
+        layout.setSpacing(8)
+        label = QLabel(title)
+        label.setObjectName("DashboardPanelTitle")
+        layout.addWidget(label)
+        return panel, layout
+
     @staticmethod
     def _shell_context_label(title: str, value: str) -> QLabel:
         label = QLabel(f"{title}: {value}")
@@ -397,68 +468,45 @@ class MainWindow(QMainWindow):
                     label.setText(value)
                 except RuntimeError:
                     return
-        self._render_open_processes()
-        self._render_recent_activity()
-        self._render_favorites()
-        self._render_recent_exports()
+        self._render_continue_strip()
         self._render_context_exports()
 
-    def _render_open_processes(self) -> None:
-        self._clear_dashboard_panel(self.open_processes_layout)
-        if not self.app_pages:
-            self.open_processes_layout.addWidget(self._dashboard_empty("Sin procesos abiertos"))
+    def _render_continue_strip(self) -> None:
+        open_keys = list(self.open_windows.keys())
+        recent_keys = recent_app_keys()
+        favorite_keys = favorite_app_keys()
+        candidate_key = (open_keys[-1:] or recent_keys[:1] or favorite_keys[:1] or [""])[0]
+        app = self._app_from_key(candidate_key) if candidate_key else None
+        exports = recent_paths("exports")
+        has_activity = app is not None or bool(exports)
+        self.continue_strip.setVisible(has_activity)
+        if not has_activity:
+            self._continue_app_key = ""
             return
-        for key in self.open_windows:
-            app = self._app_from_key(key)
-            if app is None:
-                continue
-            button = self._dashboard_button(app.title, f"Volver a {app.title}.")
-            button.clicked.connect(lambda _checked=False, item=app: self.open_app(item))
-            self.open_processes_layout.addWidget(button)
+        self._continue_app_key = app.key if app is not None else ""
+        if app is not None:
+            prefix = "Proceso abierto" if app.key in open_keys else "Ultimo proceso"
+            self.continue_title.setText(f"{prefix}: {app.title}")
+            self.continue_detail.setText(app.description)
+            self.continue_button.setVisible(True)
+            self.continue_button.setToolTip(f"Abrir {app.title}.")
+        else:
+            self.continue_title.setText("Ultima salida disponible")
+            self.continue_detail.setText(Path(exports[0]).name)
+            self.continue_button.setVisible(False)
+        activity_parts = [
+            f"Abiertos {len(open_keys)}",
+            f"Recientes {len(recent_keys)}",
+            f"Favoritos {len(favorite_keys)}",
+        ]
+        if exports:
+            activity_parts.append(f"Salida {Path(exports[0]).name}")
+        self.continue_activity.setText("  |  ".join(activity_parts))
 
-    def _render_recent_activity(self) -> None:
-        self._clear_dashboard_panel(self.recent_activity_layout)
-        recents = [self._app_from_key(key) for key in recent_app_keys()]
-        recents = [app for app in recents if app is not None][:5]
-        if not recents:
-            self.recent_activity_layout.addWidget(self._dashboard_empty("Sin actividad reciente"))
-            return
-        for app in recents:
-            button = self._dashboard_button(
-                app.title,
-                f"Abrir {app.title}. {app.short_description}",
-            )
-            button.clicked.connect(lambda _checked=False, item=app: self.open_app(item))
-            self.recent_activity_layout.addWidget(button)
-
-    def _render_favorites(self) -> None:
-        self._clear_dashboard_panel(self.favorites_layout)
-        favorites = [self._app_from_key(key) for key in favorite_app_keys()]
-        favorites = [app for app in favorites if app is not None][:5]
-        if not favorites:
-            self.favorites_layout.addWidget(self._dashboard_empty("Sin favoritos"))
-            return
-        for app in favorites:
-            button = self._dashboard_button(app.title, f"Abrir favorito: {app.title}.")
-            button.clicked.connect(lambda _checked=False, item=app: self.open_app(item))
-            self.favorites_layout.addWidget(button)
-
-    def _render_recent_exports(self) -> None:
-        self._clear_dashboard_panel(self.exports_layout)
-        exports = recent_paths("exports")[:5]
-        if not exports:
-            recents = [self._app_from_key(key) for key in recent_app_keys()]
-            recents = [app for app in recents if app is not None][:3]
-            if not recents:
-                self.exports_layout.addWidget(self._dashboard_empty("Sin actividad registrada"))
-                return
-            for app in recents:
-                self.exports_layout.addWidget(
-                    self._dashboard_empty(f"Ultimo proceso: {app.title}")
-                )
-            return
-        for path in exports:
-            self.exports_layout.addWidget(self._path_label(path))
+    def _open_continue_app(self) -> None:
+        app = self._app_from_key(self._continue_app_key)
+        if app is not None:
+            self.open_app(app)
 
     def _render_context_exports(self) -> None:
         self._clear_dashboard_panel(self.context_files_layout)
@@ -600,6 +648,7 @@ class MainWindow(QMainWindow):
         self.side_title.setText("Areas" if compact else "Areas de trabajo")
         self.sidebar_summary.setVisible(not compact)
         self.footer.setText(f"v{__version__}" if compact else f"Version {__version__}\nLista para operar")
+        self.user_panel.setVisible(not compact)
         self.search.setMinimumWidth(0)
         self.process_context.setMaximumWidth(252 if compact else 288)
         if hasattr(self, "context_button"):

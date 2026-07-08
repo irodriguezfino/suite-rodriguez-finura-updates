@@ -1,0 +1,8 @@
+Suite Rodriguez Finura v1.6.4
+
+- Inicio simplificado: se eliminan las cuatro tarjetas superiores y se sustituyen por una franja compacta de continuidad.
+- Shell mas profesional: sidebar oscura, cabecera limpia, buscador global, estado de actualizacion, ayuda y perfil.
+- Panel de contexto refinado con tarjetas de Estado actual, Siguiente accion y Avisos.
+- Stepper y toolbars con tratamiento visual mas cercano a una consola operativa moderna.
+- Control y Recepcion Maquilas usa toolbar por fases: Entrada, Validacion y Salida.
+- Se mantiene intacta la capa core y la paridad funcional validada.

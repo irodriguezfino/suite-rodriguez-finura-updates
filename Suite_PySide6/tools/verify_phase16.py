@@ -10,7 +10,7 @@ def main() -> int:
     build_script = (ROOT / "tools" / "build_update_150.py").read_text(encoding="utf-8-sig")
     main_window = (ROOT / "src" / "suite_pyside6" / "ui" / "main_window.py").read_text(encoding="utf-8-sig")
 
-    assert 'VERSION = "1.6.3"' in build_script
+    assert 'VERSION = "1.6.4"' in build_script
     assert "Abrir_Suite_Rodriguez_Finura.vbs" in build_script
     assert "runtime\\\\pythonw.exe" in build_script
     assert 'start "" "%INSTALL_DIR%\\\\Abrir_Suite_Rodriguez_Finura.cmd"' not in build_script
