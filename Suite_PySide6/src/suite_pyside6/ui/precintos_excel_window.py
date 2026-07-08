@@ -41,6 +41,9 @@ class PrecintosExcelWindow(QMainWindow):
         polish_window(self)
         self._refresh()
 
+    def flow_steps(self) -> tuple[str, ...]:
+        return ("Cargar archivos", "Procesar", "Revisar resultado", "Guardar CSV")
+
     def _build_ui(self) -> None:
         root = QWidget()
         layout = QVBoxLayout(root)
@@ -64,14 +67,26 @@ class PrecintosExcelWindow(QMainWindow):
         actions_layout.setContentsMargins(4, 4, 4, 4)
         actions_layout.setSpacing(7)
 
+        entrada_label = QLabel("ENTRADA")
+        entrada_label.setObjectName("GroupLabel")
+        actions_layout.addWidget(entrada_label)
+
         self.select_button = QPushButton("Seleccionar archivos")
         self.select_button.setProperty("primary", True)
         self.select_button.clicked.connect(self.select_files)
         actions_layout.addWidget(self.select_button)
 
+        proceso_label = QLabel("PROCESO")
+        proceso_label.setObjectName("GroupLabel")
+        actions_layout.addWidget(proceso_label)
+
         self.process_button = QPushButton("Procesar Excel")
         self.process_button.clicked.connect(self.process_selected_files)
         actions_layout.addWidget(self.process_button)
+
+        salida_label = QLabel("SALIDA")
+        salida_label.setObjectName("GroupLabel")
+        actions_layout.addWidget(salida_label)
 
         self.save_button = QPushButton("Guardar CSV")
         self.save_button.clicked.connect(self.save_csv_dialog)

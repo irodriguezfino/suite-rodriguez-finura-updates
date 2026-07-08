@@ -1,0 +1,8 @@
+Suite Rodriguez Finura v1.6.5
+
+- Menos ruido visual: se eliminan resumenes redundantes del sidebar y metadatos secundarios de las tarjetas.
+- Panel derecho mas util: Estado actual y Avisos usan metricas reales de archivos, pendientes, incidencias y prerequisitos.
+- Flujos mas robustos: stepper declarativo por modulo con descripcion accesible para lector de pantalla.
+- Estados vacios mas claros y accesibles en paneles de trabajo, con instrucciones y descripcion semantica.
+- Toolbars agrupadas por fases Entrada, Validacion/Proceso y Salida en los modulos principales.
+- Se mantiene intacta la capa core y la paridad funcional validada.

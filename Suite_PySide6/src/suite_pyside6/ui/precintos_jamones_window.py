@@ -54,6 +54,9 @@ class PrecintosJamonesWindow(QMainWindow):
         polish_window(self)
         self._refresh()
 
+    def flow_steps(self) -> tuple[str, ...]:
+        return ("Cargar TXT/CSV", "Validar", "Revisar incidencias", "Guardar TXT/CSV")
+
     def _build_ui(self) -> None:
         root = QWidget()
         layout = QVBoxLayout(root)
@@ -81,6 +84,10 @@ class PrecintosJamonesWindow(QMainWindow):
         self.type_combo.setObjectName("CompactField")
         self.type_combo.addItems(["Blanco", "Iberico"])
         self.type_combo.currentTextChanged.connect(lambda _text: self.process_files() if self.paths else None)
+
+        entrada_label = QLabel("ENTRADA")
+        entrada_label.setObjectName("GroupLabel")
+        actions_layout.addWidget(entrada_label)
         actions_layout.addWidget(self.type_combo)
 
         self.txt_button = QPushButton("Cargar TXT/CSV")
@@ -91,6 +98,10 @@ class PrecintosJamonesWindow(QMainWindow):
         self.official_button = QPushButton("Cargar Excel oficial")
         self.official_button.clicked.connect(self.select_official)
         actions_layout.addWidget(self.official_button)
+
+        validacion_label = QLabel("VALIDACION")
+        validacion_label.setObjectName("GroupLabel")
+        actions_layout.addWidget(validacion_label)
 
         self.process_button = QPushButton("Procesar control")
         self.process_button.clicked.connect(self.process_files)
@@ -119,6 +130,10 @@ class PrecintosJamonesWindow(QMainWindow):
         self.clear_filter_button = QPushButton("Limpiar filtro")
         self.clear_filter_button.clicked.connect(self.clear_weight_filter)
         actions_layout.addWidget(self.clear_filter_button)
+
+        salida_label = QLabel("SALIDA")
+        salida_label.setObjectName("GroupLabel")
+        actions_layout.addWidget(salida_label)
 
         self.save_txt_button = QPushButton("Guardar TXT")
         self.save_txt_button.clicked.connect(self.save_txt_dialog)

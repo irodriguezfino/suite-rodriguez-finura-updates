@@ -42,6 +42,9 @@ class PaletsWindow(QMainWindow):
         polish_window(self)
         self._refresh()
 
+    def flow_steps(self) -> tuple[str, ...]:
+        return ("Cargar TXT", "Validar", "Corregir", "Guardar Stock01")
+
     def _build_ui(self) -> None:
         root = QWidget()
         layout = QVBoxLayout(root)
@@ -65,10 +68,18 @@ class PaletsWindow(QMainWindow):
         actions_layout.setContentsMargins(4, 4, 4, 4)
         actions_layout.setSpacing(7)
 
+        entrada_label = QLabel("ENTRADA")
+        entrada_label.setObjectName("GroupLabel")
+        actions_layout.addWidget(entrada_label)
+
         self.select_button = QPushButton("Seleccionar TXT")
         self.select_button.setProperty("primary", True)
         self.select_button.clicked.connect(self.select_files)
         actions_layout.addWidget(self.select_button)
+
+        validacion_label = QLabel("VALIDACION")
+        validacion_label.setObjectName("GroupLabel")
+        actions_layout.addWidget(validacion_label)
 
         self.process_button = QPushButton("Procesar palets")
         self.process_button.clicked.connect(self.process_selected_files)
@@ -77,6 +88,10 @@ class PaletsWindow(QMainWindow):
         self.revalidate_button = QPushButton("Revalidar")
         self.revalidate_button.clicked.connect(self.revalidate)
         actions_layout.addWidget(self.revalidate_button)
+
+        salida_label = QLabel("SALIDA")
+        salida_label.setObjectName("GroupLabel")
+        actions_layout.addWidget(salida_label)
 
         self.save_button = QPushButton("Guardar CSV")
         self.save_button.clicked.connect(self.save_csv_dialog)

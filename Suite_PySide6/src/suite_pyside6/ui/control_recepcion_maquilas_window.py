@@ -64,6 +64,9 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         polish_window(self)
         self._refresh()
 
+    def flow_steps(self) -> tuple[str, ...]:
+        return ("Cargar TXT", "Validar", "Cruzar SealsReport", "Generar PDF", "Enviar correo")
+
     def _build_ui(self) -> None:
         root = QWidget()
         layout = QVBoxLayout(root)
@@ -104,10 +107,6 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         validacion_label.setObjectName("GroupLabel")
         actions_layout.addWidget(validacion_label)
 
-        self.save_txt_button = QPushButton("Guardar TXT AX")
-        self.save_txt_button.clicked.connect(self.save_txt_dialog)
-        actions_layout.addWidget(self.save_txt_button)
-
         self.revalidate_button = QPushButton("Revalidar")
         self.revalidate_button.clicked.connect(self.revalidate)
         actions_layout.addWidget(self.revalidate_button)
@@ -135,6 +134,10 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         salida_label = QLabel("SALIDA")
         salida_label.setObjectName("GroupLabel")
         actions_layout.addWidget(salida_label)
+
+        self.save_txt_button = QPushButton("Guardar TXT AX")
+        self.save_txt_button.clicked.connect(self.save_txt_dialog)
+        actions_layout.addWidget(self.save_txt_button)
 
         self.process_seals_button = QPushButton("Cruzar albarán")
         self.process_seals_button.clicked.connect(self.process_seals)

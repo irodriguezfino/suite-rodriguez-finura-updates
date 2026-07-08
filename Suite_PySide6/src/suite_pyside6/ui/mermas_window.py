@@ -42,6 +42,9 @@ class MermasWindow(QMainWindow):
         polish_window(self)
         self._refresh()
 
+    def flow_steps(self) -> tuple[str, ...]:
+        return ("Cargar finales", "Cargar origen", "Procesar", "Guardar Excel")
+
     def _build_ui(self) -> None:
         root = QWidget()
         layout = QVBoxLayout(root)
@@ -65,6 +68,10 @@ class MermasWindow(QMainWindow):
         actions_layout.setContentsMargins(4, 4, 4, 4)
         actions_layout.setSpacing(7)
 
+        entrada_label = QLabel("ENTRADA")
+        entrada_label.setObjectName("GroupLabel")
+        actions_layout.addWidget(entrada_label)
+
         self.final_button = QPushButton("Cargar CSVs finales")
         self.final_button.setProperty("primary", True)
         self.final_button.clicked.connect(self.select_final_files)
@@ -78,9 +85,17 @@ class MermasWindow(QMainWindow):
         self.filter_combo.addItems(["SI", "NO", "TODOS"])
         actions_layout.addWidget(self.filter_combo)
 
+        proceso_label = QLabel("PROCESO")
+        proceso_label.setObjectName("GroupLabel")
+        actions_layout.addWidget(proceso_label)
+
         self.process_button = QPushButton("Procesar cruce")
         self.process_button.clicked.connect(self.process_files)
         actions_layout.addWidget(self.process_button)
+
+        salida_label = QLabel("SALIDA")
+        salida_label.setObjectName("GroupLabel")
+        actions_layout.addWidget(salida_label)
 
         self.save_button = QPushButton("Guardar Excel")
         self.save_button.clicked.connect(self.save_dialog)

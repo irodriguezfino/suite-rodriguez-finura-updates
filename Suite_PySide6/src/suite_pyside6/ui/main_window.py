@@ -57,7 +57,6 @@ class MainWindow(QMainWindow):
         self.category_buttons: dict[str, QPushButton] = {}
         self.open_windows: dict[str, QMainWindow] = {}
         self.app_pages: dict[str, QMainWindow] = {}
-        self.metric_values: dict[str, QLabel] = {}
         self._closing = False
         self._current_app_key = ""
         self._continue_app_key = ""
@@ -134,7 +133,7 @@ class MainWindow(QMainWindow):
 
         self.status = QLabel("Suite operativa. Selecciona un proceso o usa el buscador para empezar.")
         self.status.setObjectName("StatusLabel")
-        workspace_layout.addWidget(self.status)
+        self.status.setVisible(False)
 
         self.dashboard_page = self._build_dashboard()
         self.tabs.addTab(self.dashboard_page, "Inicio")
@@ -200,31 +199,6 @@ class MainWindow(QMainWindow):
             nav_flow.addWidget(button)
         sidebar_layout.addLayout(nav_flow)
 
-        self.sidebar_summary = QFrame()
-        self.sidebar_summary.setObjectName("SidebarSummary")
-        summary_layout = QVBoxLayout(self.sidebar_summary)
-        summary_layout.setContentsMargins(10, 9, 10, 10)
-        summary_layout.setSpacing(6)
-        title = QLabel("Resumen")
-        title.setObjectName("DashboardPanelTitle")
-        summary_layout.addWidget(title)
-        for key, label in (
-            ("ready", "Procesos listos"),
-            ("recent", "Recientes"),
-            ("favorites", "Favoritos"),
-        ):
-            row = QHBoxLayout()
-            row.setSpacing(8)
-            text = QLabel(label)
-            text.setObjectName("InsightLabel")
-            value = QLabel("0")
-            value.setObjectName("InsightValue")
-            value.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            self.metric_values[key] = value
-            row.addWidget(text, 1)
-            row.addWidget(value, 0)
-            summary_layout.addLayout(row)
-        sidebar_layout.addWidget(self.sidebar_summary)
         sidebar_layout.addStretch(1)
 
         self.user_panel = QFrame()
@@ -456,18 +430,6 @@ class MainWindow(QMainWindow):
     def _refresh_dashboard_overview(self) -> None:
         if self._closing:
             return
-        values = {
-            "ready": str(sum(1 for app in APP_REGISTRY if app.migration_status == "ported")),
-            "recent": str(len(recent_app_keys())),
-            "favorites": str(len(favorite_app_keys())),
-        }
-        for key, value in values.items():
-            label = self.metric_values.get(key)
-            if label is not None:
-                try:
-                    label.setText(value)
-                except RuntimeError:
-                    return
         self._render_continue_strip()
         self._render_context_exports()
 
@@ -646,7 +608,6 @@ class MainWindow(QMainWindow):
         self.nav_title.setText("SRF" if compact else "Suite Rodriguez Finura")
         self.nav_subtitle.setVisible(not compact)
         self.side_title.setText("Areas" if compact else "Areas de trabajo")
-        self.sidebar_summary.setVisible(not compact)
         self.footer.setText(f"v{__version__}" if compact else f"Version {__version__}\nLista para operar")
         self.user_panel.setVisible(not compact)
         self.search.setMinimumWidth(0)
@@ -899,9 +860,6 @@ class AppCard(QFrame):
         tag = QLabel(app.category)
         tag.setObjectName("CategoryTag")
         meta.addWidget(tag)
-        status = QLabel(self._status_text(app))
-        status.setObjectName("MigrationTag")
-        meta.addWidget(status)
         meta.addStretch(1)
         shortcut = QLabel(app.shortcut)
         shortcut.setObjectName("AppMeta")

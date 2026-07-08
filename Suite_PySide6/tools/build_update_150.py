@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.6.4"
+VERSION = "1.6.5"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
@@ -291,11 +291,11 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
     full_digest = sha256(full_package)
     installer_digest = sha256(installer_bat)
     notes = (
-        "- Inicio simplificado: se eliminan las cuatro tarjetas superiores y se sustituyen por una franja compacta de continuidad.\n"
-        "- Shell mas profesional: sidebar oscura, cabecera limpia, buscador global, estado de actualizacion, ayuda y perfil.\n"
-        "- Panel de contexto refinado con tarjetas de Estado actual, Siguiente accion y Avisos.\n"
-        "- Stepper y toolbars con tratamiento visual mas cercano a una consola operativa moderna.\n"
-        "- Control y Recepcion Maquilas usa toolbar por fases: Entrada, Validacion y Salida.\n"
+        "- Menos ruido visual: se eliminan resumenes redundantes del sidebar y metadatos secundarios de las tarjetas.\n"
+        "- Panel derecho mas util: Estado actual y Avisos usan metricas reales de archivos, pendientes, incidencias y prerequisitos.\n"
+        "- Flujos mas robustos: stepper declarativo por modulo con descripcion accesible para lector de pantalla.\n"
+        "- Estados vacios mas claros y accesibles en paneles de trabajo, con instrucciones y descripcion semantica.\n"
+        "- Toolbars agrupadas por fases Entrada, Validacion/Proceso y Salida en los modulos principales.\n"
         "- Se mantiene intacta la capa core y la paridad funcional validada."
     )
     manifest = {

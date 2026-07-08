@@ -51,6 +51,9 @@ class RecepcionMaquilasWindow(QMainWindow):
         polish_window(self)
         self._refresh()
 
+    def flow_steps(self) -> tuple[str, ...]:
+        return ("Cargar TXT", "Cargar SealsReport", "Procesar", "Generar PDFs")
+
     def _build_ui(self) -> None:
         root = QWidget()
         layout = QVBoxLayout(root)
@@ -74,6 +77,10 @@ class RecepcionMaquilasWindow(QMainWindow):
         actions_layout.setContentsMargins(4, 4, 4, 4)
         actions_layout.setSpacing(7)
 
+        entrada_label = QLabel("ENTRADA")
+        entrada_label.setObjectName("GroupLabel")
+        actions_layout.addWidget(entrada_label)
+
         self.txt_button = QPushButton("Cargar TXT recepción")
         self.txt_button.setProperty("primary", True)
         self.txt_button.clicked.connect(self.select_txt)
@@ -87,9 +94,17 @@ class RecepcionMaquilasWindow(QMainWindow):
         self.config_button.clicked.connect(self.select_config)
         actions_layout.addWidget(self.config_button)
 
+        proceso_label = QLabel("PROCESO")
+        proceso_label.setObjectName("GroupLabel")
+        actions_layout.addWidget(proceso_label)
+
         self.process_button = QPushButton("Procesar recepción")
         self.process_button.clicked.connect(self.process_files)
         actions_layout.addWidget(self.process_button)
+
+        salida_label = QLabel("SALIDA")
+        salida_label.setObjectName("GroupLabel")
+        actions_layout.addWidget(salida_label)
 
         self.pdf_diff_button = QPushButton("Generar PDF diferencias")
         self.pdf_diff_button.clicked.connect(self.save_diff_dialog)

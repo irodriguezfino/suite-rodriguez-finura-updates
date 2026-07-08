@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Iterable
 
 from PySide6.QtCore import QTimer, QSize, Qt
 from PySide6.QtGui import QColor, QIcon, QImage, QPixmap
@@ -151,10 +152,11 @@ def operational_snapshot(widget: QWidget) -> dict[str, str]:
     summary_text = summary.text() if summary is not None else ""
     next_button = _next_action_button(widget)
     combined = " ".join(part for part in (state_text, summary_text) if part)
+    metrics = _operational_metrics(widget)
     return {
-        "state": _compact_text(_state_summary(state_text, summary_text), 72),
+        "state": _compact_text(metrics["state"] or _state_summary(state_text, summary_text), 72),
         "next": _compact_text(_clean_text(next_button.text()) if next_button is not None else "Completa el paso actual", 72),
-        "alerts": _alert_text(combined),
+        "alerts": _compact_text(metrics["alerts"] or _alert_text(combined), 72),
     }
 
 
@@ -552,6 +554,8 @@ def _patch_editor_empty_state(editor: QPlainTextEdit) -> None:
     editor.setProperty("emptyStatePatched", True)
     if not editor.placeholderText():
         editor.setPlaceholderText("Arrastra archivos aqui o usa la accion principal para empezar.")
+    if not editor.accessibleName():
+        editor.setAccessibleName("Panel de resultados")
     editor.setProperty("baseLineWrapMode", int(editor.lineWrapMode().value))
     _update_editor_empty_state(editor, editor.toPlainText())
 
@@ -575,10 +579,14 @@ def _update_editor_empty_state(editor: QPlainTextEdit, text: str) -> None:
     editor.setProperty("emptyState", is_empty)
     if is_empty:
         editor.setLineWrapMode(QPlainTextEdit.WidgetWidth)
+        editor.setAccessibleDescription("Estado vacio. Arrastra archivos aqui o usa la accion principal para empezar.")
+        editor.setToolTip("Arrastra archivos aqui o usa la accion principal para empezar.")
     else:
         base_mode = editor.property("baseLineWrapMode")
         if isinstance(base_mode, int):
             editor.setLineWrapMode(QPlainTextEdit.LineWrapMode(base_mode))
+        editor.setAccessibleDescription("Resultados disponibles para revisar.")
+        editor.setToolTip("")
     _refresh_style(editor)
 
 
@@ -1017,6 +1025,93 @@ def _state_summary(status_text: str, summary_text: str) -> str:
     return status_text or "Pendiente"
 
 
+def _operational_metrics(widget: QWidget) -> dict[str, str]:
+    result = getattr(widget, "result", None)
+    file_count = _count_loaded_files(widget)
+    valid_count = _count_result_items(result, ("validos", "precintos", "processed_lines", "final_palets", "registros_txt", "salidas"))
+    issue_count = _count_result_items(result, ("invalidos", "issues", "duplicados", "errors", "ignored_files"))
+    pending_count = _count_result_items(result, ("pending_corrections",))
+    if hasattr(result, "error_count"):
+        try:
+            issue_count += int(result.error_count)
+        except Exception:
+            pass
+    if getattr(widget, "weight_filter_pending", False):
+        pending_count += 1
+
+    state_parts: list[str] = []
+    if file_count:
+        state_parts.append(f"Archivos: {file_count}")
+    if valid_count:
+        state_parts.append(f"Validos: {valid_count}")
+    if pending_count:
+        state_parts.append(f"Pendientes: {pending_count}")
+    if issue_count:
+        state_parts.append(f"Incidencias: {issue_count}")
+
+    alert_parts: list[str] = []
+    if issue_count:
+        alert_parts.append(f"{issue_count} incidencias")
+    if pending_count:
+        alert_parts.append(f"{pending_count} pendientes")
+    if _expects_seals_report(widget) and getattr(widget, "seals_file", None) is None:
+        alert_parts.append("SealsReport no cargado")
+    if _expects_email(widget) and hasattr(widget, "recipients") and not widget.recipients.text().strip():
+        alert_parts.append("Correo sin destinatarios")
+
+    return {
+        "state": " | ".join(state_parts),
+        "alerts": " | ".join(alert_parts) if alert_parts else "",
+    }
+
+
+def _count_loaded_files(widget: QWidget) -> int:
+    total = 0
+    for attr in ("paths", "final_files", "selected_pallets", "rutas_txt"):
+        value = getattr(widget, attr, None)
+        if value:
+            try:
+                total += len(value)
+            except TypeError:
+                total += 1
+    for attr in ("txt_file", "seals_file", "origin_file", "official_excel"):
+        if getattr(widget, attr, None) is not None:
+            total += 1
+    return total
+
+
+def _count_result_items(result, attrs: tuple[str, ...]) -> int:
+    total = 0
+    if result is None:
+        return total
+    for attr in attrs:
+        value = getattr(result, attr, None)
+        if not value:
+            continue
+        if isinstance(value, bool):
+            total += int(value)
+            continue
+        try:
+            total += len(value)
+        except TypeError:
+            total += 1
+    dataframe = getattr(result, "dataframe", None)
+    if dataframe is not None and hasattr(dataframe, "empty") and not dataframe.empty and "dataframe" in attrs:
+        try:
+            total += len(dataframe)
+        except Exception:
+            total += 1
+    return total
+
+
+def _expects_seals_report(widget: QWidget) -> bool:
+    return any(hasattr(widget, attr) for attr in ("seals_file", "set_seals_file"))
+
+
+def _expects_email(widget: QWidget) -> bool:
+    return hasattr(widget, "email_button") or hasattr(widget, "send_email")
+
+
 def _alert_text(text: str) -> str:
     normalized = text.lower()
     if any(word in normalized for word in ("error", "no valido", "incidencia", "pendiente", "no se", "faltan")):
@@ -1062,25 +1157,38 @@ def _apply_theme_mode(mode: str) -> None:
 
 
 def _replace_step_bars(widget: QWidget) -> None:
+    provided_steps: tuple[str, ...] = ()
+    steps_provider = getattr(widget, "flow_steps", None)
+    if callable(steps_provider):
+        try:
+            provided_steps = tuple(str(step).strip() for step in steps_provider() if str(step).strip())
+        except Exception:
+            provided_steps = ()
     for label in list(widget.findChildren(QLabel, "StepBar")):
         parent = label.parentWidget()
         layout = parent.layout() if parent is not None else None
         if layout is None:
             continue
-        stepper = _stepper_from_text(label.text())
+        stepper = _stepper_from_parts(provided_steps) if provided_steps else _stepper_from_text(label.text())
         layout.replaceWidget(label, stepper)
         label.deleteLater()
 
 
 def _stepper_from_text(text: str) -> QFrame:
+    normalized = text.replace("    |    ", "->").replace("  ->  ", "->")
+    return _stepper_from_parts(part.strip() for part in normalized.split("->") if part.strip())
+
+
+def _stepper_from_parts(parts: Iterable[str]) -> QFrame:
     stepper = QFrame()
     stepper.setObjectName("Stepper")
+    stepper.setAccessibleName("Progreso del flujo")
     layout = make_flow(stepper, margin=0, spacing=8)
     layout.setContentsMargins(8, 6, 8, 6)
 
-    normalized = text.replace("    |    ", "->").replace("  ->  ", "->")
-    parts = [part.strip() for part in normalized.split("->") if part.strip()]
-    for index, part in enumerate(parts, start=1):
+    clean_parts = [str(part).strip() for part in parts if str(part).strip()]
+    stepper.setAccessibleDescription(" | ".join(clean_parts))
+    for index, part in enumerate(clean_parts, start=1):
         label_text = part
         if label_text[:1].isdigit():
             label_text = label_text[1:].strip()
@@ -1094,7 +1202,7 @@ def _stepper_from_text(text: str) -> QFrame:
         step_label.setWordWrap(True)
         make_widgets_resizable(step_label)
         layout.addWidget(step_label)
-        if index < len(parts):
+        if index < len(clean_parts):
             connector = QLabel(">")
             connector.setObjectName("StepConnector")
             connector.setAlignment(Qt.AlignCenter)

@@ -26,7 +26,7 @@ def main() -> int:
     assert window.tabs.count() == 1
     assert window.tabs.tabText(0) == "Inicio"
     assert not window.process_context.isVisible()
-    assert window.sidebar_summary.isVisible()
+    assert not hasattr(window, "sidebar_summary")
     assert "_metric_card" not in source
     assert "QTabWidget" in source
 

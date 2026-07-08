@@ -65,6 +65,9 @@ class PrecintosExpedicionWindow(QMainWindow):
         polish_window(self)
         self._refresh()
 
+    def flow_steps(self) -> tuple[str, ...]:
+        return ("Cargar Excel", "Seleccionar pallets", "Comprobar", "Guardar TXT")
+
     def _build_ui(self) -> None:
         root = QWidget()
         layout = QVBoxLayout(root)
@@ -88,10 +91,18 @@ class PrecintosExpedicionWindow(QMainWindow):
         actions_layout.setContentsMargins(4, 4, 4, 4)
         actions_layout.setSpacing(7)
 
+        entrada_label = QLabel("ENTRADA")
+        entrada_label.setObjectName("GroupLabel")
+        actions_layout.addWidget(entrada_label)
+
         self.select_button = QPushButton("Seleccionar Excel")
         self.select_button.setProperty("primary", True)
         self.select_button.clicked.connect(self.select_files)
         actions_layout.addWidget(self.select_button)
+
+        validacion_label = QLabel("VALIDACION")
+        validacion_label.setObjectName("GroupLabel")
+        actions_layout.addWidget(validacion_label)
 
         self.suggest_button = QPushButton("Sugerir pallets")
         self.suggest_button.clicked.connect(self.suggest_pallets)
@@ -100,6 +111,10 @@ class PrecintosExpedicionWindow(QMainWindow):
         self.process_button = QPushButton("Comprobar salida")
         self.process_button.clicked.connect(self.process_files)
         actions_layout.addWidget(self.process_button)
+
+        salida_label = QLabel("SALIDA")
+        salida_label.setObjectName("GroupLabel")
+        actions_layout.addWidget(salida_label)
 
         self.save_button = QPushButton("Guardar TXT")
         self.save_button.clicked.connect(self.save_dialog)

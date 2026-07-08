@@ -18,9 +18,9 @@ def main() -> int:
     window.show()
     app.processEvents()
 
-    assert window.metric_values["ready"].text() == str(len(APP_REGISTRY))
     assert hasattr(window, "continue_strip")
     assert not hasattr(window, "open_processes_panel")
+    assert not hasattr(window, "sidebar_summary")
 
     first = APP_REGISTRY[1]
     second = APP_REGISTRY[2]
@@ -34,7 +34,7 @@ def main() -> int:
     assert second.title in window.continue_title.text()
     assert window._continue_app_key == second.key
     assert "Abiertos 2" in window.continue_activity.text()
-    assert int(window.metric_values["recent"].text()) >= 2
+    assert "Recientes" in window.continue_activity.text()
 
     window.close()
     print("PHASE12_OK")

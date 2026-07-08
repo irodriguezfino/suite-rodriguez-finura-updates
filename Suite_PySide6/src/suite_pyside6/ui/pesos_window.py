@@ -41,6 +41,9 @@ class PesosWindow(QMainWindow):
         polish_window(self)
         self._refresh()
 
+    def flow_steps(self) -> tuple[str, ...]:
+        return ("Cargar Excel", "Renombrar hoja", "Revisar resultado")
+
     def _build_ui(self) -> None:
         root = QWidget()
         layout = QVBoxLayout(root)
@@ -64,12 +67,20 @@ class PesosWindow(QMainWindow):
         actions_layout.setContentsMargins(4, 4, 4, 4)
         actions_layout.setSpacing(7)
 
+        entrada_label = QLabel("ENTRADA")
+        entrada_label.setObjectName("GroupLabel")
+        actions_layout.addWidget(entrada_label)
+
         self.select_button = QPushButton("Seleccionar Excel")
         self.select_button.setProperty("primary", True)
         self.select_button.setAccessibleName("Seleccionar archivos Excel de pesos")
         self.select_button.setToolTip("Selecciona uno o varios archivos .xlsx o .xlsm.")
         self.select_button.clicked.connect(self.select_files)
         actions_layout.addWidget(self.select_button)
+
+        proceso_label = QLabel("PROCESO")
+        proceso_label.setObjectName("GroupLabel")
+        actions_layout.addWidget(proceso_label)
 
         self.process_button = QPushButton("Renombrar hoja")
         self.process_button.setAccessibleName("Renombrar hoja a Hoja1")
