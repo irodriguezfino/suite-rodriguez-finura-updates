@@ -1,0 +1,10 @@
+Suite Rodriguez Finura v1.7.0
+
+- Rediseño estructural 1.7.0: el inicio deja de ser un catalogo y pasa a ser un workspace operativo.
+- Nuevo mini design system reutilizable con paneles, metricas, badges, estados vacios y filas de modulo.
+- Navegacion lateral mas sobria, clara y compacta, con flujos clave separados de las areas generales.
+- Lista operativa de modulos con jerarquia, estado, categoria, atajo y accion primaria sin tarjetas pesadas.
+- Paleta visual mas neutra y profesional, con acentos reducidos y superficies limpias tipo SaaS.
+- Mejora transversal para modulos embebidos: toolbars, paneles y superficies heredan un lenguaje mas limpio.
+- Contrato UI actualizado para proteger el nuevo workspace SaaS y sus filas operativas.
+- Se mantiene intacta la logica de negocio y la paridad funcional validada.

@@ -3,24 +3,24 @@ from __future__ import annotations
 from PySide6.QtCore import QSettings
 
 
-BRAND_BLUE = "#064493"
+BRAND_BLUE = "#2563eb"
 BRAND_RED = "#d71920"
 BRAND_RED_DARK = "#a91117"
-SUCCESS = "#0f7a3b"
-WARNING = "#9a5b00"
+SUCCESS = "#16803c"
+WARNING = "#a15c07"
 
 
 LIGHT = {
-    "blue_dark": "#082a5a",
-    "blue_soft": "#eef5ff",
-    "ink": "#111827",
+    "blue_dark": "#172554",
+    "blue_soft": "#eff6ff",
+    "ink": "#111318",
     "surface": "#ffffff",
-    "background": "#f4f7fb",
-    "muted": "#5f6f85",
-    "border": "#d3ddea",
-    "panel": "#f7f9fc",
-    "field": "#fcfdff",
-    "header": "#edf2f8",
+    "background": "#f7f8fa",
+    "muted": "#667085",
+    "border": "#d9dee8",
+    "panel": "#f2f4f7",
+    "field": "#ffffff",
+    "header": "#f6f8fb",
     "tooltip": "#111827",
     "shadow": "#0b264d",
 }
@@ -115,8 +115,18 @@ def base_qss() -> str:
     }}
     QMainWindow#EmbeddedAppWindow QFrame#ContextPanel,
     QMainWindow#EmbeddedAppWindow QFrame#Toolbar {{
-        background: {PANEL};
+        background: {SURFACE};
         border-color: {SOFT_BORDER};
+    }}
+    QMainWindow#EmbeddedAppWindow QFrame#AppCard,
+    QMainWindow#EmbeddedAppWindow QFrame#MailPanel,
+    QMainWindow#EmbeddedAppWindow QFrame#FormPanel {{
+        background: {SURFACE};
+        border-color: {SOFT_BORDER};
+        border-radius: 8px;
+    }}
+    QMainWindow#EmbeddedAppWindow QLabel#StepText {{
+        font-weight: 800;
     }}
     QFrame#ContentShell {{
         background: transparent;
@@ -128,8 +138,8 @@ def base_qss() -> str:
         background: {BACKGROUND};
     }}
     QFrame#NavRail {{
-        background: #08264d;
-        border-right: 1px solid #0d356b;
+        background: {SURFACE};
+        border-right: 1px solid {SOFT_BORDER};
     }}
     QFrame#NavBrand {{
         background: transparent;
@@ -140,23 +150,23 @@ def base_qss() -> str:
         padding: 4px;
     }}
     QLabel#NavTitle {{
-        color: #ffffff;
+        color: {INK};
         background: transparent;
-        font-size: 12pt;
-        font-weight: 800;
+        font-size: 11.5pt;
+        font-weight: 850;
     }}
     QLabel#NavSubtitle, QLabel#NavFooter {{
-        color: #b9c7dc;
+        color: {MUTED};
         background: transparent;
         font-weight: 650;
     }}
     QLabel#NavFooter {{
-        border-top: 1px solid #244c7d;
+        border-top: 1px solid {SOFT_BORDER};
         padding-top: 10px;
     }}
     QFrame#UserPanel {{
-        background: rgba(255,255,255,0.06);
-        border: 1px solid #244c7d;
+        background: {PANEL};
+        border: 1px solid {SOFT_BORDER};
         border-radius: 8px;
     }}
     QLabel#UserAvatar {{
@@ -165,7 +175,7 @@ def base_qss() -> str:
         min-height: 32px;
         max-height: 32px;
         border-radius: 16px;
-        background: #244c7d;
+        background: {INK};
         color: white;
         font-weight: 800;
     }}
@@ -173,15 +183,15 @@ def base_qss() -> str:
         background: transparent;
     }}
     QLabel#UserName {{
-        color: white;
+        color: {INK};
         font-weight: 800;
     }}
     QLabel#UserRole {{
-        color: #c9d6e8;
+        color: {MUTED};
         font-weight: 650;
     }}
     QLabel#UserState {{
-        color: #86d39b;
+        color: {SUCCESS_FG};
         font-size: 8.5pt;
         font-weight: 650;
     }}
@@ -194,8 +204,8 @@ def base_qss() -> str:
     QFrame#Header {{
         background: {SURFACE};
         border: 1px solid {SOFT_BORDER};
-        border-radius: 10px;
-        padding: 10px;
+        border-radius: 8px;
+        padding: 8px;
     }}
     QFrame#SidebarSummary {{
         background: {PANEL};
@@ -260,9 +270,9 @@ def base_qss() -> str:
         padding: 8px;
     }}
     QLabel#WindowTitle {{
-        font-size: 19pt;
-        font-weight: 750;
-        color: {BRAND_BLUE_DARK};
+        font-size: 17pt;
+        font-weight: 850;
+        color: {INK};
         background: transparent;
         padding-top: 2px;
     }}
@@ -282,12 +292,11 @@ def base_qss() -> str:
         background: transparent;
     }}
     QLabel#ResultLabel {{
-        background: {SURFACE};
-        border: 1px solid {SOFT_BORDER};
-        border-left: 4px solid {BRAND_BLUE};
-        border-radius: 7px;
-        padding: 9px 11px;
-        color: {INK};
+        background: transparent;
+        border: 0;
+        padding: 0;
+        color: {MUTED};
+        font-size: 9pt;
     }}
     QLabel#StepBar {{
         background: {PANEL};
@@ -596,21 +605,18 @@ def base_qss() -> str:
         top: -1px;
     }}
     QTabWidget#WorkTabs QTabBar::tab {{
-        background: {SURFACE};
-        color: {INK};
-        border: 1px solid {BORDER};
-        border-bottom-color: {BORDER};
-        border-top-left-radius: 6px;
-        border-top-right-radius: 6px;
-        padding: 8px 14px;
+        background: transparent;
+        color: {MUTED};
+        border: 1px solid transparent;
+        border-radius: 6px;
+        padding: 7px 12px;
         margin-right: 3px;
-        font-weight: 650;
+        font-weight: 700;
     }}
     QTabWidget#WorkTabs QTabBar::tab:selected {{
-        background: {BRAND_BLUE_SOFT};
-        color: {BRAND_BLUE_DARK};
-        border-color: {BRAND_BLUE};
-        border-bottom-color: {BRAND_BLUE_SOFT};
+        background: {SURFACE};
+        color: {INK};
+        border-color: {SOFT_BORDER};
     }}
     QTabWidget#WorkTabs QTabBar::tab:hover {{
         background: {BUTTON_HOVER};
@@ -631,6 +637,138 @@ def base_qss() -> str:
         border: 1px solid {BORDER};
         border-radius: 8px;
         padding: 7px;
+    }}
+    QFrame#DsPanel,
+    QFrame#HeroPanel,
+    QFrame#ContinuePanel,
+    QFrame#ModulesPanel,
+    QFrame#ActivityPanel {{
+        background: {SURFACE};
+        border: 1px solid {SOFT_BORDER};
+        border-radius: 8px;
+    }}
+    QLabel#DsPanelTitle {{
+        color: {INK};
+        background: transparent;
+        font-size: 11.2pt;
+        font-weight: 850;
+    }}
+    QLabel#DsPanelSubtitle {{
+        color: {MUTED};
+        background: transparent;
+        font-weight: 650;
+    }}
+    QLabel#HeroTitle {{
+        color: {INK};
+        background: transparent;
+        font-size: 18pt;
+        font-weight: 900;
+    }}
+    QLabel#HeroSubtitle {{
+        color: {MUTED};
+        background: transparent;
+        font-size: 10pt;
+        font-weight: 650;
+    }}
+    QFrame#DsMetric {{
+        background: {PANEL};
+        border: 1px solid {SOFT_BORDER};
+        border-radius: 8px;
+        min-width: 92px;
+    }}
+    QLabel#DsMetricValue {{
+        color: {INK};
+        background: transparent;
+        font-size: 16pt;
+        font-weight: 900;
+    }}
+    QLabel#DsMetricLabel {{
+        color: {MUTED};
+        background: transparent;
+        font-size: 8.3pt;
+        font-weight: 750;
+    }}
+    QLabel#DsMetricDetail {{
+        color: {MUTED};
+        background: transparent;
+        font-size: 8.2pt;
+        font-weight: 600;
+    }}
+    QLabel#DsBadge {{
+        background: {PANEL};
+        border: 1px solid {SOFT_BORDER};
+        border-radius: 5px;
+        color: {MUTED};
+        padding: 3px 7px;
+        font-size: 8.3pt;
+        font-weight: 750;
+    }}
+    QLabel#DsBadge[tone="success"] {{
+        background: {SUCCESS_BG};
+        border-color: {SUCCESS_BORDER};
+        color: {SUCCESS_FG};
+    }}
+    QFrame#DsEmpty {{
+        background: {PANEL};
+        border: 1px dashed {SOFT_BORDER};
+        border-radius: 8px;
+    }}
+    QLabel#DsEmptyTitle {{
+        color: {INK};
+        background: transparent;
+        font-size: 12pt;
+        font-weight: 850;
+    }}
+    QLabel#DsEmptyBody {{
+        color: {MUTED};
+        background: transparent;
+        font-weight: 650;
+    }}
+    QFrame#ModuleRow {{
+        background: {SURFACE};
+        border: 1px solid {SOFT_BORDER};
+        border-radius: 8px;
+    }}
+    QFrame#ModuleRow:hover {{
+        background: {CARD_HOVER};
+        border-color: {FOCUS};
+    }}
+    QLabel#ModuleIcon {{
+        min-width: 34px;
+        max-width: 34px;
+        min-height: 34px;
+        max-height: 34px;
+        border-radius: 7px;
+        background: {PANEL};
+        border: 1px solid {SOFT_BORDER};
+        color: {INK};
+        font-weight: 900;
+    }}
+    QLabel#ModuleTitle {{
+        color: {INK};
+        background: transparent;
+        font-size: 10.4pt;
+        font-weight: 850;
+    }}
+    QLabel#ModuleDescription {{
+        color: {MUTED};
+        background: transparent;
+        font-size: 9pt;
+        font-weight: 600;
+    }}
+    QLabel#ModuleShortcut {{
+        color: {MUTED};
+        background: transparent;
+        font-size: 8.4pt;
+        font-weight: 750;
+    }}
+    QLabel#ActivityStatus {{
+        color: {INK};
+        background: {PANEL};
+        border: 1px solid {SOFT_BORDER};
+        border-radius: 8px;
+        padding: 10px;
+        font-weight: 750;
     }}
     QFrame#CommandCenter {{
         background: {SURFACE};
@@ -895,27 +1033,28 @@ def base_qss() -> str:
         font-weight: 600;
     }}
     QPushButton[nav="true"] {{
-        min-height: 42px;
-        padding: 8px 12px;
+        min-height: 34px;
+        padding: 7px 10px;
         text-align: left;
         background: transparent;
         border-color: transparent;
-        color: #dbe8f7;
-        border-radius: 8px;
+        color: {MUTED};
+        border-radius: 6px;
     }}
     QPushButton[nav="true"][compact="true"] {{
         min-height: 34px;
         padding: 6px 8px;
     }}
     QPushButton[nav="true"]:hover {{
-        background: #0d356b;
-        border-color: #1b5795;
+        background: {PANEL};
+        border-color: {SOFT_BORDER};
+        color: {INK};
     }}
     QPushButton[nav="true"]:checked {{
-        background: #0b5bbb;
-        border-color: #0b5bbb;
-        color: white;
-        font-weight: 750;
+        background: {BRAND_BLUE_SOFT};
+        border-color: #bfdbfe;
+        color: {BRAND_BLUE_DARK};
+        font-weight: 850;
     }}
     QPushButton#MenuButton, QPushButton#HelpButton, QPushButton#ProfileButton, QPushButton#UpdateChip {{
         background: {SURFACE};
@@ -1008,15 +1147,15 @@ def base_qss() -> str:
         border-color: {BRAND_RED};
     }}
     QPushButton[role="favorite"] {{
-        min-width: 34px;
-        max-width: 38px;
+        min-width: 54px;
+        max-width: 72px;
         color: {BRAND_BLUE_DARK};
         background: {CHIP_BG};
         border-color: {BORDER};
-        font-size: 12pt;
+        font-size: 8.4pt;
         font-weight: 800;
-        padding-left: 0;
-        padding-right: 0;
+        padding-left: 6px;
+        padding-right: 6px;
     }}
     QPushButton[role="favorite"]:checked {{
         color: white;

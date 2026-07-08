@@ -29,6 +29,7 @@ from suite_pyside6.core.apps import APP_REGISTRY, AppDefinition, apps_for_catego
 from suite_pyside6.core.paths import resource_path
 from suite_pyside6.ui.about_dialog import AboutDialog
 from suite_pyside6.ui.app_windows import WINDOW_CLASSES
+from suite_pyside6.ui.components import empty_state, metric, module_row, panel
 from suite_pyside6.ui.polish import (
     brand_logo_pixmap,
     operational_snapshot,
@@ -55,6 +56,7 @@ class MainWindow(QMainWindow):
         self.search_text = ""
         self._last_columns = 0
         self.category_buttons: dict[str, QPushButton] = {}
+        self.workflow_buttons: dict[str, QPushButton] = {}
         self.open_windows: dict[str, QMainWindow] = {}
         self.app_pages: dict[str, QMainWindow] = {}
         self._closing = False
@@ -63,8 +65,8 @@ class MainWindow(QMainWindow):
         self._nav_compact = False
         self._context_forced_open = False
         self.setWindowTitle("Suite Rodriguez Finura")
-        self.resize(1220, 780)
-        self.setMinimumSize(760, 560)
+        self.resize(1280, 800)
+        self.setMinimumSize(840, 600)
         icon_path = resource_path("ICONO_SUITE.ico")
         if icon_path.exists():
             self.setWindowIcon(QIcon(str(icon_path)))
@@ -151,20 +153,20 @@ class MainWindow(QMainWindow):
     def _build_sidebar(self) -> QFrame:
         sidebar = QFrame()
         sidebar.setObjectName("NavRail")
-        sidebar.setMinimumWidth(244)
-        sidebar.setMaximumWidth(286)
+        sidebar.setMinimumWidth(218)
+        sidebar.setMaximumWidth(252)
         sidebar_layout = QVBoxLayout(sidebar)
-        sidebar_layout.setContentsMargins(18, 18, 18, 16)
-        sidebar_layout.setSpacing(12)
+        sidebar_layout.setContentsMargins(14, 14, 14, 14)
+        sidebar_layout.setSpacing(10)
 
         self.brand_panel = QFrame()
         self.brand_panel.setObjectName("NavBrand")
         brand_layout = QVBoxLayout(self.brand_panel)
-        brand_layout.setContentsMargins(12, 12, 12, 12)
-        brand_layout.setSpacing(8)
+        brand_layout.setContentsMargins(10, 8, 10, 8)
+        brand_layout.setSpacing(4)
         logo_row = QHBoxLayout()
-        logo_row.setSpacing(8)
-        for logo_name, width in (("RODRIGUEZ.png", 126), ("FINURA.png", 78)):
+        logo_row.setSpacing(6)
+        for logo_name, width in (("RODRIGUEZ.png", 96),):
             logo_path = resource_path(logo_name)
             if logo_path.exists():
                 logo = QLabel()
@@ -177,19 +179,20 @@ class MainWindow(QMainWindow):
                 logo_row.addWidget(logo, 0)
         logo_row.addStretch(1)
         brand_layout.addLayout(logo_row)
-        self.nav_title = QLabel("Suite Rodriguez Finura")
+        self.nav_title = QLabel("Rodriguez Finura")
         self.nav_title.setObjectName("NavTitle")
-        self.nav_subtitle = QLabel("Centro operativo")
+        self.nav_subtitle = QLabel("Operations OS")
         self.nav_subtitle.setObjectName("NavSubtitle")
         brand_layout.addWidget(self.nav_title)
         brand_layout.addWidget(self.nav_subtitle)
         sidebar_layout.addWidget(self.brand_panel)
 
-        self.side_title = QLabel("Areas de trabajo")
+        self.side_title = QLabel("Navegacion")
         self.side_title.setObjectName("SectionLabel")
         sidebar_layout.addWidget(self.side_title)
 
-        nav_flow = make_flow(spacing=8)
+        nav_flow = QVBoxLayout()
+        nav_flow.setSpacing(4)
         for category in self._nav_items():
             button = QPushButton(self._nav_button_text(category))
             button.setProperty("nav", True)
@@ -198,6 +201,24 @@ class MainWindow(QMainWindow):
             self.category_buttons[category] = button
             nav_flow.addWidget(button)
         sidebar_layout.addLayout(nav_flow)
+
+        workflow_label = QLabel("Flujos clave")
+        workflow_label.setObjectName("SectionLabel")
+        sidebar_layout.addWidget(workflow_label)
+        workflow_layout = QVBoxLayout()
+        workflow_layout.setSpacing(4)
+        for key in ("control_recepcion_maquilas", "precintos_jamones", "recepcion_maquilas"):
+            app = self._app_from_key(key)
+            if app is None:
+                continue
+            button = QPushButton(app.title)
+            button.setProperty("nav", True)
+            button.setCheckable(False)
+            button.setToolTip(app.description)
+            button.clicked.connect(lambda _checked=False, item=app: self.open_app(item))
+            self.workflow_buttons[key] = button
+            workflow_layout.addWidget(button)
+        sidebar_layout.addLayout(workflow_layout)
 
         sidebar_layout.addStretch(1)
 
@@ -224,7 +245,7 @@ class MainWindow(QMainWindow):
         user_layout.addLayout(user_text, 1)
         sidebar_layout.addWidget(self.user_panel)
 
-        self.footer = QLabel(f"Version {__version__}\nLista para operar")
+        self.footer = QLabel(f"v{__version__}\nConectado")
         self.footer.setObjectName("NavFooter")
         self.footer.setWordWrap(True)
         sidebar_layout.addWidget(self.footer)
@@ -237,16 +258,16 @@ class MainWindow(QMainWindow):
         self.header_layout.setContentsMargins(14, 12, 14, 12)
         self.header_layout.setSpacing(12)
 
-        self.menu_button = QPushButton("Menu")
+        self.menu_button = QPushButton("☰")
         self.menu_button.setObjectName("MenuButton")
         self.menu_button.setToolTip("Mostrar navegacion principal.")
         self.header_layout.addWidget(self.menu_button, 0)
 
         title_box = QVBoxLayout()
         title_box.setSpacing(2)
-        self.workspace_title = QLabel("Suite Rodriguez Finura")
+        self.workspace_title = QLabel("Inicio")
         self.workspace_title.setObjectName("WindowTitle")
-        self.workspace_subtitle = QLabel("Centro de trabajo unificado con procesos en pestanas")
+        self.workspace_subtitle = QLabel("Control operativo, procesos y salidas en un espacio unificado")
         self.workspace_subtitle.setObjectName("WindowSubtitle")
         title_box.addWidget(self.workspace_title)
         title_box.addWidget(self.workspace_subtitle)
@@ -260,13 +281,13 @@ class MainWindow(QMainWindow):
         self.search.textChanged.connect(self._on_search_changed)
         self.header_layout.addWidget(self.search, 1)
 
-        self.update_button = QPushButton(f"Actualizado\nv{__version__}")
+        self.update_button = QPushButton(f"v{__version__}")
         self.update_button.setObjectName("UpdateChip")
         self.update_button.setToolTip("Ver version instalada y buscar actualizaciones.")
         self.update_button.clicked.connect(self.show_about)
         self.header_layout.addWidget(self.update_button, 0)
 
-        help_button = QPushButton("Ayuda")
+        help_button = QPushButton("?")
         help_button.setObjectName("HelpButton")
         help_button.setToolTip("Ver información de la suite y soporte.")
         help_button.clicked.connect(self.show_about)
@@ -281,7 +302,7 @@ class MainWindow(QMainWindow):
         self.home_button.setToolTip("Volver a la pestaña Inicio sin cerrar procesos.")
         self.home_button.clicked.connect(self.show_dashboard)
         self.header_layout.addWidget(self.home_button, 0)
-        self.context_button = QPushButton("Contexto")
+        self.context_button = QPushButton("Estado")
         self.context_button.setToolTip("Mostrar u ocultar el panel de contexto del proceso.")
         self.context_button.clicked.connect(self._toggle_context_rail)
         self.header_layout.addWidget(self.context_button, 0)
@@ -336,104 +357,84 @@ class MainWindow(QMainWindow):
         dashboard.setObjectName("DashboardPage")
         dashboard_layout = QVBoxLayout(dashboard)
         dashboard_layout.setContentsMargins(0, 0, 0, 0)
-        dashboard_layout.setSpacing(10)
+        dashboard_layout.setSpacing(12)
 
-        self.command_center = QFrame()
-        self.command_center.setObjectName("CommandCenter")
-        self.command_center.setAccessibleName("Centro operativo")
-        self.command_center.setAccessibleDescription("Resumen compacto de procesos abiertos, recientes y salidas registradas.")
-        command_layout = QHBoxLayout(self.command_center)
-        command_layout.setContentsMargins(14, 11, 14, 11)
-        command_layout.setSpacing(12)
-        command_text = QVBoxLayout()
-        command_text.setSpacing(2)
-        self.command_title = QLabel("Operacion")
-        self.command_title.setObjectName("CommandTitle")
-        self.command_detail = QLabel("Procesos clave, actividad y salidas en una vista compacta.")
-        self.command_detail.setObjectName("CommandDetail")
+        self.command_center, command_layout = panel(name="HeroPanel")
+        hero_row = QHBoxLayout()
+        hero_row.setSpacing(14)
+        hero_text = QVBoxLayout()
+        hero_text.setSpacing(5)
+        self.command_title = QLabel("Operacion diaria")
+        self.command_title.setObjectName("HeroTitle")
+        self.command_detail = QLabel("Valida archivos, resuelve incidencias y genera salidas sin saltar entre herramientas.")
+        self.command_detail.setObjectName("HeroSubtitle")
         self.command_detail.setWordWrap(True)
-        command_text.addWidget(self.command_title)
-        command_text.addWidget(self.command_detail)
-        command_layout.addLayout(command_text, 1)
-        self.command_open, self.command_open_value = self._command_chip("Abiertos", "0")
-        self.command_recent, self.command_recent_value = self._command_chip("Recientes", "0")
-        self.command_outputs, self.command_outputs_value = self._command_chip("Salidas", "0")
-        command_layout.addWidget(self.command_open)
-        command_layout.addWidget(self.command_recent)
-        command_layout.addWidget(self.command_outputs)
+        hero_text.addWidget(self.command_title)
+        hero_text.addWidget(self.command_detail)
+        hero_row.addLayout(hero_text, 1)
+        self.command_open = metric("Abiertos", "0")
+        self.command_recent = metric("Recientes", "0")
+        self.command_outputs = metric("Salidas", "0")
+        self.command_open_value = self.command_open.findChild(QLabel, "DsMetricValue")
+        self.command_recent_value = self.command_recent.findChild(QLabel, "DsMetricValue")
+        self.command_outputs_value = self.command_outputs.findChild(QLabel, "DsMetricValue")
+        hero_row.addWidget(self.command_open)
+        hero_row.addWidget(self.command_recent)
+        hero_row.addWidget(self.command_outputs)
+        command_layout.addLayout(hero_row)
         dashboard_layout.addWidget(self.command_center)
 
-        self.priority_panel = QFrame()
-        self.priority_panel.setObjectName("PriorityPanel")
-        self.priority_panel.setAccessibleName("Procesos criticos")
-        self.priority_panel.setAccessibleDescription("Accesos directos a los procesos operativos mas importantes.")
-        priority_layout = QHBoxLayout(self.priority_panel)
-        priority_layout.setContentsMargins(12, 9, 12, 9)
-        priority_layout.setSpacing(8)
-        priority_title = QLabel("Procesos criticos")
-        priority_title.setObjectName("PriorityTitle")
-        priority_layout.addWidget(priority_title)
-        priority_layout.addStretch(1)
-        for key in ("control_recepcion_maquilas", "precintos_jamones", "recepcion_maquilas"):
-            app = self._app_from_key(key)
-            if app is None:
-                continue
-            button = QPushButton(app.title)
-            button.setObjectName("PriorityButton")
-            button.setToolTip(app.description)
-            button.setAccessibleName(f"Abrir proceso critico: {app.title}")
-            button.clicked.connect(lambda _checked=False, item=app: self.open_app(item))
-            priority_layout.addWidget(button)
-        dashboard_layout.addWidget(self.priority_panel)
-
-        self.continue_strip = QFrame()
-        self.continue_strip.setObjectName("ContinueStrip")
-        continue_layout = QHBoxLayout(self.continue_strip)
-        continue_layout.setContentsMargins(12, 10, 12, 10)
-        continue_layout.setSpacing(10)
+        self.continue_strip, continue_layout = panel("Continuar", "Retoma el ultimo proceso activo o una salida reciente.", name="ContinuePanel")
+        continue_row = QHBoxLayout()
+        continue_row.setSpacing(10)
         continue_text = QVBoxLayout()
         continue_text.setSpacing(2)
-        self.continue_title = QLabel("Continuar trabajo")
+        self.continue_title = QLabel("Sin actividad reciente")
         self.continue_title.setObjectName("ContinueTitle")
-        self.continue_detail = QLabel("Sin actividad reciente")
+        self.continue_detail = QLabel("Cuando abras un proceso, aparecera aqui.")
         self.continue_detail.setObjectName("ContinueDetail")
         self.continue_detail.setWordWrap(True)
         continue_text.addWidget(self.continue_title)
         continue_text.addWidget(self.continue_detail)
-        continue_layout.addLayout(continue_text, 1)
+        continue_row.addLayout(continue_text, 1)
         self.continue_activity = QLabel("")
         self.continue_activity.setObjectName("ContinueMeta")
-        continue_layout.addWidget(self.continue_activity, 0)
+        continue_row.addWidget(self.continue_activity)
         self.continue_button = QPushButton("Continuar")
         self.continue_button.setProperty("primary", True)
         self.continue_button.setToolTip("Abrir el ultimo proceso relevante.")
         self.continue_button.clicked.connect(self._open_continue_app)
-        continue_layout.addWidget(self.continue_button, 0)
+        continue_row.addWidget(self.continue_button)
+        continue_layout.addLayout(continue_row)
         dashboard_layout.addWidget(self.continue_strip)
 
-        content_shell = QFrame()
-        content_shell.setObjectName("ContentShell")
-        content_layout = QVBoxLayout(content_shell)
-        content_layout.setContentsMargins(0, 0, 0, 0)
-        content_layout.setSpacing(10)
-
+        body = QHBoxLayout()
+        body.setSpacing(12)
+        modules_panel, modules_layout = panel("Modulos", "Busca o filtra por area y abre el proceso que necesitas.", name="ModulesPanel")
         self.result_label = QLabel()
         self.result_label.setObjectName("ResultLabel")
         self.result_label.setAccessibleName("Resumen de procesos filtrados")
-        content_layout.addWidget(self.result_label)
-
+        modules_layout.addWidget(self.result_label)
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.app_container = QWidget()
-        self.app_grid = QGridLayout(self.app_container)
+        self.app_grid = QVBoxLayout(self.app_container)
         self.app_grid.setContentsMargins(0, 0, 0, 0)
-        self.app_grid.setHorizontalSpacing(10)
-        self.app_grid.setVerticalSpacing(10)
+        self.app_grid.setSpacing(8)
         self.scroll.setWidget(self.app_container)
-        content_layout.addWidget(self.scroll, 1)
+        modules_layout.addWidget(self.scroll, 1)
+        body.addWidget(modules_panel, 3)
 
-        dashboard_layout.addWidget(content_shell, 1)
+        side_panel, side_layout = panel("Actividad", "Salidas recientes y estado del entorno.", name="ActivityPanel")
+        self.activity_status = QLabel("Conectado\nRespaldo automatico activo")
+        self.activity_status.setObjectName("ActivityStatus")
+        side_layout.addWidget(self.activity_status)
+        self.context_files_panel, self.context_files_layout = self._dashboard_panel("Salidas recientes")
+        side_layout.addWidget(self.context_files_panel)
+        side_layout.addStretch(1)
+        body.addWidget(side_panel, 1)
+        dashboard_layout.addLayout(body, 1)
         return dashboard
 
     @staticmethod
@@ -503,15 +504,19 @@ class MainWindow(QMainWindow):
         open_keys = list(self.open_windows.keys())
         recent_keys = recent_app_keys()
         exports = recent_paths("exports")
-        self.command_open_value.setText(str(len(open_keys)))
-        self.command_recent_value.setText(str(len(recent_keys)))
-        self.command_outputs_value.setText(str(len(exports)))
+        if self.command_open_value is not None:
+            self.command_open_value.setText(str(len(open_keys)))
+        if self.command_recent_value is not None:
+            self.command_recent_value.setText(str(len(recent_keys)))
+        if self.command_outputs_value is not None:
+            self.command_outputs_value.setText(str(len(exports)))
         for label, value in (
             (self.command_open_value, len(open_keys)),
             (self.command_recent_value, len(recent_keys)),
             (self.command_outputs_value, len(exports)),
         ):
-            label.setAccessibleDescription(f"{label.accessibleName()}: {value}")
+            if label is not None:
+                label.setAccessibleDescription(f"{label.accessibleName()}: {value}")
         if open_keys:
             app = self._app_from_key(open_keys[-1])
             self.command_title.setText("Operacion en curso")
@@ -660,19 +665,25 @@ class MainWindow(QMainWindow):
             self.result_label.setText(f"{len(apps)} procesos disponibles en {self.current_category}")
         self.result_label.setAccessibleDescription(self.result_label.text())
         if not apps:
-            empty = QLabel("Sin resultados. Ajusta la busqueda o cambia de area.")
-            empty.setObjectName("EmptyLabel")
-            empty.setAlignment(Qt.AlignCenter)
-            self.app_grid.addWidget(empty, 0, 0)
+            self.app_grid.addWidget(empty_state("Sin resultados", "Ajusta la busqueda o cambia de area."))
             return
 
-        columns = self._column_count()
-        self._last_columns = columns
         for index, app in enumerate(apps):
-            card = AppCard(app, self)
-            self.app_grid.addWidget(card, index // columns, index % columns)
-        for col in range(columns):
-            self.app_grid.setColumnStretch(col, 1)
+            open_button = QPushButton("Abrir")
+            open_button.setAccessibleName(f"Abrir {app.title}")
+            open_button.setToolTip(f"Abrir {app.title} ({app.shortcut})")
+            open_button.clicked.connect(lambda _checked=False, item=app: self.open_app(item))
+            row = module_row(
+                app.title,
+                app.description,
+                app.category,
+                AppCard._status_text(app),
+                app.shortcut,
+                open_button,
+            )
+            self.app_grid.addWidget(row)
+        self.app_grid.addStretch(1)
+        self._last_columns = self._column_count()
 
     def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API
         super().resizeEvent(event)

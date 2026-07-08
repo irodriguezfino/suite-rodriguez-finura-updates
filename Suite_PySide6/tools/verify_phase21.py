@@ -19,16 +19,17 @@ def main() -> int:
     window.show()
     app.processEvents()
 
-    command_center = window.findChild(QFrame, "CommandCenter")
-    priority_panel = window.findChild(QFrame, "PriorityPanel")
-    assert command_center is not None, "Falta centro operativo SaaS en Inicio"
-    assert command_center.accessibleName() == "Centro operativo"
-    assert priority_panel is not None, "Falta panel compacto de procesos criticos"
-    assert priority_panel.accessibleName() == "Procesos criticos"
-    assert len(window.findChildren(QPushButton, "PriorityButton")) == 3
+    hero_panel = window.findChild(QFrame, "HeroPanel")
+    modules_panel = window.findChild(QFrame, "ModulesPanel")
+    activity_panel = window.findChild(QFrame, "ActivityPanel")
+    assert hero_panel is not None, "Falta hero operativo SaaS en Inicio"
+    assert modules_panel is not None, "Falta panel de modulos como workspace"
+    assert activity_panel is not None, "Falta panel lateral de actividad"
 
-    chips = window.findChildren(QFrame, "CommandChip")
-    assert len(chips) == 3, f"El centro operativo debe tener 3 chips, tiene {len(chips)}"
+    chips = window.findChildren(QFrame, "DsMetric")
+    assert len(chips) >= 3, f"El centro operativo debe tener metricas, tiene {len(chips)}"
+    rows = window.findChildren(QFrame, "ModuleRow")
+    assert len(rows) == len(APP_REGISTRY), f"Debe mostrar los modulos como filas operativas, filas={len(rows)}"
     assert window.command_open_value.text() == "0"
     assert window.result_label.accessibleDescription()
 
@@ -40,13 +41,12 @@ def main() -> int:
     window.show_dashboard()
     window.resize(900, 700)
     app.processEvents()
-    assert not window.priority_panel.isVisible(), "Los accesos criticos deben ocultarse en ancho estrecho"
     assert not window.command_detail.isVisible(), "El detalle del centro operativo debe compactarse"
 
     window.close()
     print("PHASE21_OK")
-    print("saas_dashboard=true")
-    print("priority_actions=3")
+    print("saas_workspace=true")
+    print(f"module_rows={len(rows)}")
     return 0
 
 

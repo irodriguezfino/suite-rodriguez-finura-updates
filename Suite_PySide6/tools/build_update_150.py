@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.6.9"
+VERSION = "1.7.0"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
@@ -291,12 +291,13 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
     full_digest = sha256(full_package)
     installer_digest = sha256(installer_bat)
     notes = (
-        "- Inicio redisenado como centro operativo SaaS: salud de operacion, contadores compactos y actividad relevante.\n"
-        "- Accesos criticos a control de maquilas, Precintos Jamones y flujo de maquilas sin convertir el inicio en un catalogo pesado.\n"
-        "- Cards de modulos mas profesionales: categoria, estado de disponibilidad, atajo y CTA claro para abrir proceso.\n"
-        "- Mejor responsive del dashboard: los accesos criticos y detalles secundarios se compactan en anchos estrechos.\n"
-        "- Mejora de accesibilidad: nombres y descripciones accesibles en centro operativo, accesos criticos y resumen de procesos.\n"
-        "- Nuevo contrato de UI bloquea regresiones del dashboard SaaS y de sus contadores operativos.\n"
+        "- Rediseño estructural 1.7.0: el inicio deja de ser un catalogo y pasa a ser un workspace operativo.\n"
+        "- Nuevo mini design system reutilizable con paneles, metricas, badges, estados vacios y filas de modulo.\n"
+        "- Navegacion lateral mas sobria, clara y compacta, con flujos clave separados de las areas generales.\n"
+        "- Lista operativa de modulos con jerarquia, estado, categoria, atajo y accion primaria sin tarjetas pesadas.\n"
+        "- Paleta visual mas neutra y profesional, con acentos reducidos y superficies limpias tipo SaaS.\n"
+        "- Mejora transversal para modulos embebidos: toolbars, paneles y superficies heredan un lenguaje mas limpio.\n"
+        "- Contrato UI actualizado para proteger el nuevo workspace SaaS y sus filas operativas.\n"
         "- Se mantiene intacta la logica de negocio y la paridad funcional validada."
     )
     manifest = {
