@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.6.8"
+VERSION = "1.6.9"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
@@ -291,11 +291,12 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
     full_digest = sha256(full_package)
     installer_digest = sha256(installer_bat)
     notes = (
-        "- Precintos Jamones adopta el layout operativo profesional: tabla de vista previa, metricas, panel de incidencias y rail de estado.\n"
-        "- Se eliminan las pestanas antiguas del modulo para reducir friccion y acercar la experiencia al boceto profesional.\n"
-        "- El nuevo rail muestra progreso, siguiente accion y avisos sin depender de tarjetas superiores poco relevantes.\n"
-        "- Mejora de accesibilidad: nombres accesibles en tabla, progreso, incidencias y descripciones de estado.\n"
-        "- Nuevo contrato de UI bloquea regresiones: sin WorkTabs, sin contexto duplicado y con datos reales reflejados en tabla.\n"
+        "- Inicio redisenado como centro operativo SaaS: salud de operacion, contadores compactos y actividad relevante.\n"
+        "- Accesos criticos a control de maquilas, Precintos Jamones y flujo de maquilas sin convertir el inicio en un catalogo pesado.\n"
+        "- Cards de modulos mas profesionales: categoria, estado de disponibilidad, atajo y CTA claro para abrir proceso.\n"
+        "- Mejor responsive del dashboard: los accesos criticos y detalles secundarios se compactan en anchos estrechos.\n"
+        "- Mejora de accesibilidad: nombres y descripciones accesibles en centro operativo, accesos criticos y resumen de procesos.\n"
+        "- Nuevo contrato de UI bloquea regresiones del dashboard SaaS y de sus contadores operativos.\n"
         "- Se mantiene intacta la logica de negocio y la paridad funcional validada."
     )
     manifest = {

@@ -338,6 +338,54 @@ class MainWindow(QMainWindow):
         dashboard_layout.setContentsMargins(0, 0, 0, 0)
         dashboard_layout.setSpacing(10)
 
+        self.command_center = QFrame()
+        self.command_center.setObjectName("CommandCenter")
+        self.command_center.setAccessibleName("Centro operativo")
+        self.command_center.setAccessibleDescription("Resumen compacto de procesos abiertos, recientes y salidas registradas.")
+        command_layout = QHBoxLayout(self.command_center)
+        command_layout.setContentsMargins(14, 11, 14, 11)
+        command_layout.setSpacing(12)
+        command_text = QVBoxLayout()
+        command_text.setSpacing(2)
+        self.command_title = QLabel("Operacion")
+        self.command_title.setObjectName("CommandTitle")
+        self.command_detail = QLabel("Procesos clave, actividad y salidas en una vista compacta.")
+        self.command_detail.setObjectName("CommandDetail")
+        self.command_detail.setWordWrap(True)
+        command_text.addWidget(self.command_title)
+        command_text.addWidget(self.command_detail)
+        command_layout.addLayout(command_text, 1)
+        self.command_open, self.command_open_value = self._command_chip("Abiertos", "0")
+        self.command_recent, self.command_recent_value = self._command_chip("Recientes", "0")
+        self.command_outputs, self.command_outputs_value = self._command_chip("Salidas", "0")
+        command_layout.addWidget(self.command_open)
+        command_layout.addWidget(self.command_recent)
+        command_layout.addWidget(self.command_outputs)
+        dashboard_layout.addWidget(self.command_center)
+
+        self.priority_panel = QFrame()
+        self.priority_panel.setObjectName("PriorityPanel")
+        self.priority_panel.setAccessibleName("Procesos criticos")
+        self.priority_panel.setAccessibleDescription("Accesos directos a los procesos operativos mas importantes.")
+        priority_layout = QHBoxLayout(self.priority_panel)
+        priority_layout.setContentsMargins(12, 9, 12, 9)
+        priority_layout.setSpacing(8)
+        priority_title = QLabel("Procesos criticos")
+        priority_title.setObjectName("PriorityTitle")
+        priority_layout.addWidget(priority_title)
+        priority_layout.addStretch(1)
+        for key in ("control_recepcion_maquilas", "precintos_jamones", "recepcion_maquilas"):
+            app = self._app_from_key(key)
+            if app is None:
+                continue
+            button = QPushButton(app.title)
+            button.setObjectName("PriorityButton")
+            button.setToolTip(app.description)
+            button.setAccessibleName(f"Abrir proceso critico: {app.title}")
+            button.clicked.connect(lambda _checked=False, item=app: self.open_app(item))
+            priority_layout.addWidget(button)
+        dashboard_layout.addWidget(self.priority_panel)
+
         self.continue_strip = QFrame()
         self.continue_strip.setObjectName("ContinueStrip")
         continue_layout = QHBoxLayout(self.continue_strip)
@@ -371,6 +419,7 @@ class MainWindow(QMainWindow):
 
         self.result_label = QLabel()
         self.result_label.setObjectName("ResultLabel")
+        self.result_label.setAccessibleName("Resumen de procesos filtrados")
         content_layout.addWidget(self.result_label)
 
         self.scroll = QScrollArea()
@@ -386,6 +435,22 @@ class MainWindow(QMainWindow):
 
         dashboard_layout.addWidget(content_shell, 1)
         return dashboard
+
+    @staticmethod
+    def _command_chip(label: str, value: str) -> tuple[QFrame, QLabel]:
+        chip = QFrame()
+        chip.setObjectName("CommandChip")
+        layout = QVBoxLayout(chip)
+        layout.setContentsMargins(10, 6, 10, 6)
+        layout.setSpacing(1)
+        value_label = QLabel(value)
+        value_label.setObjectName("CommandChipValue")
+        value_label.setAccessibleName(label)
+        text_label = QLabel(label)
+        text_label.setObjectName("CommandChipLabel")
+        layout.addWidget(value_label, 0, Qt.AlignRight)
+        layout.addWidget(text_label, 0, Qt.AlignRight)
+        return chip, value_label
 
     @staticmethod
     def _add_shadow(widget: QWidget, *, blur: int = 18, y: int = 3, alpha: int = 22) -> None:
@@ -430,8 +495,34 @@ class MainWindow(QMainWindow):
     def _refresh_dashboard_overview(self) -> None:
         if self._closing:
             return
+        self._render_command_center()
         self._render_continue_strip()
         self._render_context_exports()
+
+    def _render_command_center(self) -> None:
+        open_keys = list(self.open_windows.keys())
+        recent_keys = recent_app_keys()
+        exports = recent_paths("exports")
+        self.command_open_value.setText(str(len(open_keys)))
+        self.command_recent_value.setText(str(len(recent_keys)))
+        self.command_outputs_value.setText(str(len(exports)))
+        for label, value in (
+            (self.command_open_value, len(open_keys)),
+            (self.command_recent_value, len(recent_keys)),
+            (self.command_outputs_value, len(exports)),
+        ):
+            label.setAccessibleDescription(f"{label.accessibleName()}: {value}")
+        if open_keys:
+            app = self._app_from_key(open_keys[-1])
+            self.command_title.setText("Operacion en curso")
+            self.command_detail.setText(app.description if app is not None else "Hay procesos abiertos en la sesion.")
+        elif recent_keys:
+            app = self._app_from_key(recent_keys[0])
+            self.command_title.setText("Continuar operacion")
+            self.command_detail.setText(app.description if app is not None else "Reanuda el ultimo proceso utilizado.")
+        else:
+            self.command_title.setText("Operacion")
+            self.command_detail.setText("Procesos clave, actividad y salidas en una vista compacta.")
 
     def _render_continue_strip(self) -> None:
         open_keys = list(self.open_windows.keys())
@@ -567,6 +658,7 @@ class MainWindow(QMainWindow):
             self.result_label.setText(f"{len(apps)} procesos encontrados en {self.current_category}")
         else:
             self.result_label.setText(f"{len(apps)} procesos disponibles en {self.current_category}")
+        self.result_label.setAccessibleDescription(self.result_label.text())
         if not apps:
             empty = QLabel("Sin resultados. Ajusta la busqueda o cambia de area.")
             empty.setObjectName("EmptyLabel")
@@ -611,6 +703,10 @@ class MainWindow(QMainWindow):
         self.footer.setText(f"v{__version__}" if compact else f"Version {__version__}\nLista para operar")
         self.user_panel.setVisible(not compact)
         self.search.setMinimumWidth(0)
+        if hasattr(self, "priority_panel"):
+            self.priority_panel.setVisible(not narrow)
+        if hasattr(self, "command_detail"):
+            self.command_detail.setVisible(not narrow)
         self.process_context.setMaximumWidth(252 if compact else 288)
         if hasattr(self, "context_button"):
             show_context_toggle = bool(self._current_app_key and narrow)
@@ -836,6 +932,7 @@ class AppCard(QFrame):
         title.setWordWrap(True)
         top.addWidget(title, 1, Qt.AlignTop)
         favorite_button = QPushButton("★" if is_favorite_app(app.key) else "☆")
+        favorite_button.setText("Fijado" if is_favorite_app(app.key) else "Fijar")
         favorite_button.setCheckable(True)
         favorite_button.setChecked(is_favorite_app(app.key))
         favorite_button.setProperty("role", "favorite")
@@ -860,6 +957,9 @@ class AppCard(QFrame):
         tag = QLabel(app.category)
         tag.setObjectName("CategoryTag")
         meta.addWidget(tag)
+        status = QLabel(self._status_text(app))
+        status.setObjectName("MigrationTag")
+        meta.addWidget(status)
         meta.addStretch(1)
         shortcut = QLabel(app.shortcut)
         shortcut.setObjectName("AppMeta")
@@ -869,7 +969,7 @@ class AppCard(QFrame):
         bottom = QHBoxLayout()
         bottom.setSpacing(8)
         bottom.addStretch(1)
-        open_button = QPushButton("Abrir")
+        open_button = QPushButton("Abrir proceso")
         open_button.setProperty("primary", True)
         open_button.setProperty("role", "open")
         open_button.setAccessibleName(f"Abrir {app.title}")

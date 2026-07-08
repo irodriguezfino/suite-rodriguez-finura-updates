@@ -1,0 +1,9 @@
+Suite Rodriguez Finura v1.6.9
+
+- Inicio redisenado como centro operativo SaaS: salud de operacion, contadores compactos y actividad relevante.
+- Accesos criticos a control de maquilas, Precintos Jamones y flujo de maquilas sin convertir el inicio en un catalogo pesado.
+- Cards de modulos mas profesionales: categoria, estado de disponibilidad, atajo y CTA claro para abrir proceso.
+- Mejor responsive del dashboard: los accesos criticos y detalles secundarios se compactan en anchos estrechos.
+- Mejora de accesibilidad: nombres y descripciones accesibles en centro operativo, accesos criticos y resumen de procesos.
+- Nuevo contrato de UI bloquea regresiones del dashboard SaaS y de sus contadores operativos.
+- Se mantiene intacta la logica de negocio y la paridad funcional validada.

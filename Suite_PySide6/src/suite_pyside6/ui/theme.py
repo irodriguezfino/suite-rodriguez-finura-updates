@@ -632,6 +632,59 @@ def base_qss() -> str:
         border-radius: 8px;
         padding: 7px;
     }}
+    QFrame#CommandCenter {{
+        background: {SURFACE};
+        border: 1px solid {SOFT_BORDER};
+        border-radius: 8px;
+    }}
+    QLabel#CommandTitle {{
+        color: {BRAND_BLUE_DARK};
+        background: transparent;
+        font-size: 12pt;
+        font-weight: 850;
+    }}
+    QLabel#CommandDetail {{
+        color: {MUTED};
+        background: transparent;
+        font-weight: 650;
+    }}
+    QFrame#CommandChip {{
+        background: {PANEL};
+        border: 1px solid {SOFT_BORDER};
+        border-radius: 7px;
+        min-width: 82px;
+    }}
+    QLabel#CommandChipValue {{
+        color: {BRAND_BLUE_DARK};
+        background: transparent;
+        font-size: 15pt;
+        font-weight: 850;
+    }}
+    QLabel#CommandChipLabel {{
+        color: {MUTED};
+        background: transparent;
+        font-size: 8.4pt;
+        font-weight: 700;
+    }}
+    QFrame#PriorityPanel {{
+        background: {PANEL};
+        border: 1px solid {SOFT_BORDER};
+        border-radius: 8px;
+    }}
+    QLabel#PriorityTitle {{
+        color: {BRAND_BLUE_DARK};
+        background: transparent;
+        font-weight: 800;
+    }}
+    QPushButton#PriorityButton {{
+        min-height: 30px;
+        padding-left: 10px;
+        padding-right: 10px;
+        background: {SURFACE};
+        border-color: {SOFT_BORDER};
+        color: {BRAND_BLUE_DARK};
+        font-weight: 750;
+    }}
     QFrame#ContinueStrip {{
         background: {SURFACE};
         border: 1px solid {SOFT_BORDER};
