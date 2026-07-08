@@ -24,7 +24,7 @@ def main() -> int:
 
         embedded = window.app_pages[target.key]
         assert window.stack.currentWidget() is embedded
-        assert embedded.parentWidget() is window.stack
+        assert window.stack.indexOf(embedded) >= 0
         assert not embedded.isWindow()
         assert embedded.minimumWidth() == 0
         assert not any(bar.isVisible() for bar in embedded.findChildren(QFrame, "AppBrandBar"))

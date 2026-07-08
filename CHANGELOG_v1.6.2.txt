@@ -1,0 +1,8 @@
+Suite Rodriguez Finura v1.6.2
+
+- Shell profesional con pestanas: Inicio y procesos abiertos conviven sin perder estado.
+- Inicio operativo compacto: sin metricas superiores, con abiertos, recientes, favoritos y salidas.
+- Panel contextual lateral para estado, siguiente accion, avisos y salidas recientes.
+- Pulido visual corporativo: cabecera mas ligera, pestanas claras y sidebar con resumen discreto.
+- Usabilidad diaria: atajos Ctrl+Tab, Ctrl+Shift+Tab, Ctrl+W y Ctrl+L.
+- Se mantiene el updater silencioso sin ventanas CMD y sin tocar la logica core de validaciones.

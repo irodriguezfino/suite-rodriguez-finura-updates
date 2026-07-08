@@ -163,16 +163,43 @@ def base_qss() -> str:
     QFrame#Header {{
         background: {SURFACE};
         border: 1px solid {BORDER};
-        border-top: 4px solid {BRAND_BLUE};
-        border-bottom: 2px solid {BRAND_RED};
+        border-top: 3px solid {BRAND_BLUE};
+        border-bottom: 1px solid {BRAND_RED};
         border-radius: 8px;
-        padding: 12px;
+        padding: 10px;
+    }}
+    QFrame#SidebarSummary {{
+        background: {PANEL};
+        border: 1px solid {BORDER};
+        border-radius: 8px;
+    }}
+    QLabel#InsightLabel {{
+        color: {MUTED};
+        background: transparent;
+        font-weight: 650;
+    }}
+    QLabel#InsightValue {{
+        color: {BRAND_BLUE_DARK};
+        background: transparent;
+        font-size: 12pt;
+        font-weight: 800;
     }}
     QFrame#ShellContext {{
         background: {PANEL};
         border: 1px solid {SOFT_BORDER};
         border-radius: 8px;
         padding: 4px;
+    }}
+    QFrame#ContextRail {{
+        background: {SURFACE};
+        border: 1px solid {BORDER};
+        border-radius: 8px;
+    }}
+    QLabel#ContextTitle {{
+        color: {BRAND_BLUE_DARK};
+        background: transparent;
+        font-size: 11pt;
+        font-weight: 800;
     }}
     QLabel#ShellContextLabel {{
         color: {INK};
@@ -409,30 +436,34 @@ def base_qss() -> str:
         border-color: {BRAND_BLUE};
     }}
     QTabWidget#WorkTabs::pane {{
-        background: {SURFACE};
-        border: 1px solid {BORDER};
-        border-radius: 8px;
+        background: transparent;
+        border: 0;
         top: -1px;
     }}
     QTabWidget#WorkTabs QTabBar::tab {{
-        background: {PANEL};
+        background: {SURFACE};
         color: {INK};
         border: 1px solid {BORDER};
         border-bottom-color: {BORDER};
         border-top-left-radius: 6px;
         border-top-right-radius: 6px;
-        padding: 7px 12px;
-        margin-right: 4px;
+        padding: 8px 14px;
+        margin-right: 3px;
         font-weight: 650;
     }}
     QTabWidget#WorkTabs QTabBar::tab:selected {{
-        background: {SURFACE};
+        background: {BRAND_BLUE_SOFT};
         color: {BRAND_BLUE_DARK};
-        border-bottom-color: {SURFACE};
+        border-color: {BRAND_BLUE};
+        border-bottom-color: {BRAND_BLUE_SOFT};
     }}
     QTabWidget#WorkTabs QTabBar::tab:hover {{
         background: {BUTTON_HOVER};
         border-color: {BRAND_BLUE};
+    }}
+    QTabWidget#WorkTabs QTabBar::close-button {{
+        subcontrol-position: right;
+        margin-left: 6px;
     }}
     QFrame#MetricCard {{
         background: {SURFACE};
@@ -444,7 +475,7 @@ def base_qss() -> str:
         background: {SURFACE};
         border: 1px solid {BORDER};
         border-radius: 8px;
-        padding: 8px;
+        padding: 7px;
     }}
     QLabel#DashboardPanelTitle {{
         color: {BRAND_BLUE_DARK};
