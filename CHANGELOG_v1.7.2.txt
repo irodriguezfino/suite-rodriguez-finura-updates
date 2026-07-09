@@ -1,0 +1,7 @@
+Suite Rodriguez Finura v1.7.2
+
+- El envio de correo usa el relay SMTP corporativo por defecto sin configuracion manual.
+- Se mantiene smtp.vallcompanys.es:25 sin SSL y el remitente corporativo fijo.
+- Si existe SMTP_PASSWORD local se usa autenticacion; si no existe, se intenta relay interno.
+- Se conserva el modo oscuro Finura y la consistencia de tema global/embebidos.
+- No se publica ninguna contrasena ni secreto en el repositorio o paquetes.

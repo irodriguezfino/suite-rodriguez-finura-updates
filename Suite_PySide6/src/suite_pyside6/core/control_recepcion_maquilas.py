@@ -514,9 +514,7 @@ def send_control_email(
                 if smtp_starttls:
                     smtp.starttls()
                     smtp.ehlo()
-                if smtp_user:
-                    if not smtp_password:
-                        raise ValueError("No se ha configurado la contrasena SMTP. Define SMTP_PASSWORD en el entorno seguro del equipo.")
+                if smtp_user and smtp_password:
                     smtp.login(smtp_user, smtp_password)
                 smtp.send_message(msg)
         except smtplib.SMTPException as exc:

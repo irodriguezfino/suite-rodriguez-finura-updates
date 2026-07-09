@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import smtplib
 import sys
 import tempfile
 from pathlib import Path
@@ -22,6 +23,7 @@ from suite_pyside6.core.control_recepcion_maquilas import (
     run_recepcion_with_seals,
     save_pdf_rangos,
     save_txt_ax,
+    send_control_email,
     validar_destinatarios,
     weight_filter_text,
 )
@@ -36,6 +38,32 @@ def write_seals(path: Path) -> None:
     ws.append(["ALB1", "FAC1", "Jamon Duroc", "LOT1", "111111111111"])
     ws.append(["ALB1", "FAC1", "Jamon Duroc", "LOT1", "222222222222"])
     wb.save(path)
+
+
+class DummySMTP:
+    login_calls = 0
+    send_calls = 0
+
+    def __init__(self, *_args, **_kwargs) -> None:
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args) -> None:
+        return None
+
+    def ehlo(self) -> None:
+        return None
+
+    def starttls(self) -> None:
+        return None
+
+    def login(self, *_args) -> None:
+        type(self).login_calls += 1
+
+    def send_message(self, *_args) -> None:
+        type(self).send_calls += 1
 
 
 def main() -> int:
@@ -104,6 +132,18 @@ def main() -> int:
         assert len(recepcion.filas_rangos) == 1
         save_pdf_rangos(pdf, result)
         assert pdf.read_bytes().startswith(b"%PDF")
+        result.recepcion = recepcion
+        result.pdf_rangos = pdf
+        original_smtp = smtplib.SMTP
+        DummySMTP.login_calls = 0
+        DummySMTP.send_calls = 0
+        smtplib.SMTP = DummySMTP  # type: ignore[assignment]
+        try:
+            send_control_email("destino@test.com", result, smtp_password="")
+        finally:
+            smtplib.SMTP = original_smtp  # type: ignore[assignment]
+        assert DummySMTP.send_calls == 1
+        assert DummySMTP.login_calls == 0
 
         window = ControlRecepcionMaquilasWindow()
         window.show_dialogs = False
