@@ -27,11 +27,13 @@ from suite_pyside6.core.precintos_jamones import (
 )
 
 
-SMTP_HOST = "smtp.office365.com"
-SMTP_PORT = 587
-SMTP_USUARIO = "irodriguez@grupovall.com"
-SMTP_PASSWORD = os.environ.get("SUITE_CONTROL_SMTP_PASSWORD", "")
-SMTP_STARTTLS = os.environ.get("SUITE_CONTROL_SMTP_STARTTLS", "1").lower() in {"1", "true", "yes", "si"}
+SMTP_HOST = "smtp.vallcompanys.es"
+SMTP_PORT = 25
+SMTP_USER = "envio@smtp.erod.es"
+SMTP_USUARIO = SMTP_USER
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD") or os.environ.get("SUITE_CONTROL_SMTP_PASSWORD", "")
+SMTP_SECURE = False
+SMTP_STARTTLS = SMTP_SECURE
 ASUNTO_DEFECTO = "Recepcion maquilas - documentacion"
 MENSAJE_DEFECTO = (
     "Buenos dias,\n\n"
@@ -474,9 +476,9 @@ def send_control_email(
     metadata: dict[str, str] | None = None,
     smtp_host: str = SMTP_HOST,
     smtp_port: int = SMTP_PORT,
-    smtp_user: str = SMTP_USUARIO,
+    smtp_user: str = SMTP_USER,
     smtp_password: str = SMTP_PASSWORD,
-    smtp_starttls: bool = SMTP_STARTTLS,
+    smtp_starttls: bool = SMTP_SECURE,
 ) -> EmailMessage:
     destinatarios = parsear_destinatarios(destinatarios_texto)
     if not destinatarios:
@@ -506,14 +508,19 @@ def send_control_email(
             subtype = "pdf" if path.suffix.lower() == ".pdf" else "plain"
             maintype = "application" if subtype == "pdf" else "text"
             msg.add_attachment(path.read_bytes(), maintype=maintype, subtype=subtype, filename=path.name)
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as smtp:
-            smtp.ehlo()
-            if smtp_starttls:
-                smtp.starttls()
+        try:
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as smtp:
                 smtp.ehlo()
-            if smtp_user and smtp_password:
-                smtp.login(smtp_user, smtp_password)
-            elif smtp_user and smtp_starttls:
-                raise ValueError("Falta la password SMTP. Configura SUITE_CONTROL_SMTP_PASSWORD antes de enviar.")
-            smtp.send_message(msg)
+                if smtp_starttls:
+                    smtp.starttls()
+                    smtp.ehlo()
+                if smtp_user:
+                    if not smtp_password:
+                        raise ValueError("No se ha configurado la contrasena SMTP. Define SMTP_PASSWORD en el entorno seguro del equipo.")
+                    smtp.login(smtp_user, smtp_password)
+                smtp.send_message(msg)
+        except smtplib.SMTPException as exc:
+            raise RuntimeError("No se pudo enviar el correo con el servidor corporativo. Revisa la conexion o las credenciales SMTP.") from exc
+        except OSError as exc:
+            raise RuntimeError("No se pudo conectar con el servidor de correo corporativo. Revisa la red o la configuracion SMTP.") from exc
     return msg

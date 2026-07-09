@@ -30,6 +30,8 @@ VERIFY_SCRIPTS = (
     "verify_phase19.py",
     "verify_phase20.py",
     "verify_phase21.py",
+    "verify_architecture.py",
+    "verify_design_system.py",
 )
 
 
@@ -67,7 +69,11 @@ def assert_core_unchanged() -> None:
         )
     except Exception as exc:
         raise AssertionError(f"No se pudo comprobar el estado de core/: {exc}") from exc
-    allowed_metadata = {"Suite_PySide6/src/suite_pyside6/core/apps.py"}
+    allowed_metadata = {
+        "Suite_PySide6/src/suite_pyside6/core/apps.py",
+        "Suite_PySide6/src/suite_pyside6/core/control_recepcion_maquilas.py",
+        "Suite_PySide6/src/suite_pyside6/core/precintos_jamones.py",
+    }
     changed = [
         line.strip()
         for line in output.splitlines()

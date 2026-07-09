@@ -6,7 +6,7 @@ import sys
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtWidgets import QApplication, QFrame, QLabel, QPushButton
+from PySide6.QtWidgets import QApplication, QFrame
 
 from suite_pyside6.core.apps import APP_REGISTRY
 from suite_pyside6.ui.main_window import MainWindow
@@ -36,7 +36,7 @@ def main() -> int:
     window.open_app(APP_REGISTRY[0])
     app.processEvents()
     assert window.command_open_value.text() == "1", "El contador de abiertos debe reaccionar al abrir un proceso"
-    assert window.command_title.text() == "Operacion en curso"
+    assert window.command_title.text() == "Operación en curso"
 
     window.show_dashboard()
     window.resize(900, 700)

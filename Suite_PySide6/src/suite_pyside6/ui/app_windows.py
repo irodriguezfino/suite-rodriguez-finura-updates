@@ -1,26 +1,59 @@
 from __future__ import annotations
 
+from collections.abc import Iterator, Mapping
+from dataclasses import dataclass
+from importlib import import_module
+
 from PySide6.QtWidgets import QMainWindow
 
-from suite_pyside6.ui.control_recepcion_maquilas_window import ControlRecepcionMaquilasWindow
-from suite_pyside6.ui.mermas_window import MermasWindow
-from suite_pyside6.ui.palets_window import PaletsWindow
-from suite_pyside6.ui.pesos_window import PesosWindow
-from suite_pyside6.ui.precintos_expedicion_window import PrecintosExpedicionWindow
-from suite_pyside6.ui.precintos_excel_window import PrecintosExcelWindow
-from suite_pyside6.ui.precintos_jamones_window import PrecintosJamonesWindow
-from suite_pyside6.ui.recepcion_maquilas_window import RecepcionMaquilasWindow
-from suite_pyside6.ui.txt_csv_window import TxtCsvWindow
+
+@dataclass(frozen=True)
+class WindowSpec:
+    module: str
+    class_name: str
 
 
-WINDOW_CLASSES: dict[str, type[QMainWindow]] = {
-    "exportar_precintos_excel": PrecintosExcelWindow,
-    "txt_csv": TxtCsvWindow,
-    "palets": PaletsWindow,
-    "mermas": MermasWindow,
-    "precintos_expedicion": PrecintosExpedicionWindow,
-    "precintos_jamones": PrecintosJamonesWindow,
-    "recepcion_maquilas": RecepcionMaquilasWindow,
-    "control_recepcion_maquilas": ControlRecepcionMaquilasWindow,
-    "pesos": PesosWindow,
+_WINDOW_SPECS: dict[str, WindowSpec] = {
+    "exportar_precintos_excel": WindowSpec("suite_pyside6.ui.precintos_excel_window", "PrecintosExcelWindow"),
+    "txt_csv": WindowSpec("suite_pyside6.ui.txt_csv_window", "TxtCsvWindow"),
+    "palets": WindowSpec("suite_pyside6.ui.palets_window", "PaletsWindow"),
+    "mermas": WindowSpec("suite_pyside6.ui.mermas_window", "MermasWindow"),
+    "precintos_expedicion": WindowSpec("suite_pyside6.ui.precintos_expedicion_window", "PrecintosExpedicionWindow"),
+    "precintos_jamones": WindowSpec("suite_pyside6.ui.precintos_jamones_window", "PrecintosJamonesWindow"),
+    "recepcion_maquilas": WindowSpec("suite_pyside6.ui.recepcion_maquilas_window", "RecepcionMaquilasWindow"),
+    "control_recepcion_maquilas": WindowSpec(
+        "suite_pyside6.ui.control_recepcion_maquilas_window",
+        "ControlRecepcionMaquilasWindow",
+    ),
+    "pesos": WindowSpec("suite_pyside6.ui.pesos_window", "PesosWindow"),
 }
+
+_WINDOW_CACHE: dict[str, type[QMainWindow]] = {}
+
+
+def get_window_class(key: str) -> type[QMainWindow] | None:
+    spec = _WINDOW_SPECS.get(key)
+    if spec is None:
+        return None
+    if key not in _WINDOW_CACHE:
+        module = import_module(spec.module)
+        window_class = getattr(module, spec.class_name)
+        _WINDOW_CACHE[key] = window_class
+    return _WINDOW_CACHE[key]
+
+
+class WindowClassRegistry(Mapping[str, type[QMainWindow]]):
+    def __iter__(self) -> Iterator[str]:
+        return iter(_WINDOW_SPECS)
+
+    def __len__(self) -> int:
+        return len(_WINDOW_SPECS)
+
+    def __getitem__(self, key: str) -> type[QMainWindow]:
+        window_class = get_window_class(key)
+        if window_class is None:
+            raise KeyError(key)
+        return window_class
+
+
+WINDOW_CLASSES: Mapping[str, type[QMainWindow]] = WindowClassRegistry()

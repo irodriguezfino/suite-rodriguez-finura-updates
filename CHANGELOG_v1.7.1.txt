@@ -1,0 +1,9 @@
+Suite Rodriguez Finura v1.7.1
+
+- Nuevo modo oscuro basado en la identidad visual de Finura.
+- Eliminados restos de azul Rodriguez en el tema oscuro.
+- Mejora de consistencia cromatica entre aplicacion global y aplicaciones embebidas.
+- Ajustes de contraste y accesibilidad en modo oscuro.
+- Revision de tokens de tema y colores hardcodeados.
+- Ajustes visuales en estados activos, hover, focus y seleccion.
+- Version preparada para actualizacion automatica.

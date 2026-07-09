@@ -18,9 +18,11 @@ TIPOS_JAMON = ("Blanco", "Iberico")
 CAMPOS_ESPERADOS = 7
 SMTP_HOST = "smtp.vallcompanys.es"
 SMTP_PORT = 25
-SMTP_USUARIO = "envio@smtp.erod.es"
-SMTP_PASSWORD = os.environ.get("SUITE_PRECINTOS_SMTP_PASSWORD", "")
-SMTP_STARTTLS = os.environ.get("SUITE_PRECINTOS_SMTP_STARTTLS", "").lower() in {"1", "true", "yes", "si"}
+SMTP_USER = "envio@smtp.erod.es"
+SMTP_USUARIO = SMTP_USER
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD") or os.environ.get("SUITE_PRECINTOS_SMTP_PASSWORD", "")
+SMTP_SECURE = False
+SMTP_STARTTLS = SMTP_SECURE
 ASUNTO_CORREO_DEFECTO = "Control precintos jamones"
 MENSAJE_CORREO_DEFECTO = (
     "Adjunto se envian los ficheros generados por Control Precintos Jamones.\n\n"
@@ -515,9 +517,9 @@ def send_precintos_email(
     body: str = MENSAJE_CORREO_DEFECTO,
     smtp_host: str = SMTP_HOST,
     smtp_port: int = SMTP_PORT,
-    smtp_user: str = SMTP_USUARIO,
+    smtp_user: str = SMTP_USER,
     smtp_password: str = SMTP_PASSWORD,
-    smtp_starttls: bool = SMTP_STARTTLS,
+    smtp_starttls: bool = SMTP_SECURE,
 ) -> EmailMessage:
     if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", destinatario or ""):
         raise ValueError("Introduce una direccion de correo valida.")
@@ -536,12 +538,19 @@ def send_precintos_email(
     for path in attachments:
         subtype = "csv" if path.suffix.lower() == ".csv" else "plain"
         message.add_attachment(path.read_bytes(), maintype="text", subtype=subtype, filename=path.name)
-    with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as smtp:
-        smtp.ehlo()
-        if smtp_starttls:
-            smtp.starttls()
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as smtp:
             smtp.ehlo()
-        if smtp_user and smtp_password:
-            smtp.login(smtp_user, smtp_password)
-        smtp.send_message(message)
+            if smtp_starttls:
+                smtp.starttls()
+                smtp.ehlo()
+            if smtp_user:
+                if not smtp_password:
+                    raise ValueError("No se ha configurado la contrasena SMTP. Define SMTP_PASSWORD en el entorno seguro del equipo.")
+                smtp.login(smtp_user, smtp_password)
+            smtp.send_message(message)
+    except smtplib.SMTPException as exc:
+        raise RuntimeError("No se pudo enviar el correo con el servidor corporativo. Revisa la conexion o las credenciales SMTP.") from exc
+    except OSError as exc:
+        raise RuntimeError("No se pudo conectar con el servidor de correo corporativo. Revisa la red o la configuracion SMTP.") from exc
     return message

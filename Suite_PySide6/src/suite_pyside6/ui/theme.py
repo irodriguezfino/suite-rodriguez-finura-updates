@@ -1,1197 +1,705 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QSettings
-
-
-BRAND_BLUE = "#2563eb"
-BRAND_RED = "#d71920"
-BRAND_RED_DARK = "#a91117"
-SUCCESS = "#16803c"
-WARNING = "#a15c07"
+from PySide6.QtCore import QSettings, Qt
+from PySide6.QtGui import QGuiApplication
 
 
 LIGHT = {
-    "blue_dark": "#172554",
-    "blue_soft": "#eff6ff",
-    "ink": "#111318",
+    "background": "#F7F9FC",
+    "surface": "#FFFFFF",
+    "surface_muted": "#F1F4F8",
+    "surface_elevated": "#FFFFFF",
+    "border": "#DDE4EE",
+    "border_strong": "#B8C5D8",
+    "text_primary": "#162033",
+    "text_secondary": "#536174",
+    "text_muted": "#8491A3",
+    "primary": "#123283",
+    "primary_hover": "#1B3891",
+    "primary_active": "#0B266D",
+    "primary_soft": "#EAF0FF",
+    "accent_red": "#C32421",
+    "accent_red_soft": "#FDEDEC",
+    "accent_gold": "#7B6A42",
+    "accent_gold_soft": "#F4EFE2",
+    "focus_ring": "#1B3891",
+    "sidebar_bg": "#123283",
+    "sidebar_border": "#0B266D",
+    "drop_active_border": "#123283",
+    "success": "#167A46",
+    "success_soft": "#E8F7EF",
+    "warning": "#8A6A22",
+    "warning_soft": "#FFF7E3",
+    "error": "#C32421",
+    "error_soft": "#FDEDEC",
+    "info": "#0F6E8C",
+    "info_soft": "#E7F6FB",
+    "shadow": "rgba(18, 50, 131, 0.10)",
+    "bg": "#F7F9FC",
     "surface": "#ffffff",
-    "background": "#f7f8fa",
-    "muted": "#667085",
-    "border": "#d9dee8",
-    "panel": "#f2f4f7",
-    "field": "#ffffff",
-    "header": "#f6f8fb",
-    "tooltip": "#111827",
-    "shadow": "#0b264d",
+    "surface_2": "#F1F4F8",
+    "surface_3": "#E8EDF5",
+    "ink": "#162033",
+    "muted": "#536174",
+    "subtle": "#8491A3",
+    "brand": "#C32421",
+    "brand_soft": "#FDEDEC",
+    "brand_dark": "#9A1917",
+    "danger": "#C32421",
+    "danger_soft": "#FDEDEC",
 }
 
 DARK = {
-    "blue_dark": "#c7dcf8",
-    "blue_soft": "#17304f",
-    "ink": "#edf2f7",
-    "surface": "#1e232b",
-    "background": "#121418",
-    "muted": "#a7b0bf",
-    "border": "#38414d",
-    "panel": "#171b21",
-    "field": "#10141a",
-    "header": "#252b34",
-    "tooltip": "#f7fbff",
-    "shadow": "#000000",
+    "background": "#080704",
+    "surface": "#11100B",
+    "surface_muted": "#18150E",
+    "surface_elevated": "#211C12",
+    "border": "#332B1A",
+    "border_strong": "#4A3E24",
+    "text_primary": "#F8F5EC",
+    "text_secondary": "#D8CFB8",
+    "text_muted": "#A89D80",
+    "primary": "#C8B46F",
+    "primary_hover": "#D8C985",
+    "primary_active": "#F2E3A4",
+    "primary_soft": "#2E2614",
+    "accent_red": "#FF7772",
+    "accent_red_soft": "#3C1E25",
+    "accent_gold": "#C8B46F",
+    "accent_gold_soft": "#2E2614",
+    "focus_ring": "#D8C985",
+    "sidebar_bg": "#050504",
+    "sidebar_border": "#4A3E24",
+    "drop_active_border": "#D8C985",
+    "success": "#6DD58C",
+    "success_soft": "#162A18",
+    "warning": "#E6B95C",
+    "warning_soft": "#342816",
+    "error": "#FF7772",
+    "error_soft": "#3C1E25",
+    "info": "#C8B46F",
+    "info_soft": "#2E2614",
+    "shadow": "rgba(0, 0, 0, 0.26)",
+    "bg": "#080704",
+    "surface_2": "#18150E",
+    "surface_3": "#211C12",
+    "ink": "#F8F5EC",
+    "muted": "#D8CFB8",
+    "subtle": "#A89D80",
+    "brand": "#FF7772",
+    "brand_soft": "#3C1E25",
+    "brand_dark": "#FFB0AD",
+    "danger": "#FF7772",
+    "danger_soft": "#3C1E25",
 }
 
 
-def current_theme_mode() -> str:
-    value = QSettings("RodriguezFinura", "SuitePySide6").value("theme", "light")
-    return "dark" if value == "dark" else "light"
+def current_theme_preference() -> str:
+    value = QSettings("RodriguezFinura", "SuitePySide6").value("theme", "system")
+    return str(value) if value in {"light", "dark", "system"} else "system"
 
 
 def set_theme_mode(mode: str) -> None:
-    QSettings("RodriguezFinura", "SuitePySide6").setValue("theme", "dark" if mode == "dark" else "light")
+    QSettings("RodriguezFinura", "SuitePySide6").setValue("theme", mode if mode in {"light", "dark", "system"} else "system")
+
+
+def current_theme_mode() -> str:
+    preference = current_theme_preference()
+    if preference != "system":
+        return preference
+    app = QGuiApplication.instance()
+    if app is not None and hasattr(app.styleHints(), "colorScheme"):
+        return "dark" if app.styleHints().colorScheme() == Qt.ColorScheme.Dark else "light"
+    return "light"
 
 
 def is_dark_mode() -> bool:
     return current_theme_mode() == "dark"
 
 
+def palette() -> dict[str, str]:
+    return DARK if is_dark_mode() else LIGHT
+
+
 def base_qss() -> str:
-    palette = DARK if is_dark_mode() else LIGHT
-    BRAND_BLUE_DARK = palette["blue_dark"]
-    BRAND_BLUE_SOFT = palette["blue_soft"]
-    INK = palette["ink"]
-    SURFACE = palette["surface"]
-    BACKGROUND = palette["background"]
-    MUTED = palette["muted"]
-    BORDER = palette["border"]
-    PANEL = palette["panel"]
-    FIELD = palette["field"]
-    HEADER = palette["header"]
-    TOOLTIP = palette["tooltip"]
-    TOOLTIP_TEXT = "#ffffff" if not is_dark_mode() else "#0b111c"
-    FOCUS = "#7fb7f2" if is_dark_mode() else "#1f6feb"
-    CARD_HOVER = "#252b33" if is_dark_mode() else "#fcfdff"
-    BUTTON_BG = "#242a33" if is_dark_mode() else "#ffffff"
-    BUTTON_HOVER = "#2d3540" if is_dark_mode() else "#f5f9ff"
-    PRIMARY_HOVER = "#0a5bb5" if is_dark_mode() else BRAND_BLUE_DARK
-    CHECKED_TEXT = "#d8e9ff" if is_dark_mode() else BRAND_BLUE
-    TABLE_ALT = "#151a21" if is_dark_mode() else "#f7f9fc"
-    DANGER_BG = "#351f23" if is_dark_mode() else "#fff8f8"
-    DANGER_HOVER = "#42242a" if is_dark_mode() else "#fff0f1"
-    DISABLED_BG = "#202935" if is_dark_mode() else "#edf1f6"
-    DISABLED_TEXT = "#aeb8c7" if is_dark_mode() else "#5f6f85"
-    SOFT_BORDER = "#465569" if is_dark_mode() else "#dbe4ef"
-    CHIP_BG = "#1d3049" if is_dark_mode() else "#f1f6ff"
-    SUCCESS_BG = "#173421" if is_dark_mode() else "#f2fbf6"
-    SUCCESS_BORDER = "#3f7d57" if is_dark_mode() else "#c9e7d3"
-    WARNING_BG = "#3a2f1a" if is_dark_mode() else "#fff8e7"
-    WARNING_BORDER = "#8d6d26" if is_dark_mode() else "#ead49a"
-    SUCCESS_FG = "#8ee3b0" if is_dark_mode() else SUCCESS
-    WARNING_FG = "#f4cf72" if is_dark_mode() else WARNING
-    SUCCESS_BADGE_TEXT = "#111827" if is_dark_mode() else "#ffffff"
-    WARNING_BADGE_TEXT = "#111827" if is_dark_mode() else "#ffffff"
-    ERROR_BG = "#3f2024" if is_dark_mode() else "#fff0f1"
-    ERROR_BORDER = "#9a4850" if is_dark_mode() else "#efb8bd"
-    SCROLL_BG = "#161d27" if is_dark_mode() else "#edf2f8"
-    SCROLL_HANDLE = "#657384" if is_dark_mode() else "#9fb0c9"
+    p = palette()
+    tooltip_bg = p["surface_elevated"] if is_dark_mode() else p["text_primary"]
+    tooltip_fg = p["text_primary"] if is_dark_mode() else p["surface"]
+    table_alt = p["surface_2"] if is_dark_mode() else "#FBFCFE"
+    selection_fg = p["surface"] if not is_dark_mode() else "#080704"
+    primary_fg = "#080704" if is_dark_mode() else "white"
+    nav_active_fg = "#080704" if is_dark_mode() else "white"
+    sidebar_bg = p.get("sidebar_bg", p["primary"])
+    sidebar_border = p.get("sidebar_border", p["primary_active"])
+    drop_active_border = p.get("drop_active_border", p["primary"])
     return f"""
+    * {{
+        outline: 0;
+    }}
     QWidget {{
-        background: {BACKGROUND};
-        color: {INK};
-        font-family: Segoe UI, Arial, sans-serif;
-        font-size: 9.5pt;
-    }}
-    QMainWindow {{
-        background: {BACKGROUND};
-    }}
-    QMainWindow#EmbeddedAppWindow, QStackedWidget#WorkspaceStack, QWidget#DashboardPage {{
-        background: transparent;
-        border: 0;
-    }}
-    QMainWindow#EmbeddedAppWindow QFrame#Stepper {{
-        background: {SURFACE};
-        border: 1px solid {SOFT_BORDER};
-        border-radius: 8px;
-        padding: 6px;
-    }}
-    QMainWindow#EmbeddedAppWindow QFrame#ContextPanel,
-    QMainWindow#EmbeddedAppWindow QFrame#Toolbar {{
-        background: {SURFACE};
-        border-color: {SOFT_BORDER};
-    }}
-    QMainWindow#EmbeddedAppWindow QFrame#AppCard,
-    QMainWindow#EmbeddedAppWindow QFrame#MailPanel,
-    QMainWindow#EmbeddedAppWindow QFrame#FormPanel {{
-        background: {SURFACE};
-        border-color: {SOFT_BORDER};
-        border-radius: 8px;
-    }}
-    QMainWindow#EmbeddedAppWindow QLabel#StepText {{
-        font-weight: 800;
-    }}
-    QFrame#ContentShell {{
-        background: transparent;
-    }}
-    QWidget#SuiteShell {{
-        background: {BACKGROUND};
-    }}
-    QWidget#MainWorkspace {{
-        background: {BACKGROUND};
-    }}
-    QFrame#NavRail {{
-        background: {SURFACE};
-        border-right: 1px solid {SOFT_BORDER};
-    }}
-    QFrame#NavBrand {{
-        background: transparent;
-        border: 0;
-        border-radius: 8px;
-    }}
-    QFrame#NavBrand[compact="true"] {{
-        padding: 4px;
-    }}
-    QLabel#NavTitle {{
-        color: {INK};
-        background: transparent;
-        font-size: 11.5pt;
-        font-weight: 850;
-    }}
-    QLabel#NavSubtitle, QLabel#NavFooter {{
-        color: {MUTED};
-        background: transparent;
-        font-weight: 650;
-    }}
-    QLabel#NavFooter {{
-        border-top: 1px solid {SOFT_BORDER};
-        padding-top: 10px;
-    }}
-    QFrame#UserPanel {{
-        background: {PANEL};
-        border: 1px solid {SOFT_BORDER};
-        border-radius: 8px;
-    }}
-    QLabel#UserAvatar {{
-        min-width: 32px;
-        max-width: 32px;
-        min-height: 32px;
-        max-height: 32px;
-        border-radius: 16px;
-        background: {INK};
-        color: white;
-        font-weight: 800;
-    }}
-    QLabel#UserName, QLabel#UserRole, QLabel#UserState {{
-        background: transparent;
-    }}
-    QLabel#UserName {{
-        color: {INK};
-        font-weight: 800;
-    }}
-    QLabel#UserRole {{
-        color: {MUTED};
-        font-weight: 650;
-    }}
-    QLabel#UserState {{
-        color: {SUCCESS_FG};
-        font-size: 8.5pt;
-        font-weight: 650;
-    }}
-    QFrame#Sidebar {{
-        background: {PANEL};
-        border: 1px solid {BORDER};
-        border-radius: 8px;
-        padding: 10px;
-    }}
-    QFrame#Header {{
-        background: {SURFACE};
-        border: 1px solid {SOFT_BORDER};
-        border-radius: 8px;
-        padding: 8px;
-    }}
-    QFrame#SidebarSummary {{
-        background: {PANEL};
-        border: 1px solid {BORDER};
-        border-radius: 8px;
-    }}
-    QLabel#InsightLabel {{
-        color: {MUTED};
-        background: transparent;
-        font-weight: 650;
-    }}
-    QLabel#InsightValue {{
-        color: {BRAND_BLUE_DARK};
-        background: transparent;
-        font-size: 12pt;
-        font-weight: 800;
-    }}
-    QFrame#ShellContext {{
-        background: {PANEL};
-        border: 1px solid {SOFT_BORDER};
-        border-radius: 8px;
-        padding: 4px;
-    }}
-    QFrame#ContextRail {{
-        background: {SURFACE};
-        border: 1px solid {BORDER};
-        border-radius: 8px;
-    }}
-    QFrame#ContextCard {{
-        background: {SURFACE};
-        border: 1px solid {SOFT_BORDER};
-        border-radius: 8px;
-    }}
-    QLabel#ContextTitle {{
-        color: {BRAND_BLUE_DARK};
-        background: transparent;
-        font-size: 11pt;
-        font-weight: 800;
-    }}
-    QLabel#ShellContextLabel {{
-        color: {INK};
-        background: transparent;
-        font-weight: 650;
-        line-height: 130%;
-    }}
-    QFrame#BrandPanel {{
-        background: {PANEL};
-        border: 1px solid {BORDER};
-        border-radius: 8px;
-        padding: 8px;
-    }}
-    QFrame#ProductStrip {{
-        background: {PANEL};
-        border: 1px solid {BORDER};
-        border-radius: 8px;
-        padding: 8px;
-    }}
-    QFrame#FieldStrip {{
-        background: {SURFACE};
-        border: 1px solid {BORDER};
-        border-radius: 8px;
-        padding: 8px;
-    }}
-    QLabel#WindowTitle {{
-        font-size: 17pt;
-        font-weight: 850;
-        color: {INK};
-        background: transparent;
-        padding-top: 2px;
-    }}
-    QLabel#WindowSubtitle, QLabel#StatusLabel, QLabel#AppDescription, QLabel#ShortcutLabel {{
-        color: {MUTED};
-    }}
-    QLabel#WindowSubtitle {{
-        background: transparent;
+        background: {p["bg"]};
+        color: {p["ink"]};
+        font-family: Inter, Segoe UI, Arial, sans-serif;
         font-size: 10pt;
-        padding-bottom: 2px;
     }}
-    QLabel#SectionLabel, QLabel#ResultLabel {{
-        font-weight: 700;
-        letter-spacing: 0;
+    QMainWindow, QWidget#SuiteShell, QWidget#MainWorkspace, QWidget#DashboardPage, QWidget#ConsolePage {{
+        background: {p["bg"]};
     }}
-    QLabel#SectionLabel, QLabel#AppTitle, QLabel#AppDescription, QLabel#MetricLabel, QLabel#MetricValue {{
+    QLabel {{
         background: transparent;
     }}
-    QLabel#ResultLabel {{
-        background: transparent;
+    QToolTip {{
+        background: {tooltip_bg};
+        color: {tooltip_fg};
         border: 0;
-        padding: 0;
-        color: {MUTED};
-        font-size: 9pt;
-    }}
-    QLabel#StepBar {{
-        background: {PANEL};
-        border: 1px solid {BORDER};
-        border-left: 4px solid {BRAND_BLUE};
         border-radius: 6px;
-        padding: 9px 12px;
-        color: {BRAND_BLUE_DARK};
-        font-weight: 650;
+        padding: 7px 9px;
     }}
-    QLabel#MetricValue {{
+
+    QLabel#WindowTitle, QLabel#ShellTitle {{
+        color: {p["ink"]};
         font-size: 18pt;
-        font-weight: 750;
-        color: {BRAND_BLUE_DARK};
-        background: transparent;
-    }}
-    QLabel#MetricLabel {{
-        color: {MUTED};
-        font-weight: 650;
-        background: transparent;
-    }}
-    QLabel#AppIcon {{
-        min-width: 40px;
-        max-width: 40px;
-        min-height: 40px;
-        max-height: 40px;
-        border-radius: 7px;
-        background: {PANEL};
-        border: 1px solid {BORDER};
-        color: {BRAND_BLUE_DARK};
-        font-size: 13pt;
-        font-weight: 800;
-    }}
-    QLabel#StatusLabel {{
-        background: {SURFACE};
-        border: 1px solid {BORDER};
-        border-left: 4px solid {BRAND_BLUE};
-        border-radius: 6px;
-        padding: 8px 10px;
-    }}
-    QLineEdit, QComboBox {{
-        min-width: 140px;
-        min-height: 34px;
-        background: {SURFACE};
-        color: {INK};
-        border: 1px solid {BORDER};
-        border-radius: 6px;
-        padding: 0 10px;
-    }}
-    QWidget#FieldGroup {{
-        background: transparent;
-    }}
-    QWidget#FieldGroup[compact="true"] QLineEdit,
-    QWidget#FieldGroup[compact="true"] QComboBox {{
-        min-width: 72px;
-        max-width: 110px;
-    }}
-    QLabel#FieldLabel {{
-        background: transparent;
-        color: {MUTED};
-        font-size: 8.7pt;
         font-weight: 700;
-        padding-left: 2px;
     }}
-    QComboBox {{
-        min-width: 104px;
+    QLabel#WindowSubtitle, QLabel#ShellSubtitle, QLabel#PanelSubtitle, QLabel#MutedText {{
+        color: {p["muted"]};
+        font-size: 10pt;
     }}
-    QLineEdit:focus, QComboBox:focus {{
-        border: 2px solid {FOCUS};
-        background: {FIELD};
-    }}
-    QPlainTextEdit, QTableWidget {{
-        color: {INK};
-        background: {FIELD};
-        alternate-background-color: {TABLE_ALT};
-        border: 1px solid {BORDER};
-        border-radius: 6px;
-        selection-background-color: {BRAND_BLUE};
-        selection-color: white;
-        font-family: Consolas, Segoe UI, monospace;
-        padding: 6px;
-    }}
-    QPlainTextEdit[emptyState="true"] {{
-        background: {PANEL};
-        border: 1px dashed {BORDER};
-        color: {MUTED};
-        font-weight: 600;
-        padding: 10px;
-    }}
-    QPlainTextEdit:focus, QTableWidget:focus {{
-        border: 2px solid {FOCUS};
-    }}
-    QTableWidget::item {{
-        padding: 6px;
-        border-bottom: 1px solid {BORDER};
-    }}
-    QTableWidget::item:selected {{
-        background: {BRAND_BLUE};
-        color: white;
-    }}
-    QHeaderView::section {{
-        background: {HEADER};
-        color: {BRAND_BLUE_DARK};
-        border: 0;
-        border-bottom: 1px solid {BORDER};
-        padding: 8px;
-        font-weight: 650;
-    }}
-    QScrollArea {{
-        border: 0;
-        background: transparent;
-    }}
-    QScrollArea > QWidget > QWidget {{
-        background: transparent;
-    }}
-    QScrollArea#WindowScroll, QScrollArea#ToolbarScroll {{
-        border: 0;
-        background: transparent;
-    }}
-    QWidget#WindowScrollContent {{
-        background: transparent;
-    }}
-    QScrollArea#ToolbarScroll QScrollBar:horizontal {{
-        background: {SCROLL_BG};
-        height: 9px;
-        margin: 0;
-        border-radius: 4px;
-    }}
-    QScrollArea#ToolbarScroll QScrollBar::handle:horizontal {{
-        background: {SCROLL_HANDLE};
-        min-width: 30px;
-        border-radius: 4px;
-    }}
-    QScrollArea#ToolbarScroll QScrollBar::handle:horizontal:hover {{
-        background: {BRAND_BLUE};
-    }}
-    QScrollArea#ToolbarScroll QScrollBar::add-line:horizontal,
-    QScrollArea#ToolbarScroll QScrollBar::sub-line:horizontal {{
-        width: 0;
-    }}
-    QFrame#AppCard {{
-        background: {SURFACE};
-        border: 1px solid {BORDER};
-        border-radius: 8px;
-    }}
-    QFrame#AppCard:hover {{
-        border-color: {BRAND_BLUE};
-        background: {CARD_HOVER};
-    }}
-    QFrame#ControlPilotWorkspace {{
-        background: transparent;
-        border: 0;
-    }}
-    QFrame#ControlPreviewPanel,
-    QFrame#ControlIssuesPanel,
-    QFrame#ControlStatusRail {{
-        background: {SURFACE};
-        border: 1px solid {SOFT_BORDER};
-        border-radius: 8px;
-    }}
-    QFrame#ControlPreviewPanel,
-    QFrame#ControlIssuesPanel {{
-        min-height: 360px;
-    }}
-    QTableWidget#ControlPreviewTable {{
-        font-family: Segoe UI, Arial, sans-serif;
-        font-size: 9.2pt;
-        background: {FIELD};
-        border: 1px solid {SOFT_BORDER};
-        border-radius: 7px;
-        padding: 0;
-    }}
-    QLabel#ControlCountPill,
-    QLabel#ControlIssuePill {{
-        color: {BRAND_BLUE_DARK};
-        background: {CHIP_BG};
-        border: 1px solid {SOFT_BORDER};
-        border-radius: 5px;
-        padding: 3px 7px;
-        font-size: 8.6pt;
-        font-weight: 750;
-    }}
-    QLabel#ControlIssuePill {{
-        color: {WARNING_FG};
-        background: {WARNING_BG};
-        border-color: {WARNING_BORDER};
-    }}
-    QLabel#ControlDropzone {{
-        color: {MUTED};
-        background: {PANEL};
-        border: 1px dashed {FOCUS};
-        border-radius: 8px;
-        padding: 22px;
+    QLabel#SectionLabel, QLabel#PanelTitle, QLabel#DashboardPanelTitle {{
+        color: {p["ink"]};
         font-size: 11pt;
         font-weight: 650;
     }}
-    QFrame#ControlMetricStrip {{
-        background: {PANEL};
-        border: 1px solid {SOFT_BORDER};
-        border-radius: 7px;
-    }}
-    QLabel#ControlMetricValue {{
-        color: {BRAND_BLUE_DARK};
-        background: transparent;
-        font-size: 15pt;
-        font-weight: 850;
-    }}
-    QLabel#ControlMetricLabel {{
-        color: {MUTED};
-        background: transparent;
-        font-size: 8.4pt;
+    QLabel#Overline, QLabel#GroupLabel {{
+        color: {p["subtle"]};
+        font-size: 8.5pt;
         font-weight: 700;
+        text-transform: uppercase;
     }}
-    QLabel#ControlRailState {{
-        color: {SUCCESS_FG};
-        background: {SUCCESS_BG};
-        border: 1px solid {SUCCESS_BORDER};
-        border-radius: 7px;
-        padding: 8px 10px;
-        font-weight: 850;
+
+    QFrame#ConsoleSidebar {{
+        background: {sidebar_bg};
+        border-right: 1px solid {sidebar_border};
     }}
-    QLabel#ControlRailAction {{
-        color: white;
-        background: {BRAND_BLUE};
-        border-radius: 6px;
-        padding: 8px 10px;
-        font-weight: 800;
+    QFrame#ConsoleHeader {{
+        background: {p["surface"]};
+        border: 1px solid {p["border"]};
+        border-radius: 8px;
     }}
-    QLabel#ControlRailDetail {{
-        color: {MUTED};
-        background: transparent;
-        font-weight: 650;
+    QFrame#CompactContextBar {{
+        background: {p["surface_2"]};
+        border: 1px solid {p["border"]};
+        border-radius: 8px;
     }}
-    QProgressBar#ControlProgress {{
-        background: {PANEL};
-        border: 1px solid {SOFT_BORDER};
-        border-radius: 5px;
-        min-height: 10px;
-        max-height: 16px;
-        text-align: center;
-        color: {MUTED};
-        font-size: 8pt;
+    QFrame#ConsoleRail, QFrame#ContextRail {{
+        background: {p["surface"]};
+        border-left: 1px solid {p["border"]};
     }}
-    QProgressBar#ControlProgress::chunk {{
-        background: {SUCCESS_FG};
-        border-radius: 4px;
+    QFrame#Panel, QFrame#DsPanel, QFrame#DsMetric, QFrame#AppCard, QFrame#FormPanel, QFrame#MailPanel,
+    QFrame#ControlPreviewPanel, QFrame#ControlIssuesPanel, QFrame#OutputPanel,
+    QFrame#ControlStatusRail, QFrame#Dropzone, QFrame#WorkItem, QFrame#MetricCard, QFrame#ContextCard,
+    QFrame#ModuleRow, QFrame#ContinuePanel, QFrame#HeroPanel, QFrame#ActivityPanel,
+    QFrame#ModulesPanel {{
+        background: {p["surface"]};
+        border: 1px solid {p["border"]};
+        border-radius: 8px;
     }}
-    QPlainTextEdit#CorrectionEditor,
-    QPlainTextEdit#IssuesText,
-    QPlainTextEdit#OutputText {{
-        font-family: Segoe UI, Arial, sans-serif;
-        font-size: 9.1pt;
-        border-color: {SOFT_BORDER};
+    QFrame#ModuleRow:hover, QFrame#WorkItem:hover, QFrame#ContextCard:hover,
+    QFrame#DsMetric:hover, QFrame#Dropzone:hover {{
+        border-color: {p["border_strong"]};
+        background: {p["surface"]};
+    }}
+    QFrame#Dropzone {{
+        border: 1px dashed {p["border_strong"]};
+        background: {p["surface_2"]};
+    }}
+    QFrame#Dropzone[active="true"] {{
+        border-color: {drop_active_border};
+        background: {p["primary_soft"]};
     }}
     QFrame#Toolbar {{
-        background: {SURFACE};
-        border: 1px solid {SOFT_BORDER};
+        background: {p["surface"]};
+        border: 1px solid {p["border"]};
         border-radius: 8px;
-        padding: 7px;
     }}
-    QFrame#Toolbar QPushButton {{
-        min-width: 58px;
-        padding-left: 8px;
-        padding-right: 8px;
+    QFrame#Stepper {{
+        background: {p["surface"]};
+        border: 1px solid {p["border"]};
+        border-radius: 8px;
     }}
-    QFrame#Toolbar QLineEdit {{
-        min-width: 118px;
-    }}
-    QLabel#GroupLabel {{
-        color: {MUTED};
+    QFrame#Toolbar[embeddedSurface="true"], QFrame#Stepper[embeddedSurface="true"] {{
         background: transparent;
-        font-size: 8.6pt;
-        font-weight: 750;
-        padding: 0 4px;
+        border: 0;
+        border-radius: 0;
     }}
-    QLineEdit#CompactField, QComboBox#CompactField {{
-        min-width: 72px;
-        max-width: 110px;
+    QFrame#ControlPilotWorkspace[embeddedSurface="true"] {{
+        background: transparent;
+        border: 0;
     }}
-    QFrame#MailPanel, QFrame#FormPanel {{
-        background: {SURFACE};
-        border: 1px solid {BORDER};
+    QFrame#ControlPreviewPanel[embeddedSurface="true"] {{
+        border-color: {p["border_strong"]};
+    }}
+    QFrame#ControlIssuesPanel[embeddedSurface="true"],
+    QFrame#ControlStatusRail[embeddedSurface="true"],
+    QFrame#AppCard[embeddedSurface="true"],
+    QFrame#FormPanel[embeddedSurface="true"],
+    QFrame#MailPanel[embeddedSurface="true"] {{
+        background: {p["surface"]};
+        border-color: {p["border"]};
+    }}
+    QFrame#ControlContentStack {{
+        background: transparent;
+        border: 0;
+    }}
+    QFrame#ControlMetricStrip {{
+        background: {p["surface_2"]};
+        border: 1px solid {p["border"]};
         border-radius: 8px;
-        padding: 8px;
     }}
     QFrame#CollapsiblePanel {{
         background: transparent;
         border: 0;
     }}
     QToolButton#CollapsibleHeader {{
-        background: {PANEL};
-        color: {BRAND_BLUE_DARK};
-        border: 1px solid {BORDER};
-        border-radius: 7px;
-        min-height: 32px;
-        padding: 6px 10px;
-        font-weight: 750;
-    }}
-    QToolButton#CollapsibleHeader:hover {{
-        background: {BUTTON_HOVER};
-        border-color: {BRAND_BLUE};
-    }}
-    QTabWidget#WorkTabs::pane {{
-        background: transparent;
-        border: 0;
-        top: -1px;
-    }}
-    QTabWidget#WorkTabs QTabBar::tab {{
-        background: transparent;
-        color: {MUTED};
-        border: 1px solid transparent;
+        min-height: 34px;
+        padding: 0 8px;
+        border: 1px solid {p["border"]};
         border-radius: 6px;
-        padding: 7px 12px;
-        margin-right: 3px;
+        background: {p["surface_2"]};
+        color: {p["ink"]};
         font-weight: 700;
     }}
-    QTabWidget#WorkTabs QTabBar::tab:selected {{
-        background: {SURFACE};
-        color: {INK};
-        border-color: {SOFT_BORDER};
+    QToolButton#CollapsibleHeader:hover {{
+        border-color: {p["border_strong"]};
+        background: {p["surface_3"]};
     }}
-    QTabWidget#WorkTabs QTabBar::tab:hover {{
-        background: {BUTTON_HOVER};
-        border-color: {BRAND_BLUE};
-    }}
-    QTabWidget#WorkTabs QTabBar::close-button {{
-        subcontrol-position: right;
-        margin-left: 6px;
-    }}
-    QFrame#MetricCard {{
-        background: {SURFACE};
-        border: 1px solid {BORDER};
-        border-radius: 8px;
-        padding: 10px;
-    }}
-    QFrame#DashboardPanel {{
-        background: {SURFACE};
-        border: 1px solid {BORDER};
-        border-radius: 8px;
-        padding: 7px;
-    }}
-    QFrame#DsPanel,
-    QFrame#HeroPanel,
-    QFrame#ContinuePanel,
-    QFrame#ModulesPanel,
-    QFrame#ActivityPanel {{
-        background: {SURFACE};
-        border: 1px solid {SOFT_BORDER};
+    QFrame#ControlProductHero {{
+        background: {p["surface"]};
+        border: 1px solid {p["border"]};
         border-radius: 8px;
     }}
-    QLabel#DsPanelTitle {{
-        color: {INK};
-        background: transparent;
-        font-size: 11.2pt;
-        font-weight: 850;
-    }}
-    QLabel#DsPanelSubtitle {{
-        color: {MUTED};
-        background: transparent;
-        font-weight: 650;
-    }}
-    QLabel#HeroTitle {{
-        color: {INK};
-        background: transparent;
-        font-size: 18pt;
-        font-weight: 900;
-    }}
-    QLabel#HeroSubtitle {{
-        color: {MUTED};
-        background: transparent;
-        font-size: 10pt;
-        font-weight: 650;
-    }}
-    QFrame#DsMetric {{
-        background: {PANEL};
-        border: 1px solid {SOFT_BORDER};
+    QFrame#ControlHeroStatus {{
+        background: {p["surface_2"]};
+        border: 1px solid {p["border"]};
         border-radius: 8px;
-        min-width: 92px;
+        min-width: 150px;
     }}
-    QLabel#DsMetricValue {{
-        color: {INK};
-        background: transparent;
-        font-size: 16pt;
-        font-weight: 900;
+    QFrame#Toolbar[controlCommand="true"] {{
+        background: {p["surface"]};
+        border: 1px solid {p["border_strong"]};
+        border-radius: 8px;
     }}
-    QLabel#DsMetricLabel {{
-        color: {MUTED};
+    QFrame#ControlCommandCopy {{
         background: transparent;
-        font-size: 8.3pt;
-        font-weight: 750;
+        border: 0;
+        min-width: 190px;
     }}
-    QLabel#DsMetricDetail {{
-        color: {MUTED};
-        background: transparent;
-        font-size: 8.2pt;
+
+    QPushButton {{
+        min-height: 36px;
+        padding: 0 12px;
+        border-radius: 6px;
+        border: 1px solid {p["border"]};
+        background: {p["surface"]};
+        color: {p["ink"]};
         font-weight: 600;
     }}
-    QLabel#DsBadge {{
-        background: {PANEL};
-        border: 1px solid {SOFT_BORDER};
-        border-radius: 5px;
-        color: {MUTED};
-        padding: 3px 7px;
-        font-size: 8.3pt;
+    QPushButton:hover {{
+        background: {p["surface_2"]};
+        border-color: {p["border_strong"]};
+    }}
+    QPushButton:focus {{
+        border-width: 2px;
+        border-color: {p["focus_ring"]};
+        background: {p["primary_soft"]};
+        padding: 0 11px;
+    }}
+    QPushButton:pressed {{
+        background: {p["surface_3"]};
+        border-color: {p["border_strong"]};
+    }}
+    QPushButton:disabled {{
+        color: {p["subtle"]};
+        background: {p["surface_2"]};
+        border-color: {p["border"]};
+    }}
+    QPushButton[primary="true"], QPushButton#PrimaryButton, QPushButton#ShellNextAction {{
+        background: {p["primary"]};
+        border-color: {p["primary"]};
+        color: {primary_fg};
+    }}
+    QPushButton[primary="true"]:focus, QPushButton#PrimaryButton:focus, QPushButton#ShellNextAction:focus {{
+        background: {p["primary_hover"]};
+        border-color: {p["primary_hover"]};
+        color: {primary_fg};
+    }}
+    QPushButton[primary="true"]:hover, QPushButton#PrimaryButton:hover, QPushButton#ShellNextAction:hover {{
+        background: {p["primary_hover"]};
+        border-color: {p["primary_hover"]};
+    }}
+    QPushButton[primary="true"]:pressed, QPushButton#PrimaryButton:pressed, QPushButton#ShellNextAction:pressed,
+    QPushButton[busy="true"] {{
+        background: {p["primary_active"]};
+        border-color: {p["primary_active"]};
+        color: {primary_fg};
+    }}
+    QPushButton[role="danger"] {{
+        color: {p["danger"]};
+        background: {p["danger_soft"]};
+        border-color: {p["danger_soft"]};
+    }}
+    QPushButton[nav="true"], QPushButton#NavItem {{
+        text-align: left;
+        border: 1px solid transparent;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.78);
+        min-height: 38px;
+        padding: 0 10px;
+    }}
+    QPushButton[nav="true"]:hover, QPushButton#NavItem:hover {{
+        color: white;
+        background: rgba(255, 255, 255, 0.12);
+    }}
+    QPushButton[nav="true"]:checked, QPushButton#NavItem:checked {{
+        color: {nav_active_fg};
+        background: {p["primary_hover"]};
+        border-color: rgba(255, 255, 255, 0.18);
+        font-weight: 700;
+    }}
+    QPushButton#IconButton, QPushButton#MenuButton, QPushButton#HelpButton, QPushButton#ProfileButton {{
+        min-width: 34px;
+        max-width: 34px;
+        padding: 0;
+    }}
+    QPushButton[nextAction="true"] {{
+        border-color: {p["primary"]};
         font-weight: 750;
     }}
-    QLabel#DsBadge[tone="success"] {{
-        background: {SUCCESS_BG};
-        border-color: {SUCCESS_BORDER};
-        color: {SUCCESS_FG};
+
+    QLineEdit, QComboBox {{
+        min-height: 36px;
+        padding: 0 10px;
+        border: 1px solid {p["border"]};
+        border-radius: 6px;
+        background: {p["surface"]};
+        color: {p["ink"]};
+        selection-background-color: {p["primary"]};
+        selection-color: {selection_fg};
     }}
-    QFrame#DsEmpty {{
-        background: {PANEL};
-        border: 1px dashed {SOFT_BORDER};
+    QLineEdit:hover, QComboBox:hover {{
+        border-color: {p["border_strong"]};
+    }}
+    QLineEdit:focus, QComboBox:focus {{
+        border-width: 2px;
+        border-color: {p["focus_ring"]};
+        background: {p["surface"]};
+        padding: 0 9px;
+    }}
+    QLineEdit:disabled, QComboBox:disabled {{
+        color: {p["subtle"]};
+        background: {p["surface_2"]};
+    }}
+    QWidget#FieldGroup {{
+        background: transparent;
+    }}
+    QLabel#FieldLabel {{
+        color: {p["muted"]};
+        font-size: 9pt;
+        font-weight: 600;
+    }}
+
+    QPlainTextEdit, QTextEdit {{
+        border: 1px solid {p["border"]};
         border-radius: 8px;
+        background: {p["surface"]};
+        color: {p["ink"]};
+        padding: 10px;
+        font-family: Consolas, JetBrains Mono, monospace;
+        font-size: 9.5pt;
+        selection-background-color: {p["primary"]};
+        selection-color: {selection_fg};
     }}
-    QLabel#DsEmptyTitle {{
-        color: {INK};
-        background: transparent;
-        font-size: 12pt;
-        font-weight: 850;
+    QPlainTextEdit[emptyState="true"] {{
+        color: {p["subtle"]};
+        background: {p["surface_2"]};
     }}
-    QLabel#DsEmptyBody {{
-        color: {MUTED};
+    QPlainTextEdit:focus, QTextEdit:focus {{
+        border-width: 2px;
+        border-color: {p["focus_ring"]};
+    }}
+
+    QTableWidget {{
+        gridline-color: transparent;
+        alternate-background-color: {table_alt};
+        background: {p["surface"]};
+        border: 1px solid {p["border"]};
+        border-radius: 8px;
+        selection-background-color: {p["primary_soft"]};
+        selection-color: {p["ink"]};
+    }}
+    QTableWidget:focus {{
+        border-width: 2px;
+        border-color: {p["focus_ring"]};
+    }}
+    QTableWidget::item {{
+        min-height: 34px;
+        padding: 6px 8px;
+        border-bottom: 1px solid {p["border"]};
+    }}
+    QTableWidget::item:hover {{
+        background: {p["surface_2"]};
+    }}
+    QTableWidget::item:selected {{
+        background: {p["primary_soft"]};
+        color: {p["ink"]};
+    }}
+    QHeaderView::section {{
+        background: {p["surface_2"]};
+        color: {p["muted"]};
+        border: 0;
+        border-right: 1px solid {p["border"]};
+        border-bottom: 1px solid {p["border"]};
+        padding: 8px;
+        font-weight: 700;
+    }}
+
+    QLabel#DsBadge, QLabel#Badge, QLabel#CategoryTag, QLabel#MigrationTag,
+    QLabel#ControlCountPill, QLabel#ControlIssuePill, QLabel#ModuleShortcut {{
+        border-radius: 999px;
+        padding: 3px 8px;
+        background: {p["surface_3"]};
+        color: {p["muted"]};
+        font-size: 8.5pt;
+        font-weight: 700;
+    }}
+    QLabel#DsBadge[tone="success"], QLabel#MigrationTag {{
+        color: {p["success"]};
+        background: {p["success_soft"]};
+    }}
+    QLabel#DsBadge[tone="warning"], QLabel#ControlIssuePill {{
+        color: {p["warning"]};
+        background: {p["warning_soft"]};
+    }}
+    QLabel#DsBadge[tone="danger"] {{
+        color: {p["danger"]};
+        background: {p["danger_soft"]};
+    }}
+    QLabel#DsBadge[tone="info"] {{
+        color: {p["info"]};
+        background: {p["info_soft"]};
+    }}
+    QLabel#DsBadge[tone="premium"], QLabel#BrandSeal, QLabel#ModuleShortcut {{
+        color: {p["accent_gold"]};
+        background: {p["accent_gold_soft"]};
+    }}
+
+    QLabel#InlineBanner {{
+        border-radius: 8px;
+        padding: 10px 12px;
+        border: 1px solid {p["border"]};
+        background: {p["info_soft"]};
+        color: {p["info"]};
+        font-weight: 600;
+    }}
+    QLabel#InlineBanner[severity="success"] {{
+        background: {p["success_soft"]};
+        color: {p["success"]};
+        border-color: {p["success"]};
+    }}
+    QLabel#InlineBanner[severity="warning"] {{
+        background: {p["warning_soft"]};
+        color: {p["warning"]};
+        border-color: {p["warning"]};
+    }}
+    QLabel#InlineBanner[severity="error"] {{
+        background: {p["danger_soft"]};
+        color: {p["danger"]};
+        border-color: {p["danger"]};
+    }}
+
+    QLabel#StatusLabel, QLabel#ResultLabel {{
+        color: {p["muted"]};
         background: transparent;
+        font-weight: 600;
+    }}
+    QLabel#MetricValue, QLabel#DsMetricValue {{
+        color: {p["ink"]};
+        font-size: 18pt;
+        font-weight: 750;
+    }}
+    QLabel#MetricLabel, QLabel#DsMetricLabel, QLabel#DsMetricDetail {{
+        color: {p["muted"]};
+        font-weight: 600;
+    }}
+    QLabel#CompactContextValue {{
+        color: {p["muted"]};
+        font-size: 9pt;
         font-weight: 650;
     }}
-    QFrame#ModuleRow {{
-        background: {SURFACE};
-        border: 1px solid {SOFT_BORDER};
-        border-radius: 8px;
+    QLabel#ModuleTitle, QLabel#AppTitle {{
+        color: {p["ink"]};
+        font-size: 11pt;
+        font-weight: 700;
     }}
-    QFrame#ModuleRow:hover {{
-        background: {CARD_HOVER};
-        border-color: {FOCUS};
+    QLabel#ModuleDescription, QLabel#AppDescription, QLabel#DashboardEmpty {{
+        color: {p["muted"]};
     }}
-    QLabel#ModuleIcon {{
+    QLabel#ModuleIcon, QLabel#AppIcon {{
         min-width: 34px;
         max-width: 34px;
         min-height: 34px;
         max-height: 34px;
-        border-radius: 7px;
-        background: {PANEL};
-        border: 1px solid {SOFT_BORDER};
-        color: {INK};
-        font-weight: 900;
-    }}
-    QLabel#ModuleTitle {{
-        color: {INK};
-        background: transparent;
-        font-size: 10.4pt;
-        font-weight: 850;
-    }}
-    QLabel#ModuleDescription {{
-        color: {MUTED};
-        background: transparent;
-        font-size: 9pt;
-        font-weight: 600;
-    }}
-    QLabel#ModuleShortcut {{
-        color: {MUTED};
-        background: transparent;
-        font-size: 8.4pt;
-        font-weight: 750;
-    }}
-    QLabel#ActivityStatus {{
-        color: {INK};
-        background: {PANEL};
-        border: 1px solid {SOFT_BORDER};
         border-radius: 8px;
-        padding: 10px;
-        font-weight: 750;
-    }}
-    QFrame#CommandCenter {{
-        background: {SURFACE};
-        border: 1px solid {SOFT_BORDER};
-        border-radius: 8px;
-    }}
-    QLabel#CommandTitle {{
-        color: {BRAND_BLUE_DARK};
-        background: transparent;
-        font-size: 12pt;
-        font-weight: 850;
-    }}
-    QLabel#CommandDetail {{
-        color: {MUTED};
-        background: transparent;
-        font-weight: 650;
-    }}
-    QFrame#CommandChip {{
-        background: {PANEL};
-        border: 1px solid {SOFT_BORDER};
-        border-radius: 7px;
-        min-width: 82px;
-    }}
-    QLabel#CommandChipValue {{
-        color: {BRAND_BLUE_DARK};
-        background: transparent;
-        font-size: 15pt;
-        font-weight: 850;
-    }}
-    QLabel#CommandChipLabel {{
-        color: {MUTED};
-        background: transparent;
-        font-size: 8.4pt;
-        font-weight: 700;
-    }}
-    QFrame#PriorityPanel {{
-        background: {PANEL};
-        border: 1px solid {SOFT_BORDER};
-        border-radius: 8px;
-    }}
-    QLabel#PriorityTitle {{
-        color: {BRAND_BLUE_DARK};
-        background: transparent;
+        background: {p["primary_soft"]};
+        color: {p["primary"]};
         font-weight: 800;
     }}
-    QPushButton#PriorityButton {{
-        min-height: 30px;
-        padding-left: 10px;
-        padding-right: 10px;
-        background: {SURFACE};
-        border-color: {SOFT_BORDER};
-        color: {BRAND_BLUE_DARK};
-        font-weight: 750;
-    }}
-    QFrame#ContinueStrip {{
-        background: {SURFACE};
-        border: 1px solid {SOFT_BORDER};
-        border-left: 4px solid {BRAND_BLUE};
-        border-radius: 8px;
-    }}
-    QLabel#ContinueTitle {{
-        color: {BRAND_BLUE_DARK};
-        background: transparent;
-        font-size: 10.5pt;
+    QLabel#SidebarBrandTitle {{
+        color: white;
+        font-size: 13pt;
         font-weight: 800;
     }}
-    QLabel#ContinueDetail, QLabel#ContinueMeta {{
-        color: {MUTED};
-        background: transparent;
+    QLabel#SidebarBrandSubtitle {{
+        color: rgba(255, 255, 255, 0.78);
         font-weight: 650;
     }}
-    QLabel#ContinueMeta {{
-        font-size: 8.8pt;
+    QFrame#ConsoleSidebar QLabel#Overline,
+    QFrame#ConsoleSidebar QLabel#ModuleDescription {{
+        color: rgba(255, 255, 255, 0.72);
     }}
-    QLabel#DashboardPanelTitle {{
-        color: {BRAND_BLUE_DARK};
+    QLabel#SidebarBrandLogo {{
         background: transparent;
-        font-weight: 800;
-    }}
-    QLabel#DashboardEmpty {{
-        color: {MUTED};
-        background: transparent;
-        font-weight: 650;
-    }}
-    QLabel#DashboardPath {{
-        color: {INK};
-        background: {PANEL};
-        border: 1px solid {SOFT_BORDER};
-        border-radius: 6px;
-        padding: 6px 8px;
-        font-weight: 600;
-    }}
-    QFrame#MetricCard[accent="red"] {{
-        border-top: 3px solid {BRAND_RED};
-    }}
-    QFrame#MetricCard[accent="blue"] {{
-        border-top: 3px solid {BRAND_BLUE};
-    }}
-    QFrame#MetricCard[accent="green"] {{
-        border-top: 3px solid {SUCCESS};
-    }}
-    QLabel#AppTitle {{
-        font-size: 12pt;
-        font-weight: 750;
-        color: {BRAND_BLUE_DARK};
-        background: transparent;
-    }}
-    QLabel#CategoryTag {{
-        background: {CHIP_BG};
-        border: 1px solid {BORDER};
-        border-radius: 5px;
-        padding: 3px 7px;
-        color: {BRAND_BLUE_DARK};
-        font-weight: 650;
-    }}
-    QLabel#MigrationTag {{
-        background: {SUCCESS_BG};
-        border: 1px solid {SUCCESS_BORDER};
-        border-radius: 5px;
-        padding: 3px 7px;
-        color: {SUCCESS_FG};
-        font-weight: 650;
-    }}
-    QLabel#AppMeta {{
-        color: {MUTED};
-        background: transparent;
-        font-size: 9pt;
-        font-weight: 600;
-    }}
-    QLabel#EmptyLabel {{
-        color: {MUTED};
-        background: {SURFACE};
-        border: 1px dashed {BORDER};
-        border-radius: 8px;
-        padding: 28px;
-        font-size: 12pt;
-        font-weight: 650;
-    }}
-    QFrame#AppBrandBar {{
-        background: {SURFACE};
-        border: 1px solid {BORDER};
-        border-top: 4px solid {BRAND_BLUE};
-        border-bottom: 2px solid {BRAND_RED};
-        border-radius: 8px;
-        padding: 6px;
     }}
     QLabel#BrandCaption {{
-        color: {BRAND_BLUE_DARK};
-        background: transparent;
-        font-size: 10.5pt;
+        color: {p["accent_gold"]};
+        font-size: 9pt;
         font-weight: 750;
     }}
-    QLabel#BrandLogo {{
-        background: transparent;
-    }}
-    QFrame#Stepper {{
-        background: {SURFACE};
-        border: 1px solid {SOFT_BORDER};
+    QFrame#AppBrandBar {{
+        background: {p["surface"]};
+        border: 1px solid {p["border"]};
         border-radius: 8px;
-        padding: 10px;
+    }}
+    QLabel#StepText {{
+        color: {p["muted"]};
+        font-size: 9pt;
+        font-weight: 650;
+    }}
+    QLabel#StepConnector {{
+        color: {p["subtle"]};
     }}
     QLabel#StepBadge {{
-        min-width: 28px;
-        max-width: 28px;
-        min-height: 28px;
-        max-height: 28px;
-        border-radius: 14px;
-        background: {BORDER};
-        color: white;
+        min-width: 24px;
+        min-height: 24px;
+        max-width: 24px;
+        max-height: 24px;
+        border-radius: 12px;
+        background: {p["surface_3"]};
+        color: {p["muted"]};
         font-weight: 800;
     }}
     QLabel#StepBadge[stepState="active"] {{
-        background: {BRAND_BLUE};
+        background: {p["primary"]};
         color: white;
     }}
     QLabel#StepBadge[stepState="complete"] {{
-        background: {SUCCESS_FG};
-        color: {SUCCESS_BADGE_TEXT};
+        background: {p["success_soft"]};
+        color: {p["success"]};
     }}
     QLabel#StepBadge[stepState="warning"] {{
-        background: {WARNING_FG};
-        color: {WARNING_BADGE_TEXT};
+        background: {p["warning_soft"]};
+        color: {p["warning"]};
     }}
-    QLabel#StepBadge[stepState="pending"] {{
-        background: {BORDER};
-        color: {MUTED};
-    }}
-    QLabel#StepText {{
-        color: {INK};
-        background: transparent;
-        font-weight: 750;
-        padding-right: 2px;
-    }}
-    QLabel#StepConnector {{
-        color: {MUTED};
-        background: transparent;
-        font-weight: 700;
-        padding: 0 12px;
-    }}
-    QFrame#ContextPanel {{
-        background: {PANEL};
-        border: 1px solid {BORDER};
-        border-radius: 8px;
-        padding: 6px;
-    }}
-    QFrame#ContextItem {{
-        background: {SURFACE};
-        border: 1px solid {BORDER};
-        border-radius: 7px;
-        min-height: 34px;
-        padding: 1px;
-    }}
-    QLabel#ContextLabel {{
-        color: {MUTED};
-        background: transparent;
-        font-size: 8.8pt;
-        font-weight: 700;
-    }}
-    QLabel#ContextStateValue, QLabel#ContextNextValue, QLabel#ContextAlertsValue {{
-        color: {INK};
-        background: transparent;
+    QLabel#ControlMetricValue {{
+        color: {p["ink"]};
+        font-size: 15pt;
         font-weight: 750;
     }}
-    QLabel#InlineBanner {{
-        background: {CHIP_BG};
-        border: 1px solid {BORDER};
-        border-left: 5px solid {BRAND_BLUE};
-        border-radius: 7px;
-        color: {INK};
-        padding: 8px 11px;
-        font-weight: 650;
-    }}
-    QLabel#InlineBanner[severity="success"] {{
-        background: {SUCCESS_BG};
-        border-color: {SUCCESS_BORDER};
-        border-left-color: {SUCCESS_FG};
-    }}
-    QLabel#InlineBanner[severity="warning"] {{
-        background: {WARNING_BG};
-        border-color: {WARNING_BORDER};
-        border-left-color: {WARNING_FG};
-    }}
-    QLabel#InlineBanner[severity="error"] {{
-        background: {ERROR_BG};
-        border-color: {ERROR_BORDER};
-        border-left-color: {BRAND_RED};
-    }}
-    QPushButton#ThemeToggle {{
-        min-width: 72px;
-    }}
-    QPushButton#ShellNextAction {{
-        padding-left: 12px;
-        padding-right: 12px;
-    }}
-    QPushButton {{
-        color: {INK};
-        background: {BUTTON_BG};
-        border: 1px solid {BORDER};
-        border-radius: 6px;
-        min-height: 32px;
-        padding: 6px 9px;
+    QLabel#ControlMetricLabel, QLabel#ControlRailDetail, QLabel#ControlRailAction {{
+        color: {p["muted"]};
         font-weight: 600;
     }}
-    QPushButton[nav="true"] {{
-        min-height: 34px;
-        padding: 7px 10px;
-        text-align: left;
+    QLabel#ControlCommandTitle {{
+        color: {p["ink"]};
+        font-size: 11pt;
+        font-weight: 750;
+    }}
+    QLabel#ControlRailState {{
+        color: {p["ink"]};
+        font-size: 12pt;
+        font-weight: 750;
+    }}
+    QLabel#ControlDropzone {{
+        color: {p["muted"]};
+        background: {p["surface_2"]};
+        border: 1px dashed {p["border_strong"]};
+        border-radius: 8px;
+        padding: 14px;
+    }}
+    QProgressBar#ControlProgress {{
+        min-height: 8px;
+        max-height: 8px;
+        border: 0;
+        border-radius: 4px;
+        background: {p["surface_3"]};
+        text-align: center;
+        color: transparent;
+    }}
+    QProgressBar#ControlProgress::chunk {{
+        border-radius: 4px;
+        background: {p["primary"]};
+    }}
+
+    QTabWidget#WorkTabs::pane {{
+        border: 0;
         background: transparent;
-        border-color: transparent;
-        color: {MUTED};
+    }}
+    QTabBar::tab {{
+        min-height: 34px;
+        padding: 0 12px;
+        color: {p["muted"]};
+        background: transparent;
+        border: 0;
         border-radius: 6px;
     }}
-    QPushButton[nav="true"][compact="true"] {{
-        min-height: 34px;
-        padding: 6px 8px;
+    QTabBar::tab:focus {{
+        color: {p["ink"]};
+        background: {p["primary_soft"]};
+        border: 1px solid {p["primary"]};
     }}
-    QPushButton[nav="true"]:hover {{
-        background: {PANEL};
-        border-color: {SOFT_BORDER};
-        color: {INK};
-    }}
-    QPushButton[nav="true"]:checked {{
-        background: {BRAND_BLUE_SOFT};
-        border-color: #bfdbfe;
-        color: {BRAND_BLUE_DARK};
-        font-weight: 850;
-    }}
-    QPushButton#MenuButton, QPushButton#HelpButton, QPushButton#ProfileButton, QPushButton#UpdateChip {{
-        background: {SURFACE};
-        border-color: {SOFT_BORDER};
-    }}
-    QPushButton#MenuButton {{
-        min-width: 58px;
-    }}
-    QPushButton#UpdateChip {{
-        min-width: 112px;
-        min-height: 42px;
-        color: {BRAND_BLUE_DARK};
-        font-weight: 800;
-    }}
-    QPushButton#ProfileButton {{
-        min-width: 38px;
-        max-width: 42px;
-        min-height: 38px;
-        border-radius: 19px;
-        background: {BRAND_BLUE};
-        color: white;
-        border-color: {BRAND_BLUE};
-        font-weight: 800;
-    }}
-    QPushButton[dashboardAction="true"] {{
-        text-align: left;
-        background: {PANEL};
-        border-color: {SOFT_BORDER};
-        min-height: 40px;
-        padding-top: 8px;
-        padding-bottom: 8px;
-    }}
-    QPushButton[dashboardAction="true"]:hover {{
-        background: {BUTTON_HOVER};
-        border-color: {BRAND_BLUE};
-    }}
-    QPushButton:hover {{
-        border-color: {BRAND_BLUE};
-        background: {BUTTON_HOVER};
-    }}
-    QPushButton:focus {{
-        border: 2px solid {FOCUS};
-    }}
-    QPushButton:checked {{
-        background: {BRAND_BLUE_SOFT};
-        border-color: {BRAND_BLUE};
-        color: {CHECKED_TEXT};
-        font-weight: 650;
-    }}
-    QPushButton[role="open"], QPushButton[role="process"], QPushButton[role="save"] {{
-        color: {INK};
-        border-color: {BORDER};
-        background: {BUTTON_BG};
-    }}
-    QPushButton[role="open"]:hover, QPushButton[role="process"]:hover, QPushButton[role="save"]:hover {{
-        border-color: {BRAND_BLUE};
-        background: {BRAND_BLUE_SOFT};
-    }}
-    QPushButton[primary="true"] {{
-        background: {BRAND_BLUE};
-        color: white;
-        border-color: {BRAND_BLUE};
+    QTabBar::tab:selected {{
+        color: {p["ink"]};
+        background: {p["surface_2"]};
         font-weight: 700;
     }}
-    QPushButton[primary="true"]:hover {{
-        background: {PRIMARY_HOVER};
-        color: white;
-        border-color: {PRIMARY_HOVER};
+
+    QScrollArea {{
+        border: 0;
+        background: transparent;
     }}
-    QPushButton[nextAction="true"] {{
-        border: 2px solid {FOCUS};
-    }}
-    QPushButton[busy="true"] {{
-        border: 2px solid {FOCUS};
-        background: {BRAND_BLUE_SOFT};
-        color: {BRAND_BLUE_DARK};
-    }}
-    QPushButton[primary="true"][nextAction="true"] {{
-        background: {BRAND_BLUE};
-        color: white;
-        border: 2px solid {FOCUS};
-    }}
-    QPushButton[role="danger"] {{
-        color: {BRAND_RED_DARK};
-        border-color: {BORDER};
-        background: {DANGER_BG};
-    }}
-    QPushButton[role="danger"]:hover {{
-        background: {DANGER_HOVER};
-        border-color: {BRAND_RED};
-    }}
-    QPushButton[role="favorite"] {{
-        min-width: 54px;
-        max-width: 72px;
-        color: {BRAND_BLUE_DARK};
-        background: {CHIP_BG};
-        border-color: {BORDER};
-        font-size: 8.4pt;
-        font-weight: 800;
-        padding-left: 6px;
-        padding-right: 6px;
-    }}
-    QPushButton[role="favorite"]:checked {{
-        color: white;
-        background: {BRAND_BLUE};
-        border-color: {BRAND_BLUE};
-    }}
-    QPushButton:disabled {{
-        background: {DISABLED_BG};
-        color: {DISABLED_TEXT};
-        border-color: {BORDER};
+    QScrollArea#InlineSectionScroll {{
+        border: 1px solid {p["border"]};
+        border-radius: 8px;
+        background: {p["surface"]};
     }}
     QScrollBar:vertical {{
-        background: {SCROLL_BG};
-        width: 12px;
-        margin: 0;
-        border-radius: 6px;
+        background: transparent;
+        width: 8px;
+        margin: 2px;
     }}
     QScrollBar::handle:vertical {{
-        background: {SCROLL_HANDLE};
-        min-height: 28px;
-        border-radius: 6px;
+        background: {p["border"]};
+        border-radius: 4px;
+        min-height: 32px;
     }}
     QScrollBar::handle:vertical:hover {{
-        background: {BRAND_BLUE};
+        background: {p["border_strong"]};
     }}
     QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
         height: 0;
     }}
-    QToolTip {{
-        background: {TOOLTIP};
-        color: {TOOLTIP_TEXT};
-        border: 0;
-        padding: 7px 9px;
-        border-radius: 4px;
-    }}
-    QMessageBox QLabel {{
-        background: transparent;
+
+    QMessageBox, QDialog {{
+        background: {p["surface"]};
     }}
     """

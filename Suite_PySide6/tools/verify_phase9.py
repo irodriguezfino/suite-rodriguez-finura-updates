@@ -11,6 +11,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from openpyxl import Workbook
 from PySide6.QtWidgets import QApplication
 
+from suite_pyside6.core import control_recepcion_maquilas as control_core
+from suite_pyside6.core import precintos_jamones as precintos_core
 from suite_pyside6.core.apps import app_by_key
 from suite_pyside6.core.control_recepcion_maquilas import (
     correction_text,
@@ -40,6 +42,12 @@ def main() -> int:
     app = QApplication.instance() or QApplication(sys.argv)
 
     assert app_by_key("control_recepcion_maquilas").migration_status == "ported"
+    for module in (control_core, precintos_core):
+        assert module.SMTP_HOST == "smtp.vallcompanys.es"
+        assert module.SMTP_PORT == 25
+        assert module.SMTP_USER == "envio@smtp.erod.es"
+        assert module.SMTP_SECURE is False
+        assert module.SMTP_STARTTLS is False
     assert parsear_destinatarios("a@test.com; b@test.com a@test.com") == ["a@test.com", "b@test.com"]
     assert validar_destinatarios(["ok@test.com", "mal"]) == ["mal"]
 

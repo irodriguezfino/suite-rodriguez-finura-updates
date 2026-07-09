@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from suite_pyside6.core.paths import resource_path
 from suite_pyside6.core.update import (
     UpdateCheckResult,
     check_for_updates,
@@ -22,6 +23,7 @@ from suite_pyside6.core.update import (
     local_version,
     start_update,
 )
+from suite_pyside6.ui.polish import brand_logo_pixmap
 from suite_pyside6.ui.theme import base_qss
 
 
@@ -30,6 +32,8 @@ class AboutDialog(QDialog):
         super().__init__(parent)
         self.result: UpdateCheckResult | None = None
         self.setWindowTitle("Acerca de")
+        self.setAccessibleName("Diagnóstico y actualizaciones")
+        self.setAccessibleDescription("Diálogo para consultar la versión instalada, buscar actualizaciones y copiar el diagnóstico.")
         self.setMinimumSize(560, 430)
         self.setStyleSheet(base_qss())
         self._build_ui()
@@ -41,12 +45,23 @@ class AboutDialog(QDialog):
         layout.setSpacing(10)
 
         header = QFrame()
-        header.setObjectName("AppBrandBar")
+        header.setObjectName("Panel")
         header_layout = QVBoxLayout(header)
-        header_layout.setContentsMargins(12, 10, 12, 10)
-        title = QLabel("Suite Rodriguez Finura")
+        header_layout.setContentsMargins(14, 12, 14, 12)
+        header_layout.setSpacing(3)
+        logo_row = QHBoxLayout()
+        rodriguez = self._logo("RODRIGUEZ.png", 150, 42, "Rodríguez")
+        if rodriguez is not None:
+            logo_row.addWidget(rodriguez)
+        logo_row.addStretch(1)
+        finura = self._logo("FINURA.png", 86, 30, "Finura")
+        if finura is not None:
+            finura.setObjectName("BrandSeal")
+            logo_row.addWidget(finura)
+        header_layout.addLayout(logo_row)
+        title = QLabel("Diagnostico y actualizaciones")
         title.setObjectName("WindowTitle")
-        subtitle = QLabel("Panel operativo profesional")
+        subtitle = QLabel("Consulta versión, canal remoto y estado del actualizador.")
         subtitle.setObjectName("WindowSubtitle")
         header_layout.addWidget(title)
         header_layout.addWidget(subtitle)
@@ -55,24 +70,32 @@ class AboutDialog(QDialog):
         self.version = QLabel()
         self.version.setObjectName("ResultLabel")
         self.version.setWordWrap(True)
+        self.version.setAccessibleName("Información de versión")
         layout.addWidget(self.version)
 
         self.status = QLabel()
         self.status.setObjectName("StatusLabel")
         self.status.setWordWrap(True)
+        self.status.setAccessibleName("Estado de actualización")
         layout.addWidget(self.status)
 
         self.notes = QPlainTextEdit()
         self.notes.setReadOnly(True)
         self.notes.setLineWrapMode(QPlainTextEdit.WidgetWidth)
         self.notes.setPlaceholderText("Las notas de la versión remota aparecerán aquí al buscar actualizaciones.")
+        self.notes.setAccessibleName("Notas de la versión remota")
+        self.notes.setAccessibleDescription("Notas de la versión disponible o mensaje indicando que no hay notas publicadas.")
         layout.addWidget(self.notes, 1)
 
         actions = QHBoxLayout()
         self.check_button = QPushButton("Buscar actualización")
         self.check_button.setProperty("primary", True)
+        self.check_button.setAccessibleName("Buscar actualización")
+        self.check_button.setAccessibleDescription("Consulta el canal remoto para comprobar si hay una actualización disponible.")
         self.check_button.clicked.connect(self.check_updates)
         self.copy_button = QPushButton("Copiar diagnóstico")
+        self.copy_button.setAccessibleName("Copiar diagnóstico")
+        self.copy_button.setAccessibleDescription("Copia al portapapeles la información de diagnóstico de la instalación.")
         self.copy_button.clicked.connect(self.copy_diagnostic)
         actions.addWidget(self.check_button)
         actions.addWidget(self.copy_button)
@@ -81,6 +104,9 @@ class AboutDialog(QDialog):
 
         buttons = QDialogButtonBox(QDialogButtonBox.Close)
         buttons.rejected.connect(self.reject)
+        if buttons.button(QDialogButtonBox.Close) is not None:
+            buttons.button(QDialogButtonBox.Close).setAccessibleName("Cerrar")
+            buttons.button(QDialogButtonBox.Close).setAccessibleDescription("Cierra el diálogo de diagnóstico y actualizaciones.")
         layout.addWidget(buttons)
 
     def _refresh(self) -> None:
@@ -88,11 +114,14 @@ class AboutDialog(QDialog):
             f"Versión instalada: {local_version()}\n"
             f"Canal de actualización: {configured_version_url()}"
         )
+        self.version.setAccessibleDescription(self.version.text())
         if self.result is None:
-            self.status.setText("Pulsa Buscar actualización para consultar el canal remoto.")
+            self.status.setText("Busca una actualización para consultar el canal remoto.")
+            self.status.setAccessibleDescription(self.status.text())
             return
         remote = self.result.remote_version or "-"
         self.status.setText(f"{self.result.message}\nVersión remota: {remote}")
+        self.status.setAccessibleDescription(self.status.text())
         self.notes.setPlainText(self.result.notes or "Sin notas publicadas para esta versión.")
 
     def check_updates(self) -> None:
@@ -156,3 +185,18 @@ class AboutDialog(QDialog):
                 )
                 return False
         return True
+
+    @staticmethod
+    def _logo(name: str, width: int, height: int, accessible_name: str) -> QLabel | None:
+        path = resource_path(name)
+        if not path.exists():
+            return None
+        pixmap = brand_logo_pixmap(path)
+        if pixmap.isNull():
+            return None
+        label = QLabel()
+        label.setObjectName("SidebarBrandLogo")
+        label.setAccessibleName(accessible_name)
+        label.setPixmap(pixmap.scaled(width, height, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        label.setMinimumHeight(height)
+        return label

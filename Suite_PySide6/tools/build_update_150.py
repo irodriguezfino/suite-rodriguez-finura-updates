@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.7.0"
+VERSION = "1.7.1"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
@@ -299,6 +299,15 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
         "- Mejora transversal para modulos embebidos: toolbars, paneles y superficies heredan un lenguaje mas limpio.\n"
         "- Contrato UI actualizado para proteger el nuevo workspace SaaS y sus filas operativas.\n"
         "- Se mantiene intacta la logica de negocio y la paridad funcional validada."
+    )
+    notes = (
+        "- Nuevo modo oscuro basado en la identidad visual de Finura.\n"
+        "- Eliminados restos de azul Rodriguez en el tema oscuro.\n"
+        "- Mejora de consistencia cromatica entre aplicacion global y aplicaciones embebidas.\n"
+        "- Ajustes de contraste y accesibilidad en modo oscuro.\n"
+        "- Revision de tokens de tema y colores hardcodeados.\n"
+        "- Ajustes visuales en estados activos, hover, focus y seleccion.\n"
+        "- Version preparada para actualizacion automatica."
     )
     manifest = {
         "schema": "suite-rodriguez-finura-update-v1",

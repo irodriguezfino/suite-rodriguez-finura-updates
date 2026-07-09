@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Iterable
 
 from PySide6.QtCore import QTimer, QSize, Qt
-from PySide6.QtGui import QColor, QIcon, QImage, QPixmap
+from PySide6.QtGui import QAction, QColor, QIcon, QImage, QKeySequence, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QAbstractItemView,
@@ -14,12 +14,14 @@ from PySide6.QtWidgets import (
     QComboBox,
     QLineEdit,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QPlainTextEdit,
+    QProgressBar,
     QPushButton,
+    QGraphicsDropShadowEffect,
     QScrollArea,
     QSizePolicy,
-    QStyle,
     QTableWidget,
     QToolButton,
     QVBoxLayout,
@@ -28,7 +30,8 @@ from PySide6.QtWidgets import (
 
 from suite_pyside6.core.paths import resource_path
 from suite_pyside6.ui.responsive import make_flow, make_widgets_resizable
-from suite_pyside6.ui.theme import base_qss, current_theme_mode, is_dark_mode, set_theme_mode
+from suite_pyside6.ui.table_utils import update_table_accessibility
+from suite_pyside6.ui.theme import base_qss, current_theme_mode, current_theme_preference, is_dark_mode, set_theme_mode
 
 
 _BRAND_PIXMAP_CACHE: dict[str, QPixmap] = {}
@@ -38,12 +41,12 @@ def polish_window(
     widget: QWidget,
     *,
     brand_bar: bool = False,
-    context_panel: bool = True,
+    context_panel: bool = False,
     stepper: bool = True,
 ) -> None:
-    """Apply small visual affordances shared by the suite windows."""
+    """Apply behavior, accessibility and lightweight affordances shared by windows."""
     widget.setProperty("theme", current_theme_mode())
-    if brand_bar or _should_inject_default_brand_bar(widget):
+    if brand_bar:
         _inject_app_brand_bar(widget)
     if stepper:
         _replace_step_bars(widget)
@@ -55,6 +58,7 @@ def polish_window(
     _wrap_operational_body(widget)
     _enable_drag_drop(widget)
     _install_close_guard(widget)
+    _install_desktop_shortcuts(widget)
 
     for button in widget.findChildren(QPushButton):
         original_text = _clean_text(button.text())
@@ -69,6 +73,7 @@ def polish_window(
             button.setToolTip(original_text)
         _append_shortcut_tooltip(button)
         _compact_toolbar_button(button, original_text)
+        _patch_button_work_state(button, widget)
         _patch_button_enabled(button, widget)
         _patch_button_busy_feedback(button)
         _refresh_style(button)
@@ -78,27 +83,68 @@ def polish_window(
         if not field.accessibleName():
             name = field.placeholderText() or f"Campo de texto {index} de {title}"
             field.setAccessibleName(name)
+        _patch_field_work_state(field, widget)
 
     for index, combo in enumerate(widget.findChildren(QComboBox), start=1):
         if not combo.accessibleName():
             combo.setAccessibleName(f"Selector {index} de {title}")
+        _patch_field_work_state(combo, widget)
 
     for index, table in enumerate(widget.findChildren(QTableWidget), start=1):
         table.setAlternatingRowColors(True)
+        if table.property("allowCellEditing"):
+            table.setEditTriggers(
+                QAbstractItemView.DoubleClicked
+                | QAbstractItemView.EditKeyPressed
+                | QAbstractItemView.SelectedClicked
+            )
+        else:
+            table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         table.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
+        table.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+        table.setTextElideMode(Qt.ElideMiddle)
+        table.setWordWrap(False)
         table.setShowGrid(False)
         table.verticalHeader().setVisible(False)
+        table.verticalHeader().setDefaultSectionSize(32)
+        table.horizontalHeader().setMinimumSectionSize(44)
         if not table.accessibleName():
             table.setAccessibleName(f"Tabla {index} de {title}")
+        _patch_field_work_state(table, widget)
+        _install_table_desktop_affordances(table, widget)
+        update_table_accessibility(table)
 
     for index, editor in enumerate(widget.findChildren(QPlainTextEdit), start=1):
         editor.setTabChangesFocus(True)
         if not editor.accessibleName():
-            editor.setAccessibleName(f"Area de resultados {index} de {title}")
+            editor.setAccessibleName(f"Área de resultados {index} de {title}")
+        if not editor.accessibleDescription():
+            editor.setAccessibleDescription("Panel de texto de la operación. Usa Tab para avanzar al siguiente control.")
+        _patch_field_work_state(editor, widget)
         _patch_editor_empty_state(editor)
 
-    for label_name in ("WindowSubtitle", "ResultLabel", "StatusLabel", "InlineBanner"):
+    for index, progress in enumerate(widget.findChildren(QProgressBar), start=1):
+        if not progress.accessibleName():
+            progress.setAccessibleName(f"Progreso {index} de {title}")
+        if not progress.accessibleDescription():
+            progress.setAccessibleDescription(f"Progreso actual: {progress.value()} por ciento.")
+
+    for label_name in (
+        "WindowSubtitle",
+        "ResultLabel",
+        "StatusLabel",
+        "InlineBanner",
+        "SectionLabel",
+        "PanelTitle",
+        "PanelSubtitle",
+        "ModuleTitle",
+        "ModuleDescription",
+        "ControlRailState",
+        "ControlRailDetail",
+        "ControlRailAction",
+    ):
         for label in widget.findChildren(QLabel, label_name):
             label.setWordWrap(True)
 
@@ -107,6 +153,7 @@ def polish_window(
     _patch_context_labels(widget)
     _update_context_panel(widget)
     _update_flow_indicator(widget)
+    apply_premium_depth(widget)
 
 
 def prepare_embedded_window(widget: QMainWindow) -> None:
@@ -136,12 +183,95 @@ def prepare_embedded_window(widget: QMainWindow) -> None:
     for panel in widget.findChildren(QFrame, "ContextPanel"):
         panel.setVisible(False)
         panel.setMaximumHeight(0)
+    for hero in widget.findChildren(QFrame, "ControlProductHero"):
+        hero.setVisible(False)
+        hero.setMaximumHeight(0)
     for scroll in widget.findChildren(QScrollArea, "WindowScroll"):
         scroll.setMinimumSize(0, 0)
         content = scroll.widget()
         if content is not None:
             content.setMinimumSize(0, 0)
+    _prepare_embedded_surfaces(widget)
+    _update_toolbar_group_visibility(widget)
     _refresh_style(widget)
+    apply_premium_depth(widget)
+
+
+def apply_premium_depth(widget: QWidget) -> None:
+    """Apply restrained elevation to product surfaces without changing layout."""
+    names = {
+        "ConsoleHeader",
+        "CompactContextBar",
+        "Panel",
+        "DsPanel",
+        "DsMetric",
+        "AppCard",
+        "FormPanel",
+        "MailPanel",
+        "ControlPreviewPanel",
+        "ControlIssuesPanel",
+        "OutputPanel",
+        "ControlStatusRail",
+        "Dropzone",
+        "WorkItem",
+        "MetricCard",
+        "ContextCard",
+        "ModuleRow",
+        "ContinuePanel",
+        "HeroPanel",
+        "ActivityPanel",
+        "ModulesPanel",
+    }
+    color = QColor(0, 0, 0, 78) if is_dark_mode() else QColor(16, 24, 40, 24)
+    for frame in widget.findChildren(QFrame):
+        if frame.objectName() not in names or frame.property("premiumDepth"):
+            continue
+        effect = QGraphicsDropShadowEffect(frame)
+        effect.setBlurRadius(18)
+        effect.setOffset(0, 4)
+        effect.setColor(color)
+        frame.setGraphicsEffect(effect)
+        frame.setProperty("premiumDepth", True)
+
+
+def _prepare_embedded_surfaces(widget: QWidget) -> None:
+    for frame in widget.findChildren(QFrame):
+        name = frame.objectName()
+        if name in {
+            "Toolbar",
+            "Stepper",
+            "AppCard",
+            "FormPanel",
+            "MailPanel",
+            "ControlPilotWorkspace",
+            "ControlContentStack",
+            "ControlPreviewPanel",
+            "ControlIssuesPanel",
+            "ControlStatusRail",
+            "ControlMetricStrip",
+            "OutputPanel",
+        }:
+            frame.setProperty("embeddedSurface", True)
+            frame.setMinimumSize(0, 0)
+            frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum if name in {"Toolbar", "Stepper"} else QSizePolicy.Expanding)
+            layout = frame.layout()
+            if layout is not None:
+                if name in {"Toolbar", "Stepper", "ControlPilotWorkspace", "ControlContentStack"}:
+                    layout.setContentsMargins(0, 0, 0, 0)
+                    layout.setSpacing(max(6, min(layout.spacing(), 8)))
+                elif name in {"ControlPreviewPanel", "ControlIssuesPanel", "ControlStatusRail", "AppCard"}:
+                    layout.setContentsMargins(10, 9, 10, 10)
+                    layout.setSpacing(max(6, min(layout.spacing(), 8)))
+        if name == "ControlStatusRail":
+            frame.setMinimumWidth(208)
+            frame.setMaximumWidth(236)
+
+    for editor in widget.findChildren(QPlainTextEdit):
+        editor.setMinimumHeight(84)
+
+    for label in widget.findChildren(QLabel, "GroupLabel"):
+        label.setVisible(False)
+        label.setMaximumSize(0, 0)
 
 
 def operational_snapshot(widget: QWidget) -> dict[str, str]:
@@ -170,27 +300,96 @@ def trigger_next_action(widget: QWidget) -> bool:
     return True
 
 
+def focus_next_action(widget: QWidget) -> bool:
+    """Move keyboard focus to the recommended action when it is actionable."""
+    button = _next_action_button(widget)
+    if button is None or not button.isEnabled() or not button.isVisible():
+        return False
+    button.setFocus(Qt.OtherFocusReason)
+    return True
+
+
+def sync_recommended_action(
+    widget: QWidget,
+    next_text: str,
+    candidates: dict[str, QPushButton],
+    buttons: Iterable[QPushButton],
+    *,
+    primary_requires_enabled: bool = True,
+) -> None:
+    command_hint = widget.findChild(QLabel, "ControlCommandTitle")
+    if command_hint is not None:
+        command_hint.setText(next_text)
+        command_hint.setAccessibleDescription(f"Siguiente acción recomendada: {next_text}")
+
+    recommended = candidates.get(next_text)
+    for button in buttons:
+        is_next = button is recommended and button.isEnabled()
+        is_primary = is_next if primary_requires_enabled else button is recommended
+        button.setProperty("primary", is_primary)
+        button.setProperty("nextAction", is_next)
+        _refresh_style(button)
+
+
 def show_inline_message(widget: QWidget, severity: str, text: str) -> None:
+    if severity == "success" and _is_final_success_message(text):
+        widget.setProperty("outputFinalized", True)
     banner = widget.findChild(QLabel, "InlineBanner")
     if banner is None:
         return
     if severity == "error":
         text = _friendly_error_text(text)
+    full_text = str(text)
+    display_text = _safe_label_text(full_text, limit=320)
+    tooltip_text = _safe_label_text(full_text, limit=1200)
+    severity_label = {
+        "error": "Error",
+        "warning": "Aviso",
+        "success": "Correcto",
+        "info": "Información",
+    }.get(severity, "Información")
     banner.setProperty("severity", severity)
-    banner.setText(text)
+    banner.setText(display_text)
+    banner.setAccessibleName(severity_label)
+    banner.setAccessibleDescription(f"{severity_label}: {display_text}")
+    banner.setToolTip(f"{severity_label}: {tooltip_text}")
     banner.setVisible(True)
     _refresh_style(banner)
     status = widget.findChild(QLabel, "StatusLabel")
     if status is not None:
         widget.setProperty("inlineUpdating", True)
-        status.setText(text)
+        status.setText(display_text)
+        status.setAccessibleDescription(f"{severity_label}: {display_text}")
         widget.setProperty("inlineUpdating", False)
+    _update_context_panel(widget)
+    if severity == "success":
+        QTimer.singleShot(0, lambda _widget=widget: focus_next_action(_widget))
+
+
+def _is_final_success_message(text: object) -> bool:
+    normalized = str(text).lower()
+    if "plantilla" in normalized:
+        return False
+    return any(
+        word in normalized
+        for word in (
+            "guardado",
+            "guardados",
+            "guardada",
+            "generado",
+            "generados",
+            "enviado",
+            "renombradas",
+        )
+    )
 
 
 def clear_inline_message(widget: QWidget) -> None:
     banner = widget.findChild(QLabel, "InlineBanner")
     if banner is not None:
         banner.clear()
+        banner.setAccessibleDescription("")
+        banner.setToolTip("")
         banner.setVisible(False)
 
 
@@ -259,13 +458,6 @@ def _inject_app_brand_bar(widget: QWidget) -> None:
     bar_layout.addStretch(1)
     bar_layout.addWidget(_theme_toggle_button(), 0, Qt.AlignVCenter)
     layout.insertWidget(0, bar)
-
-
-def _should_inject_default_brand_bar(widget: QWidget) -> bool:
-    if not isinstance(widget, QMainWindow):
-        return False
-    central = widget.centralWidget()
-    return central is not None and central.findChild(QFrame, "Header") is None
 
 
 def brand_logo_pixmap(path: Path) -> QPixmap:
@@ -432,7 +624,7 @@ def _inject_context_panel(widget: QWidget) -> None:
     panel_layout = make_flow(panel, margin=0, spacing=8)
     panel_layout.setContentsMargins(10, 8, 10, 8)
 
-    for key, title in (("State", "Estado"), ("Next", "Siguiente accion"), ("Alerts", "Avisos")):
+    for key, title in (("State", "Estado"), ("Next", "Siguiente acción"), ("Alerts", "Avisos")):
         card = QFrame()
         card.setObjectName("ContextItem")
         card.setMinimumWidth(210)
@@ -467,6 +659,8 @@ def _inject_inline_banner(widget: QWidget) -> None:
     banner = QLabel("")
     banner.setObjectName("InlineBanner")
     banner.setProperty("severity", "info")
+    banner.setAccessibleName("Mensaje de estado")
+    banner.setAccessibleDescription("")
     banner.setWordWrap(True)
     banner.setVisible(False)
     layout.insertWidget(layout.indexOf(anchor) + 1, banner)
@@ -479,8 +673,14 @@ def _patch_context_labels(widget: QWidget) -> None:
             continue
         original = label.setText
 
-        def set_text(text: str, *, _original=original, _widget=widget) -> None:
-            _original(text)
+        def set_text(text: str, *, _original=original, _widget=widget, _label=label) -> None:
+            display_text = _safe_label_text(text)
+            _original(display_text)
+            if display_text != str(text):
+                _label.setToolTip(_safe_label_text(text, limit=1200))
+                _label.setAccessibleDescription(display_text)
+            else:
+                _label.setToolTip("")
             if not _widget.property("inlineUpdating"):
                 clear_inline_message(_widget)
             _update_context_panel(_widget)
@@ -488,6 +688,109 @@ def _patch_context_labels(widget: QWidget) -> None:
 
         label.setText = set_text  # type: ignore[method-assign]
         label.setProperty("contextPatched", True)
+
+
+def _mark_work_in_progress(widget: QWidget) -> None:
+    if widget.property("outputFinalized"):
+        widget.setProperty("outputFinalized", False)
+
+
+def _patch_button_work_state(button: QPushButton, widget: QWidget) -> None:
+    if button.property("workStatePatched"):
+        return
+
+    def mark_active(*, _button=button, _widget=widget) -> None:
+        text = _clean_text(str(_button.property("fullText") or _button.text())).lower()
+        role = str(_button.property("role") or "")
+        if role in {"open", "process"} or any(
+            word in text
+            for word in (
+                "cargar",
+                "seleccionar",
+                "procesar",
+                "comprobar",
+                "cruzar",
+                "revalidar",
+                "filtrar",
+                "sugerir",
+                "configurar",
+            )
+        ):
+            _mark_work_in_progress(_widget)
+
+    button.pressed.connect(mark_active)
+    button.setProperty("workStatePatched", True)
+
+
+def _patch_field_work_state(field: QWidget, widget: QWidget) -> None:
+    if field.property("workStatePatched"):
+        return
+    if isinstance(field, QLineEdit):
+        field.textEdited.connect(lambda _text, _widget=widget: _mark_work_in_progress(_widget))
+    elif isinstance(field, QComboBox):
+        field.activated.connect(lambda _index, _widget=widget: _mark_work_in_progress(_widget))
+    elif isinstance(field, QPlainTextEdit) and not field.isReadOnly():
+        field.textChanged.connect(lambda _widget=widget: _mark_work_in_progress(_widget))
+    elif isinstance(field, QTableWidget) and field.property("allowCellEditing"):
+        field.itemChanged.connect(lambda _item, _widget=widget: _mark_work_in_progress(_widget))
+    field.setProperty("workStatePatched", True)
+
+
+def _install_table_desktop_affordances(table: QTableWidget, widget: QWidget) -> None:
+    if table.property("desktopAffordancesPatched"):
+        return
+    table.setContextMenuPolicy(Qt.CustomContextMenu)
+    table.setToolTip("Selecciona filas con Mayús o Ctrl. Copia la selección con Ctrl+C.")
+
+    copy_action = QAction("Copiar selección", table)
+    copy_action.setShortcut(QKeySequence.Copy)
+    copy_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+    copy_action.triggered.connect(lambda _checked=False, _table=table, _widget=widget: _copy_table_selection(_table, _widget))
+    table.addAction(copy_action)
+
+    def show_menu(position, *, _table=table, _widget=widget) -> None:
+        menu = QMenu(_table)
+        action = menu.addAction("Copiar selección")
+        action.setEnabled(bool(_table.selectedIndexes()) or _table.currentRow() >= 0)
+        action.triggered.connect(lambda _checked=False: _copy_table_selection(_table, _widget))
+        menu.exec(_table.viewport().mapToGlobal(position))
+
+    table.customContextMenuRequested.connect(show_menu)
+    table.setProperty("desktopAffordancesPatched", True)
+
+
+def _copy_table_selection(table: QTableWidget, widget: QWidget) -> None:
+    text = _table_selection_text(table)
+    if not text:
+        return
+    app = QApplication.instance()
+    if app is None:
+        return
+    app.clipboard().setText(text)
+    show_inline_message(widget, "info", "Selección copiada al portapapeles.")
+
+
+def _table_selection_text(table: QTableWidget) -> str:
+    indexes = table.selectedIndexes()
+    if not indexes and table.currentRow() >= 0:
+        row = table.currentRow()
+        indexes = [table.model().index(row, column) for column in range(table.columnCount())]
+    if not indexes:
+        return ""
+    rows = sorted({index.row() for index in indexes})
+    columns = sorted({index.column() for index in indexes})
+    selected = {(index.row(), index.column()) for index in indexes}
+    lines: list[str] = []
+    for row in rows:
+        values: list[str] = []
+        for column in columns:
+            if (row, column) not in selected:
+                values.append("")
+                continue
+            item = table.item(row, column)
+            values.append("" if item is None else item.text())
+        lines.append("\t".join(values))
+    return "\n".join(lines)
 
 
 def _patch_button_enabled(button: QPushButton, widget: QWidget) -> None:
@@ -549,13 +852,14 @@ def _patch_editor_empty_state(editor: QPlainTextEdit) -> None:
     original = editor.setPlainText
 
     def set_plain_text(text: str, *, _original=original, _editor=editor) -> None:
-        _original(text)
-        _update_editor_empty_state(_editor, text)
+        display_text = _safe_editor_text(_editor, text)
+        _original(display_text)
+        _update_editor_empty_state(_editor, display_text)
 
     editor.setPlainText = set_plain_text  # type: ignore[method-assign]
     editor.setProperty("emptyStatePatched", True)
     if not editor.placeholderText():
-        editor.setPlaceholderText("Arrastra archivos aqui o usa la accion principal para empezar.")
+        editor.setPlaceholderText("Arrastra archivos aquí o usa la acción principal para empezar.")
     if not editor.accessibleName():
         editor.setAccessibleName("Panel de resultados")
     editor.setProperty("baseLineWrapMode", int(editor.lineWrapMode().value))
@@ -563,33 +867,54 @@ def _patch_editor_empty_state(editor: QPlainTextEdit) -> None:
 
 
 def _update_editor_empty_state(editor: QPlainTextEdit, text: str) -> None:
-    normalized = " ".join(text.strip().lower().split())
+    sample = text.strip()[:240]
+    normalized = " ".join(sample.lower().split())
     empty_markers = (
         "",
         "arrastra ",
         "selecciona ",
         "carga ",
         "aqui se mostraran",
+        "aquí se mostrarán",
         "aqui se mostrar",
-        "la revision ",
+        "aquí se mostrar",
+        "la revisión ",
         "la salida ",
         "sin incidencias",
         "pulsa ",
         "archivos seleccionados:",
     )
     is_empty = not normalized or any(normalized.startswith(marker) for marker in empty_markers if marker)
+    previous = editor.property("emptyState")
     editor.setProperty("emptyState", is_empty)
     if is_empty:
         editor.setLineWrapMode(QPlainTextEdit.WidgetWidth)
-        editor.setAccessibleDescription("Estado vacio. Arrastra archivos aqui o usa la accion principal para empezar.")
-        editor.setToolTip("Arrastra archivos aqui o usa la accion principal para empezar.")
+        editor.setAccessibleDescription("Estado vacío. Arrastra archivos aquí o usa la acción principal para empezar.")
+        editor.setToolTip("Arrastra archivos aquí o usa la acción principal para empezar.")
     else:
         base_mode = editor.property("baseLineWrapMode")
         if isinstance(base_mode, int):
             editor.setLineWrapMode(QPlainTextEdit.LineWrapMode(base_mode))
         editor.setAccessibleDescription("Resultados disponibles para revisar.")
         editor.setToolTip("")
-    _refresh_style(editor)
+    if previous != is_empty:
+        _refresh_style(editor)
+
+
+def _safe_editor_text(editor: QPlainTextEdit, text: object, *, limit: int = 30000) -> str:
+    clean = str(text).replace("\x00", "")
+    if not editor.isReadOnly() or len(clean) <= limit:
+        editor.setToolTip("")
+        return clean
+    head = clean[: int(limit * 0.65)].rstrip()
+    tail = clean[-int(limit * 0.25) :].lstrip()
+    omitted = len(clean) - len(head) - len(tail)
+    notice = (
+        f"\n\n... Vista recortada para mantener la interfaz fluida. "
+        f"Se han ocultado {omitted:,} caracteres en el centro. ...\n\n"
+    )
+    editor.setToolTip("Vista parcial por volumen. El proceso conserva los datos completos.")
+    return head + notice + tail
 
 
 def _update_disabled_tooltip(button: QPushButton, enabled: bool) -> None:
@@ -606,13 +931,13 @@ def _update_disabled_tooltip(button: QPushButton, enabled: bool) -> None:
     if any(word in text for word in ("procesar", "comprobar", "cruzar")):
         reason = "Carga primero los archivos requeridos."
     elif "revalidar" in text:
-        reason = "Disponible cuando haya incidencias o cambios pendientes."
+        reason = "Disponible cuando haya incidencias o cambios por revisar."
     elif any(word in text for word in ("guardar", "pdf", "correo", "enviar")):
-        reason = "Procesa datos validos antes de usar esta accion."
+        reason = "Procesa datos válidos antes de usar esta acción."
     elif "limpiar" in text:
         reason = "Disponible cuando haya archivos o resultados en pantalla."
     else:
-        reason = "Completa el paso anterior para activar esta accion."
+        reason = "Completa el paso anterior para activar esta acción."
     button.setToolTip(f"{base}\nNo disponible ahora: {reason}")
     button.setAccessibleDescription(f"No disponible ahora: {reason}")
 
@@ -642,7 +967,9 @@ def _should_defer_disabled_action(button: QPushButton) -> bool:
 def _update_toolbar_group_visibility(widget: QWidget) -> None:
     for toolbar in widget.findChildren(QFrame, "Toolbar"):
         for label in toolbar.findChildren(QLabel, "GroupLabel"):
-            label.setVisible(True)
+            label.setText("")
+            label.setVisible(False)
+            label.setMaximumSize(0, 0)
 
 
 def _compact_toolbar_button(button: QPushButton, original_text: str) -> None:
@@ -682,11 +1009,13 @@ def _compact_button_text(text: str) -> str:
         "Seleccionar archivos": "Archivos",
         "Seleccionar TXT": "TXT",
         "Seleccionar Excel": "Excel",
+        "Cargar archivos": "Archivos",
+        "Cargar TXT": "TXT",
+        "Cargar Excel": "Excel",
         "Cargar CSVs finales": "CSV finales",
         "Cargar origen": "Origen",
         "Cargar TXT/CSV": "TXT/CSV",
         "Cargar Excel oficial": "Excel oficial",
-        "Cargar TXT recepcion": "TXT recepcion",
         "Cargar TXT recepción": "TXT recepción",
         "Cargar TXT FAC": "TXT FAC",
         "Cargar SealsReport": "SealsReport",
@@ -695,7 +1024,6 @@ def _compact_button_text(text: str) -> str:
         "Procesar archivos": "Procesar",
         "Procesar palets": "Procesar",
         "Procesar cruce": "Procesar",
-        "Procesar recepcion": "Procesar",
         "Procesar recepción": "Procesar",
         "Procesar control": "Procesar",
         "Comprobar salida": "Comprobar",
@@ -707,7 +1035,6 @@ def _compact_button_text(text: str) -> str:
         "Generar PDF diferencias": "PDF dif.",
         "Generar PDF rangos": "PDF rangos",
         "Generar ambos PDFs": "Ambos PDF",
-        "Cruzar albaran": "Cruzar",
         "Cruzar albarán": "Cruzar",
         "Enviar correo": "Correo",
         "Guardar plantilla": "Plantilla",
@@ -720,6 +1047,8 @@ def _compact_button_text(text: str) -> str:
 def confirm_discard_work(widget: QWidget, title: str = "Descartar cambios") -> bool:
     if not _has_pending_work(widget):
         return True
+    if widget.property("outputFinalized"):
+        return True
     app = QApplication.instance()
     if app is not None and app.platformName().lower() == "offscreen":
         return True
@@ -728,7 +1057,7 @@ def confirm_discard_work(widget: QWidget, title: str = "Descartar cambios") -> b
     answer = QMessageBox.question(
         widget,
         title,
-        "Hay archivos, correcciones o resultados en pantalla.\n\nQuieres continuar y limpiar este trabajo?",
+        "Hay archivos, correcciones o resultados en pantalla.\n\n¿Quieres limpiar este trabajo y empezar de nuevo?",
         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         QMessageBox.StandardButton.No,
     )
@@ -748,6 +1077,25 @@ def _install_close_guard(widget: QWidget) -> None:
 
     widget.closeEvent = close_event  # type: ignore[method-assign]
     widget.setProperty("closeGuardPatched", True)
+
+
+def _install_desktop_shortcuts(widget: QWidget) -> None:
+    if widget.property("desktopShortcutsPatched"):
+        return
+    cancel_action = QAction(widget)
+    cancel_action.setShortcut("Esc")
+    cancel_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+    cancel_action.triggered.connect(lambda _checked=False, _widget=widget: _cancel_transient_state(_widget))
+    widget.addAction(cancel_action)
+    widget.setProperty("desktopShortcutsPatched", True)
+
+
+def _cancel_transient_state(widget: QWidget) -> None:
+    focused = QApplication.focusWidget()
+    if focused is not None and (focused is widget or widget.isAncestorOf(focused)):
+        focused.clearFocus()
+    clear_inline_message(widget)
+    focus_next_action(widget)
 
 
 def _has_pending_work(widget: QWidget) -> bool:
@@ -833,7 +1181,7 @@ def _enable_drag_drop(widget: QWidget) -> None:
     def drag_enter(event, *, _widget=widget) -> None:
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
-            show_inline_message(_widget, "info", "Suelta los archivos para cargarlos en esta aplicacion.")
+            show_inline_message(_widget, "info", "Suelta los archivos para cargarlos.")
         else:
             event.ignore()
 
@@ -843,11 +1191,13 @@ def _enable_drag_drop(widget: QWidget) -> None:
         if not paths:
             event.ignore()
             return
-        if _handle_dropped_paths(_widget, paths):
-            show_inline_message(_widget, "success", _drop_feedback(paths))
+        if handle_dropped_paths(_widget, paths):
+            _update_context_panel(_widget)
+            show_inline_message(_widget, "success", _drop_feedback(_widget, paths))
+            QTimer.singleShot(0, lambda: focus_next_action(_widget))
             event.acceptProposedAction()
         else:
-            show_inline_message(_widget, "warning", "Esta ventana no reconoce automaticamente esos archivos. Usa los botones de carga para asignarlos.")
+            show_inline_message(_widget, "warning", "No se reconocen esos archivos. Usa los botones de carga para asignarlos manualmente.")
             event.ignore()
 
     widget.dragEnterEvent = drag_enter  # type: ignore[method-assign]
@@ -883,10 +1233,14 @@ def _handle_dropped_paths(widget: QWidget, paths: list[Path]) -> bool:
     return False
 
 
-def _drop_feedback(paths: list[Path]) -> str:
+def handle_dropped_paths(widget: QWidget, paths: list[Path]) -> bool:
+    return _handle_dropped_paths(widget, paths)
+
+
+def _drop_feedback(widget: QWidget, paths: list[Path]) -> str:
     names = [path.name for path in paths[:3]]
-    suffix = "" if len(paths) <= 3 else f" y {len(paths) - 3} mas"
-    return f"Archivos cargados por arrastre: {', '.join(names)}{suffix}. Revisa el resumen antes de procesar."
+    suffix = "" if len(paths) <= 3 else f" y {len(paths) - 3} más"
+    return f"Archivos cargados: {', '.join(names)}{suffix}. Siguiente: {_next_action_text(widget)} (Ctrl+Enter)."
 
 
 def _update_flow_indicator(widget: QWidget, text: str = "") -> None:
@@ -999,6 +1353,11 @@ def _next_action_button(widget: QWidget) -> QPushButton | None:
         for button in widget.findChildren(QPushButton)
         if button.objectName() != "ThemeToggle" and _clean_text(button.text())
     ]
+    if widget.property("outputFinalized"):
+        for button in buttons:
+            text = _clean_text(str(button.property("fullText") or button.text())).lower()
+            if button.isEnabled() and text == "limpiar":
+                return button
     for button in buttons:
         text = _clean_text(button.text())
         if button.isEnabled() and button.property("primary"):
@@ -1029,7 +1388,7 @@ def _state_summary(status_text: str, summary_text: str) -> str:
     if "guardado" in normalized or "enviado" in normalized:
         return "Salida completada"
     if any(word in normalized for word in ("incidencia", "pendiente", "no valido", "error")):
-        return "Requiere revision"
+        return "Requiere revisión"
     if any(word in normalized for word in ("cargado", "seleccion", "archivos:")):
         return "Archivos preparados"
     if any(word in normalized for word in ("correcta", "validos", "listos", "procesado")):
@@ -1055,7 +1414,7 @@ def _operational_metrics(widget: QWidget) -> dict[str, str]:
     if file_count:
         state_parts.append(f"Archivos: {file_count}")
     if valid_count:
-        state_parts.append(f"Validos: {valid_count}")
+        state_parts.append(f"Válidos: {valid_count}")
     if pending_count:
         state_parts.append(f"Pendientes: {pending_count}")
     if issue_count:
@@ -1138,34 +1497,68 @@ def _compact_text(text: str, limit: int) -> str:
     return clean if len(clean) <= limit else clean[: limit - 1].rstrip() + "..."
 
 
+def _safe_label_text(text: object, *, limit: int = 260) -> str:
+    clean = " ".join(str(text).replace("\x00", "").split())
+    if len(clean) <= limit:
+        return clean
+    head = max(24, limit // 2 - 6)
+    tail = max(24, limit - head - 5)
+    return f"{clean[:head].rstrip()} ... {clean[-tail:].lstrip()}"
+
+
+def _theme_label() -> str:
+    preference = current_theme_preference()
+    if preference == "system":
+        return "Sistema"
+    return "Oscuro" if preference == "dark" else "Claro"
+
+
+def _next_theme_preference() -> str:
+    sequence = ("light", "dark", "system")
+    current = current_theme_preference()
+    return sequence[(sequence.index(current) + 1) % len(sequence)] if current in sequence else "system"
+
+
 def _theme_toggle_button() -> QPushButton:
-    button = QPushButton("Claro" if is_dark_mode() else "Oscuro")
+    button = QPushButton(_theme_label())
     button.setObjectName("ThemeToggle")
     button.setFixedHeight(34)
-    button.setMinimumWidth(82)
-    button.setCheckable(True)
-    button.setChecked(is_dark_mode())
-    button.setAccessibleName("Cambiar modo claro oscuro")
-    button.setToolTip("Alterna entre modo claro y modo oscuro.")
-    button.clicked.connect(lambda checked: _apply_theme_mode("dark" if checked else "light"))
+    button.setMinimumWidth(92)
+    button.setAccessibleName("Tema visual")
+    button.setToolTip("Cambia entre tema claro, oscuro y sistema.")
+    button.clicked.connect(lambda _checked=False: apply_theme_mode(_next_theme_preference()))
     return button
 
 
-def _apply_theme_mode(mode: str) -> None:
+def apply_theme_mode(mode: str) -> None:
     set_theme_mode(mode)
     app = QApplication.instance()
     if app is None:
         return
+    roots: list[QWidget] = []
     for top in app.topLevelWidgets():
-        top.setProperty("theme", current_theme_mode())
-        top.setStyleSheet(base_qss())
-        for button in top.findChildren(QPushButton, "ThemeToggle"):
+        roots.append(top)
+        roots.extend(top.findChildren(QMainWindow))
+    seen: set[int] = set()
+    for root in roots:
+        if id(root) in seen:
+            continue
+        seen.add(id(root))
+        root.setProperty("theme", current_theme_mode())
+        root.setStyleSheet(base_qss())
+        for child in root.findChildren(QWidget):
+            child.setProperty("theme", current_theme_mode())
+        for button in root.findChildren(QPushButton, "ThemeToggle"):
             button.blockSignals(True)
-            button.setChecked(is_dark_mode())
-            button.setText("Claro" if is_dark_mode() else "Oscuro")
+            button.setText(_theme_label())
             button.blockSignals(False)
             _refresh_style(button)
-        _refresh_style(top)
+        for combo in root.findChildren(QComboBox, "ThemePreference"):
+            combo.blockSignals(True)
+            combo.setCurrentText({"light": "Claro", "dark": "Oscuro", "system": "Sistema"}[current_theme_preference()])
+            combo.blockSignals(False)
+            _refresh_style(combo)
+        _refresh_style(root)
 
 
 def _replace_step_bars(widget: QWidget) -> None:
@@ -1183,6 +1576,9 @@ def _replace_step_bars(widget: QWidget) -> None:
             continue
         stepper = _stepper_from_parts(provided_steps) if provided_steps else _stepper_from_text(label.text())
         layout.replaceWidget(label, stepper)
+        label.setText("")
+        label.setVisible(False)
+        label.setMaximumSize(0, 0)
         label.deleteLater()
 
 
@@ -1232,54 +1628,36 @@ def _compact_step_text(text: str) -> str:
         "Cargar CSVs finales": "CSV finales",
         "Seleccionar archivos": "Archivos",
         "Seleccionar pallets": "Pallets",
-        "Procesar recepcion": "Procesar",
+        "Elegir pallets": "Pallets",
         "Procesar recepción": "Procesar",
         "Procesar": "Procesar",
         "Revisar incidencias": "Revisar",
+        "Revisar resultado": "Revisar",
+        "Revisar vista": "Revisar",
         "Revisar pesos/correcciones": "Revisar",
+        "Renombrar hoja": "Hoja1",
+        "Validar": "Validar",
+        "Corregir": "Corregir",
+        "Corregir si hace falta": "Corregir",
+        "Procesar archivos": "Procesar",
+        "Procesar cruce": "Procesar",
+        "Procesar control": "Procesar",
+        "Procesar palets": "Procesar",
+        "Comprobar": "Comprobar",
+        "Comprobar salida": "Comprobar",
         "Guardar/enviar": "Salida",
         "Guardar TXT": "Guardar",
         "Guardar TXT AX": "TXT AX",
+        "Guardar CSV": "CSV",
+        "Guardar Excel": "Excel",
+        "Guardar Stock01": "Stock01",
         "Generar PDFs": "PDFs",
         "Generar PDF": "PDF",
         "PDF/correo": "Salida",
         "PDF opcional": "PDF",
-        "Cruz ar albaran": "Cruzar",
-        "Cruzar albaran": "Cruzar",
         "Cruzar albarán": "Cruzar",
     }
     return replacements.get(text, text)
-
-
-def _icon_for_text(style: QStyle, text: str):
-    if any(
-        word in text
-        for word in (
-            "seleccionar",
-            "cargar",
-            "txt/csv",
-            "txt fac",
-            "txt recepcion",
-            "csvs",
-            "fichero",
-            "excel oficial",
-            "sealsreport",
-            "config",
-        )
-    ):
-        return style.standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton)
-    if any(word in text for word in ("guardar", "csv", "excel", "txt ax")):
-        return style.standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)
-    if any(word in text for word in ("procesar", "comprobar", "cruzar", "revalidar", "sugerir")):
-        return style.standardIcon(QStyle.StandardPixmap.SP_DialogApplyButton)
-    if "pdf" in text:
-        return style.standardIcon(QStyle.StandardPixmap.SP_FileIcon)
-    if "correo" in text:
-        return style.standardIcon(QStyle.StandardPixmap.SP_MessageBoxInformation)
-    if "limpiar" in text:
-        return style.standardIcon(QStyle.StandardPixmap.SP_DialogResetButton)
-    fallback = getattr(QStyle.StandardPixmap, "SP_ArrowForward", QStyle.StandardPixmap.SP_DialogOkButton)
-    return style.standardIcon(fallback)
 
 
 def _set_button_role(button: QPushButton, text: str) -> None:
@@ -1289,7 +1667,7 @@ def _set_button_role(button: QPushButton, text: str) -> None:
         button.setProperty("role", "danger")
     elif any(
         word in text
-        for word in ("seleccionar", "cargar", "txt/csv", "txt fac", "txt recepcion", "fichero", "sealsreport", "config")
+        for word in ("seleccionar", "cargar", "txt/csv", "txt fac", "txt recepción", "archivo", "sealsreport", "config")
     ):
         button.setProperty("role", "open")
     elif any(word in text for word in ("guardar", "csv", "excel", "txt ax")):
@@ -1312,23 +1690,36 @@ def _shortcut_for_text(text: str) -> str:
         "cargar origen": "Ctrl+Shift+O",
         "cargar txt/csv": "Ctrl+O",
         "cargar excel oficial": "Ctrl+Shift+O",
-        "cargar txt recepcion": "Ctrl+O",
+        "cargar txt recepción": "Ctrl+O",
         "cargar txt fac": "Ctrl+O",
         "cargar sealsreport": "Ctrl+Shift+O",
         "guardar txt": "Ctrl+S",
         "guardar txt ax": "Ctrl+S",
         "guardar csv": "Ctrl+Shift+S",
         "guardar excel": "Ctrl+S",
+        "guardar plantilla": "Ctrl+Shift+S",
+        "generar ambos pdfs": "Ctrl+S",
+        "generar pdf diferencias": "Ctrl+Alt+D",
+        "generar pdf rangos": "Ctrl+Alt+G",
+        "enviar correo": "Ctrl+E",
+        "cruzar albarán": "Ctrl+B",
         "configurar rangos": "Ctrl+Shift+G",
+        "revalidar": "Ctrl+R",
+        "sugerir pallets": "Ctrl+U",
+        "limpiar": "Ctrl+Backspace",
+        "limpiar correcciones": "Ctrl+Shift+Backspace",
+        "limpiar filtro": "Ctrl+Shift+Backspace",
     }
     if text in exact:
         return exact[text]
-    if any(word in text for word in ("seleccionar", "cargar", "txt/csv", "fichero")):
+    if any(word in text for word in ("seleccionar", "cargar", "txt/csv", "archivo")):
         return "Ctrl+O"
     if any(word in text for word in ("procesar", "comprobar", "cruzar")):
         return "Ctrl+Return"
     if any(word in text for word in ("guardar", "exportar")):
         return "Ctrl+S"
+    if "revalidar" in text:
+        return "Ctrl+R"
     return ""
 
 
@@ -1343,6 +1734,10 @@ def _append_shortcut_tooltip(button: QPushButton) -> None:
     tooltip = button.toolTip() or button.text()
     if shortcut not in tooltip:
         button.setToolTip(f"{tooltip} ({shortcut})")
+    description = button.accessibleDescription()
+    if shortcut not in description:
+        base = description or button.accessibleName() or button.text()
+        button.setAccessibleDescription(f"{base}. Atajo: {shortcut}.")
 
 
 def _refresh_style(widget: QWidget) -> None:
@@ -1354,11 +1749,11 @@ def _friendly_error_text(text: str) -> str:
     clean = " ".join(str(text).split())
     lowered = clean.lower()
     if any(word in lowered for word in ("permission", "permiso", "access is denied", "denegado")):
-        return "No se pudo acceder al archivo o carpeta. Cierra el archivo si esta abierto y revisa permisos de escritura."
+        return "No se pudo acceder al archivo o carpeta. Cierra el archivo si está abierto y revisa permisos de escritura."
     if any(word in lowered for word in ("no such file", "not found", "no existe", "cannot find")):
-        return "No se encontro el archivo esperado. Verifica que no se haya movido o eliminado."
+        return "No se encontró el archivo esperado. Verifica que no se haya movido o eliminado."
     if any(word in lowered for word in ("excel", "workbook", "openpyxl", "xls")):
-        return "No se pudo leer el Excel. Comprueba que no este abierto, protegido o en un formato no compatible."
+        return "No se pudo leer el Excel. Comprueba que no esté abierto, protegido o en un formato no compatible."
     if any(word in lowered for word in ("pdf", "reportlab")):
         return "No se pudo generar el PDF. Revisa la carpeta de destino y vuelve a intentarlo."
     if len(clean) > 180:
