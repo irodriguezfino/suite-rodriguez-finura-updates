@@ -73,6 +73,7 @@ def assert_core_unchanged() -> None:
         "Suite_PySide6/src/suite_pyside6/core/apps.py",
         "Suite_PySide6/src/suite_pyside6/core/control_recepcion_maquilas.py",
         "Suite_PySide6/src/suite_pyside6/core/precintos_jamones.py",
+        "Suite_PySide6/src/suite_pyside6/core/pesos.py",
     }
     changed = [
         line.strip()

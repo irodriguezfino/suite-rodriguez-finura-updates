@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.7.2"
+VERSION = "1.7.3"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
@@ -301,10 +301,10 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
         "- Se mantiene intacta la logica de negocio y la paridad funcional validada."
     )
     notes = (
-        "- El envio de correo usa el relay SMTP corporativo por defecto sin configuracion manual.\n"
-        "- Se mantiene smtp.vallcompanys.es:25 sin SSL y el remitente corporativo fijo.\n"
-        "- Si existe SMTP_PASSWORD local se usa autenticacion; si no existe, se intenta relay interno.\n"
-        "- Se conserva el modo oscuro Finura y la consistencia de tema global/embebidos.\n"
+        "- La aplicacion Pesos acepta tambien archivos Excel .xls.\n"
+        "- Los archivos .xls se procesan mediante Excel instalado en Windows para renombrar la primera hoja visible a Hoja1.\n"
+        "- Se actualizan dialogos, contadores y mensajes para tratar .xls como Excel procesable.\n"
+        "- Se mantiene compatibilidad con .xlsx y .xlsm sin cambios funcionales.\n"
         "- No se publica ninguna contrasena ni secreto en el repositorio o paquetes."
     )
     manifest = {

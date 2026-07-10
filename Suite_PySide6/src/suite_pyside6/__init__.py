@@ -1,3 +1,3 @@
 """Suite Rodriguez Finura profesional en PySide6."""
 
-__version__ = "1.7.2"
+__version__ = "1.7.3"

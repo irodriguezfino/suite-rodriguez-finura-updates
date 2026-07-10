@@ -1,0 +1,7 @@
+Suite Rodriguez Finura v1.7.3
+
+- La aplicacion Pesos acepta tambien archivos Excel .xls.
+- Los archivos .xls se procesan mediante Excel instalado en Windows para renombrar la primera hoja visible a Hoja1.
+- Se actualizan dialogos, contadores y mensajes para tratar .xls como Excel procesable.
+- Se mantiene compatibilidad con .xlsx y .xlsm sin cambios funcionales.
+- No se publica ninguna contrasena ni secreto en el repositorio o paquetes.

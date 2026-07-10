@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import sys
+import tempfile
+from pathlib import Path
 
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -9,7 +11,9 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtWidgets import QApplication, QFrame
 
 from suite_pyside6.core.apps import APP_REGISTRY
+from suite_pyside6.core.pesos import OLD_EXCEL_EXTENSIONS, SUPPORTED_EXTENSIONS
 from suite_pyside6.ui.main_window import MainWindow
+from suite_pyside6.ui.pesos_window import PesosWindow
 
 
 def main() -> int:
@@ -44,6 +48,18 @@ def main() -> int:
     assert not window.command_detail.isVisible(), "El detalle del centro operativo debe compactarse"
 
     window.close()
+
+    assert ".xls" in SUPPORTED_EXTENSIONS, "Pesos debe aceptar archivos .xls"
+    assert ".xls" not in OLD_EXCEL_EXTENSIONS, "Pesos no debe tratar .xls como formato ignorado"
+    with tempfile.TemporaryDirectory() as tmp:
+        xls = Path(tmp) / "pesos.xls"
+        xls.write_bytes(b"placeholder")
+        pesos = PesosWindow()
+        pesos.set_files([xls])
+        app.processEvents()
+        assert "Excel procesables: 1" in pesos.summary.text()
+        pesos.close()
+
     print("PHASE21_OK")
     print("saas_workspace=true")
     print(f"module_rows={len(rows)}")

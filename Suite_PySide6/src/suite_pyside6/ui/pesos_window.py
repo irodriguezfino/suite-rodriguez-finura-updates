@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from suite_pyside6.core.paths import resource_path
-from suite_pyside6.core.pesos import PesosResult, process_pesos_files
+from suite_pyside6.core.pesos import OLD_EXCEL_EXTENSIONS, SUPPORTED_EXTENSIONS, PesosResult, process_pesos_files
 from suite_pyside6.ui.components import control_metric_pair, control_pill, control_rail_label, section_label, step_bar
 from suite_pyside6.ui.file_dialogs import open_files
 from suite_pyside6.ui.polish import confirm_discard_work, show_inline_message, polish_window, sync_recommended_action
@@ -120,7 +120,7 @@ class PesosWindow(QMainWindow):
         self.select_button = QPushButton("Cargar Excel")
         self.select_button.setProperty("primary", True)
         self.select_button.setAccessibleName("Cargar archivos Excel de pesos")
-        self.select_button.setToolTip("Carga uno o varios archivos .xlsx o .xlsm.")
+        self.select_button.setToolTip("Carga uno o varios archivos .xlsx, .xlsm o .xls.")
         self.select_button.clicked.connect(self.select_files)
         actions_layout.addWidget(self.select_button)
 
@@ -206,7 +206,7 @@ class PesosWindow(QMainWindow):
         rail_title = section_label("Control del lote")
         self.rail_state = control_rail_label("Pendiente de Excel", role="state")
         self.rail_state.setWordWrap(True)
-        self.rail_detail = control_rail_label("Carga archivos XLSX o XLSM para preparar la hoja Hoja1.")
+        self.rail_detail = control_rail_label("Carga archivos XLSX, XLSM o XLS para preparar la hoja Hoja1.")
         self.rail_detail.setWordWrap(True)
         self.rail_progress = QProgressBar()
         self.rail_progress.setObjectName("ControlProgress")
@@ -261,7 +261,7 @@ class PesosWindow(QMainWindow):
             self,
             "pesos/input",
             "Selecciona archivos Excel de pesos",
-            "Excel moderno (*.xlsx *.xlsm);;Todos (*.*)",
+            "Excel (*.xlsx *.xlsm *.xls);;Todos (*.*)",
         )
         if files:
             self.set_files(files)
@@ -291,7 +291,7 @@ class PesosWindow(QMainWindow):
 
     def _refresh(self, *, selected_only: bool = False) -> None:
         if selected_only:
-            processable = sum(1 for path in self.paths if path.suffix.lower() in {".xlsx", ".xlsm"})
+            processable = sum(1 for path in self.paths if path.suffix.lower() in SUPPORTED_EXTENSIONS)
             ignored = len(self.paths) - processable
             self.summary.setText(
                 f"{len(self.paths)} archivos seleccionados | Excel procesables: {processable} | Ignorados: {ignored}"
@@ -321,12 +321,12 @@ class PesosWindow(QMainWindow):
             if selected_only:
                 for path in self.paths:
                     suffix = path.suffix.lower()
-                    if suffix in {".xlsx", ".xlsm"}:
+                    if suffix in SUPPORTED_EXTENSIONS:
                         rows.append((path.name, "Pendiente", "-", "Se renombrará la primera hoja visible."))
-                    elif suffix in {".xls", ".xlsb"}:
+                    elif suffix in OLD_EXCEL_EXTENSIONS:
                         rows.append((path.name, "Ignorado", "-", "Formato Excel antiguo o no soportado."))
                     else:
-                        rows.append((path.name, "Ignorado", "-", "No es un Excel XLSX/XLSM."))
+                        rows.append((path.name, "Ignorado", "-", "No es un Excel XLSX/XLSM/XLS."))
             else:
                 for item in self.result.results:
                     if item.success and item.changed:
@@ -337,7 +337,7 @@ class PesosWindow(QMainWindow):
                         rows.append((item.path.name, "Error", item.before or "-", item.message or "No se pudo procesar."))
                 for path in self.result.ignored_files:
                     suffix = path.suffix.lower()
-                    detail = "Formato Excel antiguo o no soportado." if suffix in {".xls", ".xlsb"} else "No es un Excel XLSX/XLSM."
+                    detail = "Formato Excel antiguo o no soportado." if suffix in OLD_EXCEL_EXTENSIONS else "No es un Excel XLSX/XLSM/XLS."
                     rows.append((path.name, "Ignorado", "-", detail))
 
             self.result_table.setRowCount(len(rows))
@@ -349,7 +349,7 @@ class PesosWindow(QMainWindow):
 
     def _refresh_pilot_state(self) -> None:
         selected_files = self.result.selected_files or self.paths
-        excel_count = sum(1 for path in selected_files if path.suffix.lower() in {".xlsx", ".xlsm"})
+        excel_count = sum(1 for path in selected_files if path.suffix.lower() in SUPPORTED_EXTENSIONS)
         issue_count = self.result.error_count if self.result.selected_files else max(0, len(selected_files) - excel_count)
         self.metric_files.setText(str(len(selected_files)))
         self.metric_excel.setText(str(excel_count))
@@ -390,7 +390,7 @@ class PesosWindow(QMainWindow):
             return "Lote completado", "Los Excel procesables ya tienen la primera hoja como Hoja1.", 100
         if self.paths:
             return "Excel cargados", "Revisa el lote y renombra la hoja para ejecutar el cambio.", 45
-        return "Pendiente de Excel", "Carga archivos XLSX o XLSM para preparar la hoja Hoja1.", 0
+        return "Pendiente de Excel", "Carga archivos XLSX, XLSM o XLS para preparar la hoja Hoja1.", 0
 
     def _next_action_text(self) -> str:
         if not self.paths:
