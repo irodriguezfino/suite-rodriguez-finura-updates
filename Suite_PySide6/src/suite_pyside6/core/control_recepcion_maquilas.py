@@ -21,8 +21,6 @@ from suite_pyside6.core.recepcion_maquilas import (
 )
 from suite_pyside6.core.precintos_jamones import (
     gtin12_valido,
-    parsear_peso,
-    formatear_peso,
     sugerir_partida_lote,
 )
 
@@ -34,7 +32,7 @@ SMTP_USUARIO = SMTP_USER
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD") or os.environ.get("SUITE_CONTROL_SMTP_PASSWORD", "")
 SMTP_SECURE = False
 SMTP_STARTTLS = SMTP_SECURE
-ASUNTO_DEFECTO = "Recepcion maquilas - documentacion"
+ASUNTO_DEFECTO = "Recepción maquilas - albarán {albaran}"
 MENSAJE_DEFECTO = (
     "Buenos dias,\n\n"
     "Adjuntamos la documentacion correspondiente a la recepcion.\n\n"
@@ -339,62 +337,6 @@ def revalidate_corrections(result: ControlRecepcionResult, text: str) -> Control
     )
 
 
-def weight_filter_text(
-    result: ControlRecepcionResult,
-    minimo_texto: str = "",
-    maximo_texto: str = "",
-) -> tuple[str, str, bool]:
-    minimo = parsear_peso(minimo_texto) if minimo_texto.strip() else None
-    maximo = parsear_peso(maximo_texto) if maximo_texto.strip() else None
-    if minimo is None and maximo is None:
-        raise ValueError("Introduce peso minimo, maximo o ambos.")
-    if minimo_texto.strip() and minimo is None:
-        raise ValueError("Peso minimo no valido. Ejemplos: 10, 10,5 o 10.5.")
-    if maximo_texto.strip() and maximo is None:
-        raise ValueError("Peso maximo no valido. Ejemplos: 16, 16,5 o 16.5.")
-    if minimo is not None and maximo is not None and minimo > maximo:
-        raise ValueError("El peso minimo no puede ser superior al maximo.")
-
-    fuera: list[tuple[RegistroControlRecepcion, str]] = []
-    pesos_no_validos: list[RegistroControlRecepcion] = []
-    for registro in result.validos:
-        peso = parsear_peso(registro.peso)
-        if peso is None:
-            pesos_no_validos.append(registro)
-            continue
-        if minimo is not None and peso < minimo:
-            fuera.append((registro, f"peso {registro.peso} inferior al minimo {formatear_peso(minimo)}"))
-        elif maximo is not None and peso > maximo:
-            fuera.append((registro, f"peso {registro.peso} superior al maximo {formatear_peso(maximo)}"))
-
-    if not fuera and not pesos_no_validos:
-        editor = "# No hay registros fuera del rango de peso indicado.\n"
-    else:
-        bloques = [
-            "# Registros filtrados por peso.",
-            "# Modifica estas lineas y pulsa Revalidar para sustituir el registro original.",
-            "# Las lineas que empiezan por # se ignoran al revalidar.",
-        ]
-        for registro, motivo in fuera:
-            bloques.append(f"# Archivo: {registro.archivo} | linea: {registro.linea} | motivo: {motivo}")
-            bloques.append(registro.to_line())
-        for registro in pesos_no_validos:
-            bloques.append(f"# Archivo: {registro.archivo} | linea: {registro.linea} | motivo: peso no numerico o vacio")
-            bloques.append(registro.to_line())
-        editor = "\n".join(bloques) + "\n"
-
-    resumen = "\n".join(
-        [
-            "Filtro de pesos aplicado:",
-            f"- Peso minimo: {formatear_peso(minimo) if minimo is not None else '(sin minimo)'}",
-            f"- Peso maximo: {formatear_peso(maximo) if maximo is not None else '(sin maximo)'}",
-            f"- Fuera de rango: {len(fuera)}",
-            f"- Peso no numerico/vacio: {len(pesos_no_validos)}",
-        ]
-    )
-    return editor, resumen, bool(fuera or pesos_no_validos)
-
-
 def save_txt_ax(path: Path, result: ControlRecepcionResult) -> Path:
     if result.invalidos:
         raise ValueError("Corrige las incidencias antes de guardar el TXT AX.")
@@ -455,6 +397,19 @@ def validar_destinatarios(destinatarios: list[str]) -> list[str]:
     return [correo for correo in destinatarios if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", correo)]
 
 
+def albaran_recepcion(result: ControlRecepcionResult) -> str:
+    if result.recepcion is None:
+        return ""
+    vistos: set[str] = set()
+    albaranes: list[str] = []
+    for registro in result.recepcion.registros_oficiales:
+        albaran = (registro.albaran or "").strip()
+        if albaran and albaran not in vistos:
+            vistos.add(albaran)
+            albaranes.append(albaran)
+    return ", ".join(albaranes)
+
+
 def detalle_diferencias_text(result: ControlRecepcionResult) -> str:
     lines = result.summary_lines()
     if result.recepcion is not None:
@@ -494,6 +449,7 @@ def send_control_email(
     msg["To"] = ", ".join(destinatarios)
     msg["Subject"] = subject.format(
         partida=valor_mayoritario(registro.partida for registro in result.validos),
+        albaran=albaran_recepcion(result),
         registros_validos=len(result.validos),
     )
     msg.set_content(body)

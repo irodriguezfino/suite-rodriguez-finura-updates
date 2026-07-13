@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.7.4"
+VERSION = "1.7.5"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
@@ -291,11 +291,11 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
     full_digest = sha256(full_package)
     installer_digest = sha256(installer_bat)
     notes = (
-        "- Control y Recepción Maquilas recupera el informe PDF profesional de rangos.\n"
-        "- El PDF de rangos ya no depende de carpetas internas de desarrollo para mantener su formato en instalaciones publicadas.\n"
-        "- Se conservan los campos del informe: ganadero, origen, DAC, contrato, temperatura, PH, observaciones y especificacion.\n"
-        "- Se mantienen la tabla de lotes origen albaran, la clasificacion por rangos y los totales profesionales.\n"
-        "- No se cambia el flujo funcional ni los estilos globales de la suite."
+        "- Control y Recepción Maquilas añade automáticamente el número de albarán al asunto del correo.\n"
+        "- Se elimina el filtro de pesos de Control y Recepción Maquilas.\n"
+        "- El flujo normal queda en cargar TXT, cargar SealsReport, cruzar y enviar correo.\n"
+        "- Guardar el PDF de rangos queda como acción opcional; si no se guarda, se genera temporalmente al enviar.\n"
+        "- No se cambian estilos globales, tema claro/oscuro ni otras aplicaciones."
     )
     manifest = {
         "schema": "suite-rodriguez-finura-update-v1",

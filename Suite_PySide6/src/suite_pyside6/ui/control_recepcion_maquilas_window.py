@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 
 from suite_pyside6.core.control_recepcion_maquilas import (
     ControlRecepcionResult,
+    albaran_recepcion,
     correction_text,
     parsear_destinatarios,
     process_control_txt,
@@ -34,7 +35,6 @@ from suite_pyside6.core.control_recepcion_maquilas import (
     save_txt_ax,
     send_control_email,
     validar_destinatarios,
-    weight_filter_text,
     ASUNTO_DEFECTO,
     MENSAJE_DEFECTO,
 )
@@ -48,6 +48,9 @@ from suite_pyside6.ui.table_utils import bulk_table_update, update_count_label
 from suite_pyside6.ui.theme import base_qss
 
 
+ASUNTO_LEGACY_DEFECTO = "Recepcion maquilas - documentacion"
+
+
 class ControlRecepcionMaquilasWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -55,7 +58,6 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         self.seals_file: Path | None = None
         self.config_file: Path | None = resource_path("config_articulos.csv")
         self.result = ControlRecepcionResult()
-        self.weight_filter_pending = False
         self._metadata_warning_acknowledged = False
         self.show_dialogs = True
         self.setWindowTitle("Control y Recepción Maquilas")
@@ -71,7 +73,7 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         self._refresh()
 
     def flow_steps(self) -> tuple[str, ...]:
-        return ("Cargar TXT", "Validar", "Cruzar SealsReport", "Generar PDF", "Enviar correo")
+        return ("Cargar TXT", "Validar", "Cruzar SealsReport", "Enviar correo")
 
     def _build_ui(self) -> None:
         root = QWidget()
@@ -103,13 +105,13 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         hero_status_layout.setSpacing(3)
         hero_status_label = QLabel("Flujo guiado")
         hero_status_label.setObjectName("Overline")
-        hero_status_value = QLabel("5 pasos operativos")
+        hero_status_value = QLabel("4 pasos operativos")
         hero_status_value.setObjectName("ModuleTitle")
         hero_status_layout.addWidget(hero_status_label)
         hero_status_layout.addWidget(hero_status_value)
         hero_layout.addWidget(hero_status)
         layout.addWidget(hero)
-        steps = step_bar("1 Cargar TXT  ->  2 Validar  ->  3 Cruzar SealsReport  ->  4 Generar PDF  ->  5 Enviar correo")
+        steps = step_bar("1 Cargar TXT  ->  2 Validar  ->  3 Cruzar SealsReport  ->  4 Enviar correo")
         layout.addWidget(steps)
 
         actions = QFrame()
@@ -158,24 +160,6 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         self.revalidate_button = QPushButton("Revalidar")
         self.revalidate_button.clicked.connect(self.revalidate)
         actions_layout.addWidget(self.revalidate_button)
-
-        self.weight_min = QLineEdit()
-        self.weight_min.setObjectName("CompactField")
-        self.weight_min.setPlaceholderText("Peso min.")
-        self.weight_min.setAccessibleDescription("Peso mínimo para filtrar registros, disponible tras validar el TXT.")
-        self.weight_min.setMaximumWidth(96)
-        actions_layout.addWidget(self.weight_min)
-
-        self.weight_max = QLineEdit()
-        self.weight_max.setObjectName("CompactField")
-        self.weight_max.setPlaceholderText("Peso max.")
-        self.weight_max.setAccessibleDescription("Peso máximo para filtrar registros, disponible tras validar el TXT.")
-        self.weight_max.setMaximumWidth(96)
-        actions_layout.addWidget(self.weight_max)
-
-        self.weight_button = QPushButton("Filtrar pesos")
-        self.weight_button.clicked.connect(self.apply_weight_filter)
-        actions_layout.addWidget(self.weight_button)
 
         self.clear_corrections_button = QPushButton("Limpiar correcciones")
         self.clear_corrections_button.clicked.connect(self.clear_corrections)
@@ -442,17 +426,15 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
 
     def set_txt_files(self, paths: list[Path]) -> None:
         self.paths = list(paths)
-        self.weight_filter_pending = False
         self.result = process_control_txt(self.paths, self.config_file)
         self.status.setText(f"TXT validado: {len(self.result.validos)} registros válidos.")
         self._refresh()
 
     def revalidate(self) -> None:
-        if not (self.result.invalidos or self.weight_filter_pending):
+        if not self.result.invalidos:
             return
         self.result = revalidate_corrections(self.result, self.preview.toPlainText())
         self.seals_file = None
-        self.weight_filter_pending = False
         if self.result.invalidos:
             self.status.setText(f"Quedan {len(self.result.invalidos)} líneas por corregir.")
             if self.show_dialogs:
@@ -462,36 +444,7 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
             show_inline_message(self, "success", "Revalidación correcta. Guarda el TXT AX para continuar.")
         self._refresh()
 
-    def apply_weight_filter(self) -> None:
-        if self.result.invalidos:
-            show_inline_message(self, "warning", "Primero corrige y revalida las incidencias.")
-            return
-        if not self.result.validos:
-            show_inline_message(self, "warning", "Procesa primero uno o varios TXT.")
-            return
-        try:
-            editor, resumen, pending = weight_filter_text(self.result, self.weight_min.text(), self.weight_max.text())
-        except Exception as exc:
-            self.status.setText(str(exc))
-            if self.show_dialogs:
-                show_inline_message(self, "warning", str(exc))
-            return
-        self.preview.setReadOnly(not pending)
-        self.preview.setPlainText(editor if pending else self.result.preview_text() + "\n\n" + resumen)
-        self.weight_filter_pending = pending
-        if pending:
-            self.result.txt_ax = None
-            self.result.pdf_rangos = None
-            self.result.txt_modified = True
-        self.status.setText("Filtro aplicado. Revalida si has corregido registros.")
-        self._refresh_buttons_only()
-        self._populate_preview_table()
-        self._refresh_pilot_state()
-
     def clear_corrections(self) -> None:
-        self.weight_min.clear()
-        self.weight_max.clear()
-        self.weight_filter_pending = False
         self._refresh()
         self.status.setText("Correcciones restauradas.")
 
@@ -596,10 +549,7 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         self.paths = []
         self.seals_file = None
         self.result = ControlRecepcionResult()
-        self.weight_filter_pending = False
         self._metadata_warning_acknowledged = False
-        self.weight_min.clear()
-        self.weight_max.clear()
         self.status.setText("Sin archivos cargados")
         self._refresh()
 
@@ -607,7 +557,7 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         return bool(self.result.txt_modified and self.result.txt_ax is None)
 
     def _can_continue_to_seals(self) -> bool:
-        return bool(self.result.validos and not self.result.invalidos and not self.weight_filter_pending and not self._requires_txt_save())
+        return bool(self.result.validos and not self.result.invalidos and not self._requires_txt_save())
 
     def _metadata(self) -> dict[str, str]:
         return {
@@ -641,7 +591,10 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
 
     def _load_email_template(self) -> None:
         app_settings = settings()
-        self.subject.setText(str(app_settings.value("mail/control_recepcion/subject", ASUNTO_DEFECTO) or ASUNTO_DEFECTO))
+        subject = str(app_settings.value("mail/control_recepcion/subject", ASUNTO_DEFECTO) or ASUNTO_DEFECTO)
+        if subject == ASUNTO_LEGACY_DEFECTO:
+            subject = ASUNTO_DEFECTO
+        self.subject.setText(subject)
         self.body_editor.setPlainText(str(app_settings.value("mail/control_recepcion/body", MENSAJE_DEFECTO) or MENSAJE_DEFECTO))
 
     def _template_values(self) -> dict[str, str]:
@@ -651,6 +604,7 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
             "lote": self.result.lote_sugerido,
             "fecha_recepcion": self.result.validos[0].fecha if self.result.validos else "",
             "registros_validos": str(len(self.result.validos)),
+            "albaran": albaran_recepcion(self.result),
         }
 
     def _render_template(self, text: str) -> str:
@@ -665,7 +619,7 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
             return 4, False, True
         if self.result.pdf_rangos is not None or "pdf guardado" in status:
             return 4, False, True
-        if "error" in status or self.result.invalidos or self.weight_filter_pending:
+        if "error" in status or self.result.invalidos:
             return 2, True, False
         if self.result.recepcion is not None:
             return 4, False, False
@@ -680,9 +634,8 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
     def _refresh(self) -> None:
         if self.result.validos or self.result.invalidos:
             self.summary.setText(" | ".join(self.result.summary_lines()[:5]))
-            self.preview.setReadOnly(not bool(self.result.invalidos or self.weight_filter_pending))
-            if not self.weight_filter_pending:
-                self.preview.setPlainText(correction_text(self.result) if self.result.invalidos else self.result.preview_text())
+            self.preview.setReadOnly(not bool(self.result.invalidos))
+            self.preview.setPlainText(correction_text(self.result) if self.result.invalidos else self.result.preview_text())
             self.issues.setPlainText(self._issues_text())
             self.output.setPlainText(self._output_text())
         else:
@@ -696,16 +649,14 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         self._refresh_buttons_only()
 
     def _refresh_buttons_only(self) -> None:
-        self.revalidate_button.setEnabled(bool(self.result.invalidos or self.weight_filter_pending))
-        self.save_txt_button.setEnabled(bool(self.result.validos and not self.result.invalidos and not self.weight_filter_pending))
+        self.revalidate_button.setEnabled(bool(self.result.invalidos))
+        self.save_txt_button.setEnabled(bool(self.result.validos and not self.result.invalidos))
         self.seals_button.setEnabled(self._can_continue_to_seals())
         self.process_seals_button.setEnabled(bool(self._can_continue_to_seals() and self.seals_file))
         self.pdf_button.setEnabled(bool(self.result.recepcion))
         self.email_button.setEnabled(bool(self.result.recepcion))
-        self.weight_button.setEnabled(bool(self.result.validos and not self.result.invalidos))
-        self.clear_corrections_button.setEnabled(bool(self.result.validos or self.result.invalidos or self.weight_filter_pending))
+        self.clear_corrections_button.setEnabled(bool(self.result.validos or self.result.invalidos))
         self.clear_button.setEnabled(bool(self.paths or self.result.validos or self.result.invalidos))
-        self._sync_weight_filter_controls()
         self._refresh_pilot_state()
         self._sync_recommended_action()
 
@@ -720,7 +671,6 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
                 "Guardar TXT AX": self.save_txt_button,
                 "Cargar SealsReport": self.seals_button,
                 "Cruzar albarán": self.process_seals_button,
-                "Generar PDF": self.pdf_button,
                 "Enviar correo": self.email_button,
             },
             (
@@ -734,11 +684,6 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
             ),
             primary_requires_enabled=False,
         )
-
-    def _sync_weight_filter_controls(self) -> None:
-        visible = bool(self.weight_button.isEnabled() or self.weight_filter_pending)
-        self.weight_min.setVisible(visible)
-        self.weight_max.setVisible(visible)
 
     def _populate_preview_table(self) -> None:
         rows: list[tuple[str, str, str, str, str, str]] = []
@@ -778,7 +723,7 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
     def _refresh_pilot_state(self) -> None:
         validos = len(self.result.validos)
         invalidos = len(self.result.invalidos)
-        pendientes = invalidos + int(self.weight_filter_pending)
+        pendientes = invalidos
         files = len(self.paths)
         self.metric_valid.setText(str(validos))
         self.metric_pending.setText(str(pendientes))
@@ -797,7 +742,7 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         )
 
         has_issues = bool(self.result.invalidos or self.result.duplicados or self.result.recepcion)
-        needs_corrections = bool(self.result.invalidos or self.weight_filter_pending)
+        needs_corrections = bool(self.result.invalidos)
         self.issues_empty.setVisible(not has_issues and not needs_corrections)
         self.issues.setVisible(has_issues)
         self.preview.setVisible(needs_corrections)
@@ -822,8 +767,8 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
         if self.result.pdf_rangos is not None or "pdf guardado" in status:
             return "PDF listo", "Informe generado. El correo puede enviarse con la documentación.", 90
         if self.result.recepcion is not None:
-            return "Cruce completado", "Revisa diferencias y genera el PDF de rangos.", 75
-        if self.result.invalidos or self.weight_filter_pending:
+            return "Cruce completado", "Listo para enviar correo; el PDF de rangos se adjunta automaticamente si no lo guardaste.", 82
+        if self.result.invalidos:
             return "Revisión pendiente", "Corrige las líneas marcadas y revalida.", 45
         if self._requires_txt_save():
             return "TXT modificado", "Guarda el TXT AX antes de cruzar SealsReport.", 58
@@ -840,7 +785,7 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
     def _next_action_text(self) -> str:
         if not self.paths and not self.result.validos:
             return "Cargar TXT FAC"
-        if self.result.invalidos or self.weight_filter_pending:
+        if self.result.invalidos:
             return "Revalidar correcciones"
         if self._requires_txt_save():
             return "Guardar TXT AX"
@@ -848,8 +793,6 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
             return "Cargar SealsReport"
         if self._can_continue_to_seals() and self.seals_file is not None and self.result.recepcion is None:
             return "Cruzar albarán"
-        if self.result.recepcion is not None and self.result.pdf_rangos is None:
-            return "Generar PDF"
         if self.result.recepcion is not None:
             return "Enviar correo"
         return "Completa el paso actual"
@@ -860,8 +803,6 @@ class ControlRecepcionMaquilasWindow(QMainWindow):
             alerts.append(f"{len(self.result.invalidos)} líneas pendientes")
         if self.result.duplicados:
             alerts.append(f"{len(self.result.duplicados)} duplicados suprimidos")
-        if self.weight_filter_pending:
-            alerts.append("Filtro de peso pendiente de revalidar")
         if self._can_continue_to_seals() and self.seals_file is None:
             alerts.append("SealsReport no cargado")
         if self.result.recepcion is not None and not self.recipients.text().strip():

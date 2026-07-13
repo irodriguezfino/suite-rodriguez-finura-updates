@@ -1,0 +1,7 @@
+Suite Rodriguez Finura v1.7.5
+
+- Control y Recepción Maquilas añade automáticamente el número de albarán al asunto del correo.
+- Se elimina el filtro de pesos de Control y Recepción Maquilas.
+- El flujo normal queda en cargar TXT, cargar SealsReport, cruzar y enviar correo.
+- Guardar el PDF de rangos queda como acción opcional; si no se guarda, se genera temporalmente al enviar.
+- No se cambian estilos globales, tema claro/oscuro ni otras aplicaciones.

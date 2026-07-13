@@ -25,7 +25,6 @@ from suite_pyside6.core.control_recepcion_maquilas import (
     save_txt_ax,
     send_control_email,
     validar_destinatarios,
-    weight_filter_text,
 )
 from suite_pyside6.ui.control_recepcion_maquilas_window import ControlRecepcionMaquilasWindow
 from suite_pyside6.ui.main_window import MainWindow
@@ -108,11 +107,6 @@ def main() -> int:
         assert len(result.validos) == 2
         assert len(result.duplicados) == 1
         assert not result.invalidos
-        editor, weight_summary, pending = weight_filter_text(result, "10,30", "")
-        assert pending
-        assert "222222222222" in editor
-        assert "Peso minimo: 10,3" in weight_summary
-
         bad_txt = tmp_path / "fac_bad.txt"
         bad_txt.write_text("123456;030726;10:00:00;FAC1;111111111111;;10,50;\n", encoding="utf-8-sig")
         bad_result = process_control_txt([bad_txt])
@@ -142,17 +136,19 @@ def main() -> int:
         assert "Clasificacion por rangos" in ranges_text
         assert "Total piezas: 2" in ranges_text
         result.recepcion = recepcion
-        result.pdf_rangos = pdf
+        result.pdf_rangos = None
         original_smtp = smtplib.SMTP
         DummySMTP.login_calls = 0
         DummySMTP.send_calls = 0
         smtplib.SMTP = DummySMTP  # type: ignore[assignment]
         try:
-            send_control_email("destino@test.com", result, smtp_password="")
+            msg = send_control_email("destino@test.com", result, smtp_password="")
         finally:
             smtplib.SMTP = original_smtp  # type: ignore[assignment]
         assert DummySMTP.send_calls == 1
         assert DummySMTP.login_calls == 0
+        assert "ALB1" in msg["Subject"]
+        assert len(msg.get_payload()) == 3
 
         window = ControlRecepcionMaquilasWindow()
         window.show_dialogs = False
@@ -160,16 +156,14 @@ def main() -> int:
         window.set_txt_files([txt])
         app.processEvents()
         assert len(window.result.validos) == 2
-        window.weight_min.setText("10,30")
-        window.apply_weight_filter()
-        app.processEvents()
-        assert window.weight_filter_pending
+        assert not hasattr(window, "weight_button")
         window.clear_corrections()
         app.processEvents()
-        assert not window.weight_filter_pending
         window.save_txt_ax(tmp_path / "window_ax.txt")
         window.seals_file = seals
         window.process_seals()
+        assert window._next_action_text() == "Enviar correo"
+        assert "ALB1" in window._render_template(window.subject.text())
         window.save_pdf(tmp_path / "window_rangos.pdf")
         assert window.result.pdf_rangos is not None
         window.close()
