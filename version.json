@@ -1,34 +1,34 @@
 {
   "schema": "suite-rodriguez-finura-update-v1",
-  "version": "1.7.3",
-  "published_at": "2026-07-10T14:06:09+02:00",
+  "version": "1.7.4",
+  "published_at": "2026-07-13T13:19:08+02:00",
   "auto_update": {
     "type": "zip",
-    "file": "Suite_Rodriguez_Finura_v1.7.3_update.zip",
-    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.7.3_update.zip",
-    "sha256": "B58DE399D8C28FF8AE0C4094EC256C5993E560F2F1BC3D780409161554BFA2FA"
+    "file": "Suite_Rodriguez_Finura_v1.7.4_update.zip",
+    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.7.4_update.zip",
+    "sha256": "35BFA4F791ACB33486DB9E0CCD810EAB17B0AA0765404B9970860DCABE982E67"
   },
   "fresh_install": {
     "type": "bat",
-    "file": "Instalar_Suite_Rodriguez_Finura_v1.7.3.bat",
-    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Instalar_Suite_Rodriguez_Finura_v1.7.3.bat",
-    "sha256": "AE261F2AE7A9A86CDFDC02C284DA28EC84A42F8578CB435E5BBB2ACB45365B44",
-    "full_package": "Suite_Rodriguez_Finura_v1.7.3_full.zip",
-    "full_package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.7.3_full.zip",
-    "full_package_sha256": "0587A2B7380CAB9BEBF9F34844A633CBDEFDE978CCF8F8DD99220D7623D28491"
+    "file": "Instalar_Suite_Rodriguez_Finura_v1.7.4.bat",
+    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Instalar_Suite_Rodriguez_Finura_v1.7.4.bat",
+    "sha256": "6817D6B25C9322DA6664817F1646A5BC9D09FDB2F0C10E1B7D2193A9D8721FBB",
+    "full_package": "Suite_Rodriguez_Finura_v1.7.4_full.zip",
+    "full_package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.7.4_full.zip",
+    "full_package_sha256": "8FA9E64ED2F00441D62FC8A8D8F5F33665BFE2A8AEF305EE7FE5F97BC8CD75E8"
   },
-  "notes": "- La aplicacion Pesos acepta tambien archivos Excel .xls.\n- Los archivos .xls se procesan mediante Excel instalado en Windows para renombrar la primera hoja visible a Hoja1.\n- Se actualizan dialogos, contadores y mensajes para tratar .xls como Excel procesable.\n- Se mantiene compatibilidad con .xlsx y .xlsm sin cambios funcionales.\n- No se publica ninguna contrasena ni secreto en el repositorio o paquetes.",
+  "notes": "- Control y Recepción Maquilas recupera el informe PDF profesional de rangos.\n- El PDF de rangos ya no depende de carpetas internas de desarrollo para mantener su formato en instalaciones publicadas.\n- Se conservan los campos del informe: ganadero, origen, DAC, contrato, temperatura, PH, observaciones y especificacion.\n- Se mantienen la tabla de lotes origen albaran, la clasificacion por rangos y los totales profesionales.\n- No se cambia el flujo funcional ni los estilos globales de la suite.",
   "package_type": "zip",
-  "package": "Suite_Rodriguez_Finura_v1.7.3_update.zip",
-  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.7.3_update.zip",
-  "sha256": "B58DE399D8C28FF8AE0C4094EC256C5993E560F2F1BC3D780409161554BFA2FA",
+  "package": "Suite_Rodriguez_Finura_v1.7.4_update.zip",
+  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.7.4_update.zip",
+  "sha256": "35BFA4F791ACB33486DB9E0CCD810EAB17B0AA0765404B9970860DCABE982E67",
   "fresh_install_msi": "Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518",
-  "full_install_bat": "Instalar_Suite_Rodriguez_Finura_v1.7.3.bat",
-  "full_install_bat_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Instalar_Suite_Rodriguez_Finura_v1.7.3.bat",
-  "full_install_bat_sha256": "AE261F2AE7A9A86CDFDC02C284DA28EC84A42F8578CB435E5BBB2ACB45365B44",
-  "full_install_package": "Suite_Rodriguez_Finura_v1.7.3_full.zip",
-  "full_install_package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.7.3_full.zip",
-  "full_install_package_sha256": "0587A2B7380CAB9BEBF9F34844A633CBDEFDE978CCF8F8DD99220D7623D28491"
+  "full_install_bat": "Instalar_Suite_Rodriguez_Finura_v1.7.4.bat",
+  "full_install_bat_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Instalar_Suite_Rodriguez_Finura_v1.7.4.bat",
+  "full_install_bat_sha256": "6817D6B25C9322DA6664817F1646A5BC9D09FDB2F0C10E1B7D2193A9D8721FBB",
+  "full_install_package": "Suite_Rodriguez_Finura_v1.7.4_full.zip",
+  "full_install_package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.7.4_full.zip",
+  "full_install_package_sha256": "8FA9E64ED2F00441D62FC8A8D8F5F33665BFE2A8AEF305EE7FE5F97BC8CD75E8"
 }

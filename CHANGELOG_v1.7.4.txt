@@ -1,0 +1,7 @@
+Suite Rodriguez Finura v1.7.4
+
+- Control y Recepción Maquilas recupera el informe PDF profesional de rangos.
+- El PDF de rangos ya no depende de carpetas internas de desarrollo para mantener su formato en instalaciones publicadas.
+- Se conservan los campos del informe: ganadero, origen, DAC, contrato, temperatura, PH, observaciones y especificacion.
+- Se mantienen la tabla de lotes origen albaran, la clasificacion por rangos y los totales profesionales.
+- No se cambia el flujo funcional ni los estilos globales de la suite.

@@ -5,6 +5,7 @@ from functools import lru_cache
 import importlib
 from collections import defaultdict
 from dataclasses import dataclass, field
+from datetime import datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 import re
@@ -19,6 +20,14 @@ from suite_pyside6.core.paths import LEGACY_SOURCE_DIR, resource_path
 CAMPOS_TXT = 7
 CENT = Decimal("0.01")
 CONFIG_ARTICULOS_INTERNO = "config_articulos.csv"
+A4_PORTRAIT = (595.0, 842.0)
+PDF_COLOR_RESET = "0 0 0 rg"
+PDF_COLOR_HEADER_BG = "0.94 0.96 0.98 rg"
+PDF_COLOR_HEADER_DARK = "0.17 0.22 0.28 rg"
+PDF_COLOR_TEXT_DARK = "0.08 0.10 0.13 rg"
+PDF_COLOR_TEXT_MUTED = "0.32 0.36 0.41 rg"
+PDF_COLOR_TABLE_ALT = "0.96 0.97 0.98 rg"
+PDF_COLOR_WHITE = "1 1 1 rg"
 
 
 @dataclass(frozen=True)
@@ -375,6 +384,53 @@ def valor_mayoritario(valores) -> str:
     return sorted(conteo.items(), key=lambda item: (-item[1], item[0]))[0][0]
 
 
+def unir_valores_unicos(valores) -> str:
+    vistos: set[str] = set()
+    resultado: list[str] = []
+    for valor in valores:
+        texto = str(valor or "").strip()
+        if texto and texto not in vistos:
+            vistos.add(texto)
+            resultado.append(texto)
+    return ", ".join(resultado)
+
+
+def formatear_fecha_recepcion(valor: str) -> str:
+    texto = str(valor or "").strip()
+    if re.fullmatch(r"\d{6}", texto):
+        return f"{texto[:2]}/{texto[2:4]}/20{texto[4:]}"
+    return texto
+
+
+def tiene_certificado_welfair(registros: list[RegistroOficial]) -> bool:
+    return any((registro.lote or "").strip().upper().endswith("W") for registro in registros)
+
+
+def resumen_lotes_origen(registros_oficiales: list[RegistroOficial]) -> list[list[str]]:
+    conteo: dict[str, int] = defaultdict(int)
+    for registro in registros_oficiales:
+        lote = registro.lote.strip() if registro.lote else "Sin lote"
+        conteo[lote] += 1
+    return [[lote, str(piezas)] for lote, piezas in sorted(conteo.items())]
+
+
+def lotes_origen_en_columnas(lotes_origen: list[list[str]], grupos: int = 3) -> list[list[str]]:
+    if not lotes_origen:
+        return []
+    alto = (len(lotes_origen) + grupos - 1) // grupos
+    filas: list[list[str]] = []
+    for i in range(alto):
+        fila: list[str] = []
+        for grupo in range(grupos):
+            idx = i + grupo * alto
+            if idx < len(lotes_origen):
+                fila.extend(lotes_origen[idx])
+            else:
+                fila.extend(["", ""])
+        filas.append(fila)
+    return filas
+
+
 def process_recepcion_maquilas(
     txt_file: Path,
     seals_file: Path,
@@ -448,6 +504,214 @@ class SimplePdf:
         path.write_bytes(bytes(output))
 
 
+class PdfSimple:
+    def __init__(self, titulo: str) -> None:
+        self.titulo = titulo
+        self.ancho, self.alto = A4_PORTRAIT
+        self.paginas: list[list[str]] = []
+        self.nueva_pagina()
+
+    def nueva_pagina(self) -> None:
+        self.paginas.append([])
+
+    @property
+    def contenido(self) -> list[str]:
+        return self.paginas[-1]
+
+    def y(self, y_top: float) -> float:
+        return self.alto - y_top
+
+    def texto(self, x: float, y_top: float, texto: str, size: int = 9, bold: bool = False, color: str | None = None) -> None:
+        fuente = "F2" if bold else "F1"
+        if color:
+            self.contenido.append(color)
+        self.contenido.append(f"BT /{fuente} {size} Tf {x:.2f} {self.y(y_top):.2f} Td ({self._esc(texto)}) Tj ET")
+        if color:
+            self.contenido.append(PDF_COLOR_RESET)
+
+    def linea(self, x1: float, y1_top: float, x2: float, y2_top: float, ancho: float = 0.6) -> None:
+        self.contenido.append(f"{ancho:.2f} w {x1:.2f} {self.y(y1_top):.2f} m {x2:.2f} {self.y(y2_top):.2f} l S")
+
+    def rect(self, x: float, y_top: float, w: float, h: float, fill: str | None = None, stroke: bool = True) -> None:
+        op = "B" if fill and stroke else ("f" if fill else "S")
+        if fill:
+            self.contenido.append(fill)
+        self.contenido.append(f"{x:.2f} {self.y(y_top + h):.2f} {w:.2f} {h:.2f} re {op}")
+        if fill:
+            self.contenido.append(PDF_COLOR_RESET)
+
+    def wrap(self, texto: str, ancho: float, size: int) -> list[str]:
+        max_chars = max(8, int(ancho / (size * 0.48)))
+        palabras = str(texto or "").split()
+        if not palabras:
+            return [""]
+        palabras_partidas: list[str] = []
+        for palabra in palabras:
+            if len(palabra) <= max_chars:
+                palabras_partidas.append(palabra)
+            else:
+                for i in range(0, len(palabra), max_chars):
+                    palabras_partidas.append(palabra[i : i + max_chars])
+        lineas: list[str] = []
+        actual = ""
+        for palabra in palabras_partidas:
+            candidato = palabra if not actual else f"{actual} {palabra}"
+            if len(candidato) <= max_chars:
+                actual = candidato
+            else:
+                if actual:
+                    lineas.append(actual)
+                actual = palabra
+        if actual:
+            lineas.append(actual)
+        return lineas
+
+    def tabla(
+        self,
+        x: float,
+        y_top: float,
+        columnas: list[tuple[str, float, str]],
+        filas: list[list[str]],
+        *,
+        size: int = 8,
+        header_size: int = 8,
+        margen_inferior: float = 44,
+        repetir_cabecera: bool = True,
+        titulo_continuacion: str | None = None,
+    ) -> float:
+        y = y_top
+        ancho_total = sum(col[1] for col in columnas)
+
+        def cabecera(y_actual: float) -> float:
+            self.rect(x, y_actual, ancho_total, 21, fill=PDF_COLOR_HEADER_DARK)
+            cx = x
+            for titulo, ancho, _align in columnas:
+                self.texto(cx + 4, y_actual + 13, titulo, header_size, True, PDF_COLOR_WHITE)
+                cx += ancho
+            return y_actual + 21
+
+        if y + 24 > self.alto - margen_inferior:
+            self.nueva_pagina()
+            if titulo_continuacion:
+                dibujar_cabecera(self, titulo_continuacion, "Continuacion")
+                y = 96
+            else:
+                y = 34
+        y = cabecera(y)
+        if not filas:
+            filas = [["Sin datos"] + [""] * (len(columnas) - 1)]
+        for idx, fila in enumerate(filas):
+            lineas_por_col = [self.wrap(fila[i] if i < len(fila) else "", columnas[i][1] - 8, size) for i in range(len(columnas))]
+            alto = max(18, 9 + max(len(l) for l in lineas_por_col) * (size + 2))
+            if y + alto > self.alto - margen_inferior:
+                self.nueva_pagina()
+                if titulo_continuacion:
+                    dibujar_cabecera(self, titulo_continuacion, "Continuacion")
+                    y = 96
+                else:
+                    y = 34
+                if repetir_cabecera:
+                    y = cabecera(y)
+            if idx % 2 == 1:
+                self.rect(x, y, ancho_total, alto, fill=PDF_COLOR_TABLE_ALT, stroke=False)
+            cx = x
+            for i, (_titulo, ancho, align) in enumerate(columnas):
+                self.linea(cx, y, cx, y + alto, 0.25)
+                texto_lineas = lineas_por_col[i]
+                for j, linea in enumerate(texto_lineas):
+                    tx = cx + 4
+                    if align == "right":
+                        tx = cx + ancho - 4 - min(len(linea) * size * 0.46, ancho - 8)
+                    self.texto(tx, y + 12 + j * (size + 2), linea, size)
+                cx += ancho
+            self.linea(x + ancho_total, y, x + ancho_total, y + alto, 0.25)
+            self.linea(x, y + alto, x + ancho_total, y + alto, 0.25)
+            y += alto
+        return y
+
+    def bloque_info(self, x: float, y_top: float, columnas: list[tuple[str, str]], ancho: float = 539, titulo_continuacion: str | None = None) -> float:
+        filas = [[etiqueta, valor] for etiqueta, valor in columnas]
+        return self.tabla(
+            x,
+            y_top,
+            [("Dato", 118, "left"), ("Valor", ancho - 118, "left")],
+            filas,
+            size=8,
+            header_size=8,
+            repetir_cabecera=False,
+            titulo_continuacion=titulo_continuacion,
+        )
+
+    def guardar(self, ruta: Path) -> None:
+        objetos: list[bytes] = []
+
+        def add(contenido: bytes) -> int:
+            objetos.append(contenido)
+            return len(objetos)
+
+        catalog_id = add(b"")
+        pages_id = add(b"")
+        font_id = add(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>")
+        bold_id = add(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>")
+        page_ids = []
+        for pagina in self.paginas:
+            stream = "\n".join(pagina).encode("cp1252", errors="replace")
+            content_id = add(b"<< /Length " + str(len(stream)).encode("ascii") + b" >>\nstream\n" + stream + b"\nendstream")
+            page = (
+                f"<< /Type /Page /Parent {pages_id} 0 R /MediaBox [0 0 {self.ancho:.0f} {self.alto:.0f}] "
+                f"/Resources << /Font << /F1 {font_id} 0 R /F2 {bold_id} 0 R >> >> "
+                f"/Contents {content_id} 0 R >>"
+            ).encode("ascii")
+            page_ids.append(add(page))
+        kids = " ".join(f"{pid} 0 R" for pid in page_ids)
+        objetos[pages_id - 1] = f"<< /Type /Pages /Kids [{kids}] /Count {len(page_ids)} >>".encode("ascii")
+        objetos[catalog_id - 1] = f"<< /Type /Catalog /Pages {pages_id} 0 R >>".encode("ascii")
+        salida = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
+        offsets = [0]
+        for i, obj in enumerate(objetos, start=1):
+            offsets.append(len(salida))
+            salida.extend(f"{i} 0 obj\n".encode("ascii"))
+            salida.extend(obj)
+            salida.extend(b"\nendobj\n")
+        xref = len(salida)
+        salida.extend(f"xref\n0 {len(objetos) + 1}\n0000000000 65535 f \n".encode("ascii"))
+        for offset in offsets[1:]:
+            salida.extend(f"{offset:010d} 00000 n \n".encode("ascii"))
+        salida.extend(
+            f"trailer << /Size {len(objetos) + 1} /Root {catalog_id} 0 R >>\nstartxref\n{xref}\n%%EOF".encode("ascii")
+        )
+        ruta.write_bytes(bytes(salida))
+
+    @staticmethod
+    def _esc(texto: str) -> str:
+        return str(texto or "").replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
+
+def dibujar_cabecera(pdf: PdfSimple, titulo: str, subtitulo: str = "") -> None:
+    pdf.rect(0, 0, pdf.ancho, 82, fill=PDF_COLOR_HEADER_BG, stroke=False)
+    pdf.rect(28, 26, 4, 34, fill=PDF_COLOR_HEADER_DARK, stroke=False)
+    pdf.texto(40, 30, "EMBUTIDOS RODRIGUEZ", 8, True, PDF_COLOR_HEADER_DARK)
+    pdf.texto(40, 49, titulo, 15, True, PDF_COLOR_TEXT_DARK)
+    if subtitulo:
+        pdf.texto(40, 66, subtitulo, 9, False, PDF_COLOR_TEXT_MUTED)
+    pdf.texto(pdf.ancho - 150, 30, datetime.now().strftime("%d/%m/%Y %H:%M"), 8, False, PDF_COLOR_TEXT_MUTED)
+
+
+def asegurar_espacio(pdf: PdfSimple, y: float, alto: float, titulo: str, subtitulo: str = "Continuacion") -> float:
+    if y + alto <= pdf.alto - 44:
+        return y
+    pdf.nueva_pagina()
+    dibujar_cabecera(pdf, titulo, subtitulo)
+    return 96
+
+
+def titulo_seccion(pdf: PdfSimple, y: float, texto: str, titulo_doc: str) -> float:
+    y = asegurar_espacio(pdf, y, 26, titulo_doc)
+    pdf.texto(28, y, texto, 10, True, PDF_COLOR_HEADER_DARK)
+    pdf.linea(28, y + 5, pdf.ancho - 28, y + 5, 0.45)
+    return y + 13
+
+
 def generar_pdf_diferencias(path: Path, result: RecepcionResult) -> None:
     legacy = _legacy_recepcion_module()
     if legacy is not None:
@@ -471,36 +735,125 @@ def generar_pdf_diferencias(path: Path, result: RecepcionResult) -> None:
 
 def generar_pdf_rangos(path: Path, result: RecepcionResult, metadata: dict[str, str] | None = None) -> None:
     metadata = metadata or {}
-    legacy = _legacy_recepcion_module()
-    if legacy is not None:
-        legacy.generar_pdf_rangos(
-            path,
-            result.filas_rangos,
-            result.registros_txt,
-            result.registros_oficiales,
-            metadata,
-            result.incidencias,
-        )
-        return
-    pdf = SimplePdf(f"Recepcion Maquilas {result.partida}")
-    pdf.add(f"Recepcion Maquilas {result.partida}")
-    pdf.add("")
-    pdf.add(f"Ganadero: {metadata.get('ganadero') or 'EMBUTIDOS RODRIGUEZ'}")
-    pdf.add(f"Origen: {metadata.get('origen') or 'Espana'}")
-    pdf.add(f"Peso total: {decimal_a_es(result.peso_total, 2)} kg")
-    pdf.add("")
-    pdf.add("Clasificacion por rangos")
-    for fila in result.filas_rangos[:36]:
-        pdf.add(
-            f"{fila.lote} | {fila.etiqueta_rango} | {fila.producto_corto} | "
-            f"{fila.piezas} | {decimal_a_es(fila.peso_total, 2)} kg | {decimal_a_es(fila.peso_medio, 2)} kg"
-        )
-    if result.incidencias:
-        pdf.add("")
-        pdf.add("Avisos")
-        for incidencia in result.incidencias[:8]:
-            pdf.add(incidencia)
-    pdf.save(path)
+    _generar_pdf_rangos_profesional(
+        path,
+        result.filas_rangos,
+        result.registros_txt,
+        result.registros_oficiales,
+        metadata,
+        result.incidencias,
+    )
+
+
+def _generar_pdf_rangos_profesional(
+    ruta: Path,
+    filas: list[FilaRango],
+    registros_txt: list[RegistroMaquila],
+    registros_oficiales: list[RegistroOficial],
+    metadatos: dict[str, str],
+    incidencias: list[str],
+) -> None:
+    partida = valor_mayoritario(r.partida for r in registros_txt) or "-"
+    codigo = valor_mayoritario(r.codigo_fac for r in registros_txt)
+    lote_txt = valor_mayoritario(r.lote for r in registros_txt)
+    fecha_recepcion = unir_valores_unicos(formatear_fecha_recepcion(r.fecha) for r in registros_txt)
+    albaran = unir_valores_unicos(r.albaran for r in registros_oficiales)
+    lotes_origen = resumen_lotes_origen(registros_oficiales)
+    peso_total = sum((fila.peso_total for fila in filas), Decimal("0"))
+    piezas_total = sum(fila.piezas for fila in filas)
+    medio = peso_total / Decimal(piezas_total) if piezas_total else Decimal("0")
+
+    titulo_doc = f"Recepcion Maquilas {partida}"
+    pdf = PdfSimple(titulo_doc)
+    dibujar_cabecera(pdf, titulo_doc, "Clasificacion por rangos de peso")
+    y = titulo_seccion(pdf, 96, "Datos del informe", titulo_doc)
+    info = [
+        ("Ganadero", metadatos.get("ganadero") or "EMBUTIDOS RODRIGUEZ"),
+        ("Partida", partida),
+        ("Albaran", albaran),
+        ("Codigo FAC", codigo),
+        ("Lote", lote_txt),
+        ("Fecha recepcion", fecha_recepcion),
+        ("Origen", metadatos.get("origen") or "Espana"),
+    ]
+    if tiene_certificado_welfair(registros_oficiales):
+        info.append(("Certificado Welfair", "Si"))
+    if metadatos.get("dac"):
+        info.append(("N DAC", metadatos["dac"]))
+    if metadatos.get("contrato"):
+        info.append(("Contrato", metadatos["contrato"]))
+    if metadatos.get("control_temperatura"):
+        info.append(("Control de temperatura", metadatos["control_temperatura"]))
+    if metadatos.get("ph"):
+        info.append(("PH", metadatos["ph"]))
+    if metadatos.get("observaciones"):
+        info.append(("Observaciones", metadatos["observaciones"]))
+    info.append(("Especificacion", metadatos.get("especificacion") or ""))
+    y = pdf.bloque_info(28, y, info, 539, titulo_doc)
+    y += 16
+
+    y = titulo_seccion(pdf, y, "Lotes origen albaran", titulo_doc)
+    y = pdf.tabla(
+        28,
+        y,
+        [
+            ("Lote origen", 112, "left"),
+            ("Piezas", 56, "right"),
+            ("Lote origen", 112, "left"),
+            ("Piezas", 56, "right"),
+            ("Lote origen", 112, "left"),
+            ("Piezas", 91, "right"),
+        ],
+        lotes_origen_en_columnas(lotes_origen),
+        size=8,
+        titulo_continuacion=titulo_doc,
+    )
+    y += 16
+
+    if incidencias:
+        y = titulo_seccion(pdf, y, "Avisos", titulo_doc)
+        filas_avisos = [[incidencia] for incidencia in incidencias[:8]]
+        if len(incidencias) > 8:
+            filas_avisos.append([f"... y {len(incidencias) - 8} avisos mas"])
+        y = pdf.tabla(28, y, [("Aviso", 539, "left")], filas_avisos, size=8, titulo_continuacion=titulo_doc)
+        y += 16
+
+    filas_tabla = [
+        [
+            fila.lote,
+            fila.etiqueta_rango,
+            fila.producto_corto,
+            str(fila.piezas),
+            decimal_a_es(fila.peso_total, 2),
+            decimal_a_es(fila.peso_medio, 2),
+        ]
+        for fila in filas
+    ]
+    y = titulo_seccion(pdf, y, "Clasificacion por rangos", titulo_doc)
+    y = pdf.tabla(
+        28,
+        y,
+        [
+            ("Lote", 112, "left"),
+            ("Rango", 112, "left"),
+            ("Producto", 70, "left"),
+            ("Piezas", 65, "right"),
+            ("Peso", 90, "right"),
+            ("Peso medio", 90, "right"),
+        ],
+        filas_tabla,
+        size=8,
+        titulo_continuacion=titulo_doc,
+    )
+    if y + 28 > pdf.alto - 40:
+        pdf.nueva_pagina()
+        dibujar_cabecera(pdf, titulo_doc, "Continuacion")
+        y = 96
+    pdf.rect(28, y + 6, 539, 24, fill=PDF_COLOR_HEADER_DARK, stroke=False)
+    pdf.texto(38, y + 21, f"Total piezas: {piezas_total}", 9, True, PDF_COLOR_WHITE)
+    pdf.texto(200, y + 21, f"Peso total: {decimal_a_es(peso_total, 2)} kg", 9, True, PDF_COLOR_WHITE)
+    pdf.texto(392, y + 21, f"Peso medio: {decimal_a_es(medio, 2)} kg", 9, True, PDF_COLOR_WHITE)
+    pdf.guardar(ruta)
 
 
 @lru_cache(maxsize=1)

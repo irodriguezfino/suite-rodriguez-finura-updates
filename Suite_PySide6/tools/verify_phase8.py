@@ -17,6 +17,10 @@ from suite_pyside6.ui.main_window import MainWindow
 from suite_pyside6.ui.recepcion_maquilas_window import RecepcionMaquilasWindow
 
 
+def pdf_text(path: Path) -> str:
+    return path.read_bytes().decode("cp1252", errors="ignore")
+
+
 def write_seals(path: Path) -> None:
     wb = Workbook()
     ws = wb.active
@@ -78,6 +82,11 @@ def main() -> int:
         assert pdf_ranges.read_bytes().startswith(b"%PDF")
         assert both_diff.read_bytes().startswith(b"%PDF")
         assert both_ranges.read_bytes().startswith(b"%PDF")
+        ranges_text = pdf_text(pdf_ranges)
+        assert "Datos del informe" in ranges_text
+        assert "Lotes origen albaran" in ranges_text
+        assert "Clasificacion por rangos" in ranges_text
+        assert "Total piezas: 2" in ranges_text
         window.close()
 
     menu = MainWindow()

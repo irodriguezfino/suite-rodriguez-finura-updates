@@ -31,6 +31,10 @@ from suite_pyside6.ui.control_recepcion_maquilas_window import ControlRecepcionM
 from suite_pyside6.ui.main_window import MainWindow
 
 
+def pdf_text(path: Path) -> str:
+    return path.read_bytes().decode("cp1252", errors="ignore")
+
+
 def write_seals(path: Path) -> None:
     wb = Workbook()
     ws = wb.active
@@ -132,6 +136,11 @@ def main() -> int:
         assert len(recepcion.filas_rangos) == 1
         save_pdf_rangos(pdf, result)
         assert pdf.read_bytes().startswith(b"%PDF")
+        ranges_text = pdf_text(pdf)
+        assert "Datos del informe" in ranges_text
+        assert "Lotes origen albaran" in ranges_text
+        assert "Clasificacion por rangos" in ranges_text
+        assert "Total piezas: 2" in ranges_text
         result.recepcion = recepcion
         result.pdf_rangos = pdf
         original_smtp = smtplib.SMTP

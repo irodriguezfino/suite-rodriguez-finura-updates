@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.7.3"
+VERSION = "1.7.4"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
@@ -291,21 +291,11 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
     full_digest = sha256(full_package)
     installer_digest = sha256(installer_bat)
     notes = (
-        "- Rediseño estructural 1.7.0: el inicio deja de ser un catalogo y pasa a ser un workspace operativo.\n"
-        "- Nuevo mini design system reutilizable con paneles, metricas, badges, estados vacios y filas de modulo.\n"
-        "- Navegacion lateral mas sobria, clara y compacta, con flujos clave separados de las areas generales.\n"
-        "- Lista operativa de modulos con jerarquia, estado, categoria, atajo y accion primaria sin tarjetas pesadas.\n"
-        "- Paleta visual mas neutra y profesional, con acentos reducidos y superficies limpias tipo SaaS.\n"
-        "- Mejora transversal para modulos embebidos: toolbars, paneles y superficies heredan un lenguaje mas limpio.\n"
-        "- Contrato UI actualizado para proteger el nuevo workspace SaaS y sus filas operativas.\n"
-        "- Se mantiene intacta la logica de negocio y la paridad funcional validada."
-    )
-    notes = (
-        "- La aplicacion Pesos acepta tambien archivos Excel .xls.\n"
-        "- Los archivos .xls se procesan mediante Excel instalado en Windows para renombrar la primera hoja visible a Hoja1.\n"
-        "- Se actualizan dialogos, contadores y mensajes para tratar .xls como Excel procesable.\n"
-        "- Se mantiene compatibilidad con .xlsx y .xlsm sin cambios funcionales.\n"
-        "- No se publica ninguna contrasena ni secreto en el repositorio o paquetes."
+        "- Control y Recepción Maquilas recupera el informe PDF profesional de rangos.\n"
+        "- El PDF de rangos ya no depende de carpetas internas de desarrollo para mantener su formato en instalaciones publicadas.\n"
+        "- Se conservan los campos del informe: ganadero, origen, DAC, contrato, temperatura, PH, observaciones y especificacion.\n"
+        "- Se mantienen la tabla de lotes origen albaran, la clasificacion por rangos y los totales profesionales.\n"
+        "- No se cambia el flujo funcional ni los estilos globales de la suite."
     )
     manifest = {
         "schema": "suite-rodriguez-finura-update-v1",
