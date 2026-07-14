@@ -13,7 +13,6 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMainWindow,
-    QPlainTextEdit,
     QProgressBar,
     QPushButton,
     QSizePolicy,
@@ -165,20 +164,19 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         metrics_layout.setHorizontalSpacing(8)
         metrics_layout.setVerticalSpacing(4)
         self.metric_total = control_metric_pair(metrics_layout, 0, "Registros", "0")
-        self.metric_valid = control_metric_pair(metrics_layout, 1, "Válidos", "0")
-        self.metric_errors = control_metric_pair(metrics_layout, 2, "Errores", "0")
-        self.metric_weight = control_metric_pair(metrics_layout, 3, "Peso origen", "-")
+        self.metric_weight = control_metric_pair(metrics_layout, 1, "Peso origen", "-")
+        self.metric_final = control_metric_pair(metrics_layout, 2, "Peso final", "-")
+        self.metric_loss = control_metric_pair(metrics_layout, 3, "Merma", "-")
         preview_layout.addWidget(self.metrics_strip)
 
-        self.preview_table = QTableWidget(0, 5)
+        self.preview_table = QTableWidget(0, 4)
         self.preview_table.setAccessibleName("Vista previa de pesos ajustados por precinto")
-        self.preview_table.setAccessibleDescription("Tabla de revisión de los registros válidos y de las incidencias por fila.")
-        self.preview_table.setHorizontalHeaderLabels(["Precinto", "Peso original", "Merma aplicada", "Peso ajustado", "Estado"])
+        self.preview_table.setAccessibleDescription("Tabla de revisión de los pesos ajustados por fila.")
+        self.preview_table.setHorizontalHeaderLabels(["Precinto", "Peso original", "Merma aplicada", "Peso ajustado"])
         self.preview_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.preview_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.preview_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
         self.preview_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
-        self.preview_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch)
         self.preview_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         preview_layout.addWidget(self.preview_table, 1)
 
@@ -215,16 +213,6 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         self.export_button.clicked.connect(self.save_csv_dialog)
         self.export_button.setAccessibleDescription("Guarda un CSV AX con solo precinto y peso ajustado.")
         rail_layout.addWidget(self.export_button)
-        rail_layout.addWidget(section_label("Incidencias y avisos"))
-        self.issues = QPlainTextEdit()
-        self.issues.setObjectName("OutputText")
-        self.issues.setAccessibleName("Incidencias y avisos de validación")
-        self.issues.setReadOnly(True)
-        self.issues.setLineWrapMode(QPlainTextEdit.WidgetWidth)
-        self.issues.setMinimumHeight(92)
-        self.issues.setMaximumHeight(180)
-        rail_layout.addWidget(self.issues, 1)
-
         workspace_layout.addWidget(preview_panel, 5)
         workspace_layout.addWidget(rail, 2)
         layout.addWidget(workspace, 1)
@@ -287,7 +275,7 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         elif self.source_result.errors:
             self.state = "Con errores"
         elif not self.final_weight.text().strip():
-            self.state = "Con advertencias" if self.source_result.warnings else "Fichero analizado"
+            self.state = "Fichero analizado"
         else:
             validation = validate_final_weight(self.final_weight.text(), self.source_result.total_weight)
             self.final_issues = validation.issues
@@ -300,7 +288,7 @@ class RepartoMermaPrecintosWindow(QMainWindow):
                     self.final_issues = exc.issues if isinstance(exc, DomainValidationError) else (ValidationIssue("CALCULATION_ERROR", str(exc)),)
                     self.state = "Con errores"
                 else:
-                    self.state = "Con advertencias" if self.adjustment.warnings or self.source_result.warnings else "Listo para exportar"
+                    self.state = "Listo para exportar"
         self._refresh()
 
     def save_csv_dialog(self) -> None:
@@ -325,7 +313,7 @@ class RepartoMermaPrecintosWindow(QMainWindow):
             write_ax_csv(path, self.adjustment)
         except (OSError, DomainValidationError, ValueError) as exc:
             self.state = "Error de exportación"
-            self.final_issues = (ValidationIssue("EXPORT_ERROR", str(exc)),)
+            self.final_issues = (ValidationIssue("EXPORT_ERROR", f"No se pudo generar el CSV: {exc}"),)
             self.status.setText(f"Error de exportación: {exc}")
             show_inline_message(self, "error", str(exc))
         else:
@@ -352,24 +340,24 @@ class RepartoMermaPrecintosWindow(QMainWindow):
     def _refresh(self) -> None:
         result = self.source_result
         total_records = len(result.records) if result is not None else 0
-        error_count = len(result.errors) if result is not None else 0
-        final_errors = len([issue for issue in self.final_issues if issue.severity == "error"])
-        valid_count = total_records if result is not None and not result.errors else 0
         total_weight = result.total_weight if result is not None else None
+        final_weight = self.adjustment.final_weight if self.adjustment is not None else None
+        loss_text = "-"
+        if self.adjustment is not None:
+            loss_text = f"{self._format_weight(self.adjustment.absolute_loss)} ({self._format_percentage(self.adjustment.loss_percentage)})"
         self.metric_total.setText(str(total_records))
-        self.metric_valid.setText(str(valid_count))
-        self.metric_errors.setText(str(error_count + final_errors))
         self.metric_weight.setText(self._format_weight(total_weight) if total_weight is not None else "-")
+        self.metric_final.setText(self._format_weight(final_weight))
+        self.metric_loss.setText(loss_text)
         for label, value in (
             (self.metric_total, total_records),
-            (self.metric_valid, valid_count),
-            (self.metric_errors, error_count + final_errors),
             (self.metric_weight, self._format_weight(total_weight) if total_weight is not None else "-"),
+            (self.metric_final, self._format_weight(final_weight)),
+            (self.metric_loss, loss_text),
         ):
             label.setAccessibleDescription(f"{label.accessibleName()}: {value}")
         self.file_detail.setText(self._file_text())
         self.summary.setText(self._summary_text())
-        self.issues.setPlainText(self._issues_text())
         self._populate_preview_table()
         can_export = self.adjustment is not None and not self._blocking_errors() and self.adjustment.adjusted_total == self.adjustment.final_weight
         self.export_button.setEnabled(can_export)
@@ -378,7 +366,7 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         self._sync_recommended_action()
 
     def _populate_preview_table(self) -> None:
-        rows: list[tuple[str, str, str, str, str]] = []
+        rows: list[tuple[str, str, str, str]] = []
         if self.source_result is not None:
             preview = build_preview(self.adjustment) if self.adjustment is not None else None
             adjusted = {row.line_number: row for row in preview.rows} if preview is not None else {}
@@ -390,12 +378,7 @@ class RepartoMermaPrecintosWindow(QMainWindow):
                     self._format_weight(record.peso_original),
                     self._format_percentage(percentage) if percentage is not None else "-",
                     self._format_weight(row.peso_ajustado) if row is not None else "-",
-                    "Listo" if row is not None else "Pendiente de peso final",
                 ))
-            remaining = max(0, PREVIEW_LIMIT - len(rows))
-            for issue in self.source_result.errors[:remaining]:
-                if issue.line_number is not None:
-                    rows.append((f"Línea {issue.line_number}", "-", "-", "-", f"Error: {issue.message}"))
         with bulk_table_update(self.preview_table):
             self.preview_table.setRowCount(len(rows))
             for row_index, row in enumerate(rows):
@@ -404,8 +387,7 @@ class RepartoMermaPrecintosWindow(QMainWindow):
                     item.setToolTip(value)
                     item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
                     self.preview_table.setItem(row_index, column, item)
-        issue_rows = len([issue for issue in self.source_result.errors if issue.line_number is not None]) if self.source_result else 0
-        total = (len(self.source_result.records) if self.source_result is not None else 0) + issue_rows
+        total = len(self.source_result.records) if self.source_result is not None else 0
         update_count_label(self.preview_count, len(rows), total, "registros")
 
     def _refresh_pilot_state(self) -> None:
@@ -421,11 +403,10 @@ class RepartoMermaPrecintosWindow(QMainWindow):
     def _pilot_state(self) -> tuple[str, str, int]:
         states = {
             "Exportación completada": ("El CSV AX se ha guardado y validado correctamente.", 100),
-            "Error de exportación": ("No se pudo generar el CSV; revisa las incidencias.", 85),
+            "Error de exportación": (self._technical_error_text("No se pudo generar el CSV."), 85),
             "Generando archivo": ("Generando y validando los bytes del CSV AX.", 90),
-            "Con errores": ("Corrige las incidencias antes de exportar.", 45),
+            "Con errores": (self._technical_error_text("Corrige el fichero o el peso final antes de exportar."), 45),
             "Listo para exportar": ("La suma ajustada coincide exactamente con el peso final.", 85),
-            "Con advertencias": ("Revisa los avisos; una ganancia de peso puede exportarse si no hay errores.", 80),
             "Fichero analizado": ("Introduce el peso final para calcular el reparto.", 55),
             "Analizando": ("Leyendo formato, registros y validaciones.", 20),
             "Cargando": ("Preparando el fichero para su análisis.", 10),
@@ -438,7 +419,7 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         if self.source_result is None:
             return "Cargar fichero"
         if self._blocking_errors():
-            return "Corregir incidencias"
+            return "Corregir el fichero o el peso final"
         if self.adjustment is None:
             return "Indicar peso final"
         return "Guardar CSV AX"
@@ -459,7 +440,7 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         if self.source_result is None:
             return "Sin fichero cargado"
         name = self.source_path.name if self.source_path is not None else "Fichero"
-        return f"{name} | {len(self.source_result.records)} registros | {len(self.source_result.errors)} errores"
+        return f"{name} | {len(self.source_result.records)} registros"
 
     def _file_text(self) -> str:
         if self.source_path is None or self.source_result is None:
@@ -469,21 +450,10 @@ class RepartoMermaPrecintosWindow(QMainWindow):
             return f"{self.source_path.name}\nFormato no válido"
         return f"{self.source_path.name}\n{source_format.encoding}, {source_format.line_ending}, separador {source_format.delimiter}"
 
-    def _issues_text(self) -> str:
-        issues: list[ValidationIssue] = []
-        if self.source_result is not None:
-            issues.extend(self.source_result.issues)
-        issues.extend(self.final_issues)
-        if not issues:
-            return "Sin incidencias.\n\nEl CSV AX contendrá exclusivamente Precinto y Peso ajustado."
-        lines = []
-        for issue in issues[:160]:
-            location = f"Línea {issue.line_number}: " if issue.line_number is not None else ""
-            prefix = "Error" if issue.severity == "error" else "Aviso"
-            lines.append(f"{prefix}: {location}{issue.message}")
-        if len(issues) > 160:
-            lines.append(f"... {len(issues) - 160} incidencias más")
-        return "\n".join(lines)
+    def _technical_error_text(self, fallback: str) -> str:
+        source_errors = self.source_result.errors if self.source_result is not None else ()
+        issue = next(iter(source_errors or self.final_issues), None)
+        return issue.message if issue is not None else fallback
 
     @staticmethod
     def _format_weight(value: Decimal | None) -> str:
@@ -501,7 +471,7 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         if self.state in {"Con errores", "Error de exportación"}:
             return 2, True, False
         if self.adjustment is not None:
-            return 4, self.state == "Con advertencias", False
+            return 4, False, False
         if self.source_result is not None:
             return 2, False, False
         return 1, False, False

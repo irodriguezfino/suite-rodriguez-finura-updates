@@ -43,7 +43,7 @@ class RepartoMermaPrecintosWindowTests(unittest.TestCase):
             window.final_weight.setText("27,00")
             self.assertEqual(window.state, "Listo para exportar")
             self.assertTrue(window.export_button.isEnabled())
-            self.assertEqual(window.preview_table.columnCount(), 5)
+            self.assertEqual(window.preview_table.columnCount(), 4)
             output = Path(directory) / "ax.csv"
             window.save_path(output)
             self.assertEqual(window.state, "Exportación completada")
@@ -51,20 +51,19 @@ class RepartoMermaPrecintosWindowTests(unittest.TestCase):
             self.assertTrue(all(len(row.split(";")) == 2 for row in output.read_text(encoding="cp1252").splitlines()))
             window.close()
 
-    def test_errores_bloquean_y_ganancia_advierte_pero_permite_exportar(self):
+    def test_duplicados_no_bloquean_ni_muestran_avisos(self):
         with tempfile.TemporaryDirectory() as directory:
             window = RepartoMermaPrecintosWindow()
             window.load_path(self.make_source(directory, "A;X;1\r\nA;X;2\r\n"))
-            self.assertEqual(window.state, "Con errores")
-            self.assertFalse(window.export_button.isEnabled())
-            window.load_path(self.make_source(directory, "A;X;1\r\n"))
-            window.final_weight.setText("2,00")
-            self.assertEqual(window.state, "Con advertencias")
+            self.assertEqual(window.state, "Fichero analizado")
+            self.assertEqual(window.preview_table.rowCount(), 2)
+            window.final_weight.setText("1,50")
+            self.assertEqual(window.state, "Listo para exportar")
             self.assertTrue(window.export_button.isEnabled())
-            self.assertIn("ganancia", window.issues.toPlainText().lower())
-            window.clear()
-            self.assertEqual(window.state, "Inicial")
-            self.assertFalse(window.export_button.isEnabled())
+            output = Path(directory) / "duplicados.csv"
+            window.save_path(output)
+            self.assertEqual(output.read_text(encoding="cp1252"), "A;0,50\nA;1,00\n")
+            self.assertFalse(hasattr(window, "issues"))
             window.close()
 
     def test_vista_previa_limita_las_filas_renderizadas(self):
@@ -100,7 +99,7 @@ class RepartoMermaPrecintosWindowTests(unittest.TestCase):
             window.save_path(Path(directory) / "no_existe" / "ax.csv")
             self.assertEqual(window.state, "Error de exportación")
             self.assertFalse(window.export_button.isEnabled())
-            self.assertIn("Error", window.issues.toPlainText())
+            self.assertIn("No se pudo", window.rail_detail.text())
             window.close()
 
 

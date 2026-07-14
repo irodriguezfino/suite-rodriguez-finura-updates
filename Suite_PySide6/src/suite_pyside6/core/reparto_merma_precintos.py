@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Literal
 
 
-Severity = Literal["error", "warning"]
+Severity = Literal["error"]
 
 
 @dataclass(frozen=True)
@@ -59,10 +59,6 @@ class SourceReadResult:
     @property
     def errors(self) -> tuple[ValidationIssue, ...]:
         return tuple(issue for issue in self.issues if issue.severity == "error")
-
-    @property
-    def warnings(self) -> tuple[ValidationIssue, ...]:
-        return tuple(issue for issue in self.issues if issue.severity == "warning")
 
     @property
     def total_weight(self) -> Decimal:
@@ -131,7 +127,6 @@ class AdjustmentResult:
     loss_percentage: Decimal
     adjustment_factor: Decimal
     rows: tuple[AdjustmentRow, ...]
-    warnings: tuple[ValidationIssue, ...]
 
     @property
     def adjusted_total(self) -> Decimal:
@@ -202,7 +197,7 @@ def _normalized_label(value: str) -> str:
 def _looks_like_header(fields: list[str]) -> bool:
     first = _normalized_label(fields[0]) if fields else ""
     third = _normalized_label(fields[2]) if len(fields) > 2 else ""
-    return "precinto" in first or "peso" in third
+    return bool(re.fullmatch(r"precinto(?:\s+\w+)?", first) or re.fullmatch(r"peso(?:\s+\w+)?", third))
 
 
 def _is_total_or_technical(fields: list[str]) -> bool:
@@ -270,7 +265,6 @@ def read_source_file(path: Path) -> SourceReadResult:
     records: list[SourceRecord] = []
     ignored: list[IgnoredRow] = []
     issues: list[ValidationIssue] = []
-    decimal_separators: set[str] = set()
     first_content_seen = False
     has_header = False
 
@@ -305,10 +299,6 @@ def read_source_file(path: Path) -> SourceReadResult:
         if not raw_weight:
             issues.append(ValidationIssue("EMPTY_WEIGHT", "El peso esta vacio.", line_number=line_number))
             continue
-        if "," in raw_weight:
-            decimal_separators.add("comma")
-        if "." in raw_weight:
-            decimal_separators.add("point")
         try:
             weight = _parse_decimal(raw_weight, "El peso", line_number)
         except ValueError as exc:
@@ -319,25 +309,6 @@ def read_source_file(path: Path) -> SourceReadResult:
             continue
         records.append(SourceRecord(line_number, len(records), precinto, weight))
 
-    seen: set[str] = set()
-    for record in records:
-        if record.precinto in seen:
-            issues.append(
-                ValidationIssue(
-                    "DUPLICATE_SEAL",
-                    f"El precinto '{record.precinto}' esta duplicado.",
-                    line_number=record.line_number,
-                )
-            )
-        seen.add(record.precinto)
-    if len(decimal_separators) > 1:
-        issues.append(
-            ValidationIssue(
-                "INCONSISTENT_DECIMAL_SEPARATOR",
-                "Se detectaron separadores decimales de coma y punto.",
-                severity="warning",
-            )
-        )
     total = sum((record.peso_original for record in records), Decimal("0"))
     if records and total == 0:
         issues.append(ValidationIssue("ZERO_SOURCE_TOTAL", "El peso total de origen es cero."))
@@ -372,16 +343,7 @@ def validate_final_weight(
                 ),
             ),
         )
-    warnings: list[ValidationIssue] = []
-    if weight > source_total:
-        warnings.append(
-            ValidationIssue(
-                "WEIGHT_GAIN",
-                "El peso final es superior al de origen; se tratara como ganancia de peso.",
-                severity="warning",
-            )
-        )
-    return FinalWeightValidation(weight, tuple(warnings))
+    return FinalWeightValidation(weight, ())
 
 
 def _rounding_order(
@@ -465,7 +427,6 @@ def calculate_adjustment(
         loss_percentage=((source.total_weight - final_weight) / source.total_weight) * Decimal("100"),
         adjustment_factor=factor,
         rows=rows,
-        warnings=final_validation.issues,
     )
     if result.adjusted_total != final_weight:
         raise ValueError("La suma de pesos ajustados no coincide exactamente con el peso final.")

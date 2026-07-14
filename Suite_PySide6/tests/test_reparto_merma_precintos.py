@@ -29,17 +29,17 @@ class RepartoMermaPrecintosTests(unittest.TestCase):
 
     def test_calculos_normales_ausencia_merma_y_ganancia(self):
         source = "A;X;10,00\r\nB;X;20,00\r\n"
-        for final, loss, percentage, factor, warning in (
-            ("27,00", Decimal("3.00"), Decimal("10.0"), Decimal("0.9"), False),
-            ("30,00", Decimal("0.00"), Decimal("0"), Decimal("1"), False),
-            ("33,00", Decimal("-3.00"), Decimal("-10.0"), Decimal("1.1"), True),
+        for final, loss, percentage, factor in (
+            ("0,00", Decimal("30.00"), Decimal("100"), Decimal("0")),
+            ("27,00", Decimal("3.00"), Decimal("10.0"), Decimal("0.9")),
+            ("30,00", Decimal("0.00"), Decimal("0"), Decimal("1")),
+            ("33,00", Decimal("-3.00"), Decimal("-10.0"), Decimal("1.1")),
         ):
             with self.subTest(final=final):
                 result = self.result(source, final)
                 self.assertEqual(result.absolute_loss, loss)
                 self.assertEqual(result.loss_percentage, percentage)
                 self.assertEqual(result.adjustment_factor, factor)
-                self.assertEqual(bool(result.warnings), warning)
                 self.assertEqual(result.adjusted_total, Decimal(final.replace(",", ".")))
 
     def test_un_precinto_varios_precintos_y_decimales(self):
@@ -49,13 +49,14 @@ class RepartoMermaPrecintosTests(unittest.TestCase):
         self.assertEqual([row.source.precinto for row in many.rows], ["A", "B", "C"])
         self.assertEqual(many.adjusted_total, Decimal("8.50"))
 
-    def test_coma_punto_y_aviso_inconsistente(self):
+    def test_coma_punto_sin_avisos(self):
         comma = self.read("A;X;1,25\r\n")
         point = self.read("A;X;1.25\r\n")
         mixed = self.read("A;X;1,25\r\nB;X;2.50\r\n")
         self.assertEqual(comma.total_weight, Decimal("1.25"))
         self.assertEqual(point.total_weight, Decimal("1.25"))
-        self.assertIn("INCONSISTENT_DECIMAL_SEPARATOR", [issue.code for issue in mixed.warnings])
+        self.assertTrue(mixed.is_valid)
+        self.assertEqual(mixed.issues, ())
 
     def test_residuo_positivo_y_negativo_se_concilian(self):
         positive = self.result("A;X;1\r\nB;X;1\r\nC;X;1\r\n", "1,00")
@@ -72,9 +73,17 @@ class RepartoMermaPrecintosTests(unittest.TestCase):
         self.assertEqual(uneven.adjusted_total, Decimal("500.00"))
         self.assertGreater(uneven.rows[1].adjusted_weight, uneven.rows[0].adjusted_weight)
 
-    def test_duplicados_y_validaciones_de_registro(self):
+    def test_duplicados_se_conservan_por_fila_y_se_exportan_en_orden(self):
+        result = self.result("PRECINTO-001;A;100\r\nPRECINTO-001;B;50\r\nPRECINTO-002;C;150\r\n", "150,00")
+        self.assertEqual(result.source_total, Decimal("300"))
+        self.assertEqual([row.source.precinto for row in result.rows], ["PRECINTO-001", "PRECINTO-001", "PRECINTO-002"])
+        self.assertEqual([row.adjusted_weight for row in result.rows], [Decimal("50.00"), Decimal("25.00"), Decimal("75.00")])
+        self.assertEqual(result.adjusted_total, Decimal("150.00"))
+        content = render_ax_csv(result).decode("cp1252")
+        self.assertEqual(content, "PRECINTO-001;50,00\r\nPRECINTO-001;25,00\r\nPRECINTO-002;75,00\r\n")
+
+    def test_validaciones_de_registro(self):
         cases = {
-            "A;X;1\r\nA;X;2\r\n": "DUPLICATE_SEAL",
             ";X;1\r\n": "EMPTY_SEAL",
             "A;X;\r\n": "EMPTY_WEIGHT",
             "A;X;abc\r\n": "INVALID_WEIGHT",
@@ -128,7 +137,7 @@ class RepartoMermaPrecintosTests(unittest.TestCase):
                 self.assertEqual(validate_final_weight(value, total).issues[0].code, code)
         gain = validate_final_weight("11,00", total)
         self.assertTrue(gain.is_valid)
-        self.assertEqual(gain.issues[0].code, "WEIGHT_GAIN")
+        self.assertEqual(gain.issues, ())
 
     def test_csv_ax_dos_columnas_suma_orden_y_bytes(self):
         result = self.result("B;X;2,00\r\nA;X;1,00\r\n", "2,00")

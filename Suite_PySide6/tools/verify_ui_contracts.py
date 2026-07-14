@@ -74,6 +74,7 @@ def assert_core_unchanged() -> None:
         "Suite_PySide6/src/suite_pyside6/core/control_recepcion_maquilas.py",
         "Suite_PySide6/src/suite_pyside6/core/precintos_jamones.py",
         "Suite_PySide6/src/suite_pyside6/core/pesos.py",
+        "Suite_PySide6/src/suite_pyside6/core/reparto_merma_precintos.py",
         "Suite_PySide6/src/suite_pyside6/core/recepcion_maquilas.py",
     }
     changed = [
