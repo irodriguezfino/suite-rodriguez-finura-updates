@@ -96,6 +96,15 @@ APP_REGISTRY: tuple[AppDefinition, ...] = (
         shortcut="Alt+9",
         migration_status="ported",
     ),
+    AppDefinition(
+        key="reparto_merma_precintos",
+        title="Reparto de Merma por Precintos",
+        description="Distribuye proporcionalmente la merma entre precintos y genera el CSV para AX.",
+        short_description="TXT/CSV de pesos a CSV AX.",
+        category="Pesos",
+        shortcut="Alt+0",
+        migration_status="ported",
+    ),
 )
 
 
