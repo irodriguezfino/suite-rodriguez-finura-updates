@@ -67,9 +67,9 @@ class MainWindow(QMainWindow):
         self.context_timer.start()
 
     def _build_actions(self) -> None:
-        for index, app in enumerate(APP_REGISTRY, start=1):
+        for app in APP_REGISTRY:
             action = QAction(self)
-            action.setShortcut(f"Alt+{index}")
+            action.setShortcut(app.shortcut)
             action.triggered.connect(lambda _checked=False, item=app: self.open_app(item))
             self.addAction(action)
 
@@ -835,6 +835,7 @@ class MainWindow(QMainWindow):
             "Recepción Maquilas": "REC",
             "Control y Recepción Maquilas": "CTL",
             "Pesos": "P",
+            "Reparto de Merma por Precintos": "RM",
         }
         compact_mapping = {
             "Merma Jamones FAC": "Merma FAC",
@@ -844,6 +845,7 @@ class MainWindow(QMainWindow):
             "Precintos Excel a CSV": "Excel",
             "Recepción Maquilas": "Recepción",
             "Control y Recepción Maquilas": "Control",
+            "Reparto de Merma por Precintos": "Merma precintos",
         }
         return (narrow_mapping if narrow else compact_mapping).get(text, text)
 

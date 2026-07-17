@@ -26,6 +26,10 @@ _WINDOW_SPECS: dict[str, WindowSpec] = {
         "ControlRecepcionMaquilasWindow",
     ),
     "pesos": WindowSpec("suite_pyside6.ui.pesos_window", "PesosWindow"),
+    "reparto_merma_precintos": WindowSpec(
+        "suite_pyside6.ui.reparto_merma_precintos_window",
+        "RepartoMermaPrecintosWindow",
+    ),
 }
 
 _WINDOW_CACHE: dict[str, type[QMainWindow]] = {}
