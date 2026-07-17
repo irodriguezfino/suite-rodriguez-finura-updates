@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.7.6
+
+- Reparto de Merma por Precintos procesa el Excel de mensajes: precinto en el primer campo y peso en el tercero.
+- El reparto conserva todas las filas, incluidos los precintos duplicados, y genera el CSV AX conciliado.
+- Nueva herramienta Precintos TXT a CSV AX: extrae el texto situado a la derecha de -> y genera un CSV de una columna.
+- No se modifican los estilos globales, el tema ni los flujos del resto de aplicaciones.
