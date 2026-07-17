@@ -14,6 +14,11 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation, ROUND_FLOOR, ROUND_HALF_UP, localcontext
 from pathlib import Path
 from typing import Literal
+from zipfile import BadZipFile
+
+from openpyxl import load_workbook
+from openpyxl.utils.exceptions import InvalidFileException
+from openpyxl.workbook.workbook import Workbook
 
 
 Severity = Literal["error"]
@@ -35,10 +40,9 @@ class IgnoredRow:
 
 @dataclass(frozen=True)
 class SourceFormat:
-    encoding: str
-    delimiter: str
-    line_ending: str
-    has_header: bool
+    worksheet: str
+    column: str
+    has_message_header: bool
 
 
 @dataclass(frozen=True)
@@ -159,50 +163,8 @@ class DomainValidationError(ValueError):
         super().__init__("; ".join(issue.message for issue in issues))
 
 
-def _line_ending(text: str) -> str:
-    crlf = text.count("\r\n")
-    lf = text.count("\n") - crlf
-    cr = text.count("\r") - crlf
-    kinds = sum(bool(value) for value in (crlf, lf, cr))
-    if kinds == 0:
-        return "NONE"
-    if kinds > 1:
-        return "MIXED"
-    if crlf:
-        return "CRLF"
-    if lf:
-        return "LF"
-    return "CR"
-
-
-def _decode_source(raw: bytes) -> tuple[str | None, str | None, ValidationIssue | None]:
-    if not raw:
-        return None, None, ValidationIssue("EMPTY_FILE", "El fichero esta vacio.")
-    encodings = ("utf-8-sig", "cp1252") if raw.startswith(b"\xef\xbb\xbf") else ("utf-8", "cp1252")
-    for encoding in encodings:
-        try:
-            text = raw.decode(encoding, errors="strict")
-        except UnicodeDecodeError:
-            continue
-        if "\x00" in text or any(ord(char) < 32 and char not in "\t\r\n" for char in text):
-            continue
-        return text, encoding, None
-    return None, None, ValidationIssue("INVALID_ENCODING", "La codificacion del fichero no es valida.")
-
-
-def _normalized_label(value: str) -> str:
-    return re.sub(r"\s+", " ", value.strip().casefold())
-
-
-def _looks_like_header(fields: list[str]) -> bool:
-    first = _normalized_label(fields[0]) if fields else ""
-    third = _normalized_label(fields[2]) if len(fields) > 2 else ""
-    return bool(re.fullmatch(r"precinto(?:\s+\w+)?", first) or re.fullmatch(r"peso(?:\s+\w+)?", third))
-
-
-def _is_total_or_technical(fields: list[str]) -> bool:
-    label = next((_normalized_label(field) for field in fields[:3] if field.strip()), "")
-    return label.startswith(("total", "subtotal", "totales", "fin", "footer"))
+def _is_message_header(value: str) -> bool:
+    return value.strip().casefold().startswith("mensaje")
 
 
 def _parse_decimal(value: str, field_name: str, line_number: int | None = None) -> Decimal:
@@ -233,62 +195,43 @@ def _parse_decimal(value: str, field_name: str, line_number: int | None = None) 
         raise ValueError(f"{field_name} no numerico{suffix}") from exc
 
 
-def read_source_file(path: Path) -> SourceReadResult:
-    """Lee TXT/CSV con precinto en la primera columna y peso en la tercera."""
-
-    if path.suffix.lower() not in {".txt", ".csv"}:
-        return SourceReadResult(
-            None,
-            (),
-            (),
-            (ValidationIssue("UNSUPPORTED_FORMAT", "Solo se admiten ficheros TXT o CSV."),),
-        )
-    try:
-        raw = path.read_bytes()
-    except OSError as exc:
-        return SourceReadResult(None, (), (), (ValidationIssue("READ_ERROR", f"No se pudo leer el fichero: {exc}"),))
-
-    text, encoding, decode_issue = _decode_source(raw)
-    if decode_issue:
-        return SourceReadResult(None, (), (), (decode_issue,))
-    assert text is not None and encoding is not None
-    if not text.strip():
-        return SourceReadResult(None, (), (), (ValidationIssue("EMPTY_FILE", "El fichero esta vacio."),))
-    if ";" not in text:
-        return SourceReadResult(
-            None,
-            (),
-            (),
-            (ValidationIssue("UNSUPPORTED_FORMAT", "El formato debe usar punto y coma como separador."),),
-        )
-
+def _read_message_workbook(workbook: Workbook) -> SourceReadResult:
     records: list[SourceRecord] = []
     ignored: list[IgnoredRow] = []
     issues: list[ValidationIssue] = []
     first_content_seen = False
-    has_header = False
+    has_message_header = False
+    worksheet = workbook.active
 
-    for line_number, line in enumerate(text.splitlines(), start=1):
-        if not line.strip() or not line.replace(";", "").strip():
+    for line_number, row in enumerate(worksheet.iter_rows(values_only=True), start=1):
+        value = row[0] if row else None
+        if value is None or not str(value).strip():
             ignored.append(IgnoredRow(line_number, "fila vacia"))
             continue
-        try:
-            fields = next(csv.reader([line], delimiter=";", quotechar='"', strict=True))
-        except csv.Error as exc:
-            issues.append(ValidationIssue("INVALID_CSV_ROW", f"Fila CSV invalida: {exc}", line_number=line_number))
+        if any(cell is not None and str(cell).strip() for cell in row[1:]):
+            issues.append(
+                ValidationIssue(
+                    "INVALID_WORKBOOK_LAYOUT",
+                    "Cada mensaje debe estar contenido en la primera columna del Excel.",
+                    line_number=line_number,
+                )
+            )
             continue
+        message = str(value).strip()
         if not first_content_seen:
             first_content_seen = True
-            if _looks_like_header(fields):
-                has_header = True
-                ignored.append(IgnoredRow(line_number, "encabezado"))
+            if _is_message_header(message):
+                has_message_header = True
+                ignored.append(IgnoredRow(line_number, "encabezado de mensaje"))
                 continue
-        if _is_total_or_technical(fields):
-            ignored.append(IgnoredRow(line_number, "fila total o tecnica"))
+        try:
+            fields = next(csv.reader([message], delimiter=";", quotechar='"', strict=True))
+        except csv.Error as exc:
+            issues.append(ValidationIssue("INVALID_MESSAGE_ROW", f"Mensaje invalido: {exc}", line_number=line_number))
             continue
         if len(fields) < 3:
             issues.append(
-                ValidationIssue("TOO_FEW_FIELDS", "La fila tiene menos de tres campos.", line_number=line_number)
+                ValidationIssue("TOO_FEW_FIELDS", "El mensaje tiene menos de tres campos.", line_number=line_number)
             )
             continue
         precinto = fields[0].strip()
@@ -315,8 +258,28 @@ def read_source_file(path: Path) -> SourceReadResult:
     if not records and not issues:
         issues.append(ValidationIssue("NO_VALID_RECORDS", "No hay registros validos."))
 
-    source_format = SourceFormat(encoding, ";", _line_ending(text), has_header)
+    source_format = SourceFormat(worksheet.title, "A", has_message_header)
     return SourceReadResult(source_format, tuple(records), tuple(ignored), tuple(issues))
+
+
+def read_source_file(path: Path) -> SourceReadResult:
+    """Lee el Excel de mensajes con precinto primero y peso tercero."""
+
+    if path.suffix.lower() != ".xlsx":
+        return SourceReadResult(
+            None,
+            (),
+            (),
+            (ValidationIssue("UNSUPPORTED_FORMAT", "Solo se admiten libros Excel .xlsx."),),
+        )
+    try:
+        workbook = load_workbook(path, read_only=True, data_only=True, keep_links=False)
+    except (OSError, InvalidFileException, BadZipFile, KeyError, ValueError) as exc:
+        return SourceReadResult(None, (), (), (ValidationIssue("READ_ERROR", f"No se pudo leer el fichero: {exc}"),))
+    try:
+        return _read_message_workbook(workbook)
+    finally:
+        workbook.close()
 
 
 def validate_final_weight(

@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from openpyxl import Workbook
 from PySide6.QtWidgets import QApplication
 
 from suite_pyside6.core.apps import app_by_key
@@ -17,9 +18,15 @@ class RepartoMermaPrecintosWindowTests(unittest.TestCase):
         cls.application = QApplication.instance() or QApplication([])
 
     @staticmethod
-    def make_source(directory: str, text: str) -> Path:
-        path = Path(directory) / "origen.txt"
-        path.write_text(text, encoding="utf-8", newline="")
+    def make_source(directory: str, messages: list[str], name: str = "origen.xlsx") -> Path:
+        path = Path(directory) / name
+        workbook = Workbook()
+        worksheet = workbook.active
+        worksheet.append(["Mensaje (09:40:14)"])
+        for message in messages:
+            worksheet.append([message])
+        workbook.save(path)
+        workbook.close()
         return path
 
     def test_registro_navegacion_y_estado_inicial(self):
@@ -37,7 +44,7 @@ class RepartoMermaPrecintosWindowTests(unittest.TestCase):
     def test_flujo_valido_exporta_solo_dos_columnas(self):
         with tempfile.TemporaryDirectory() as directory:
             window = RepartoMermaPrecintosWindow()
-            window.load_path(self.make_source(directory, "A;X;10,00\r\nB;X;20,00\r\n"))
+            window.load_path(self.make_source(directory, ["A;X;10,00;1", "B;X;20,00;1"]))
             self.assertEqual(window.state, "Fichero analizado")
             self.assertFalse(window.export_button.isEnabled())
             window.final_weight.setText("27,00")
@@ -54,7 +61,7 @@ class RepartoMermaPrecintosWindowTests(unittest.TestCase):
     def test_duplicados_no_bloquean_ni_muestran_avisos(self):
         with tempfile.TemporaryDirectory() as directory:
             window = RepartoMermaPrecintosWindow()
-            window.load_path(self.make_source(directory, "A;X;1\r\nA;X;2\r\n"))
+            window.load_path(self.make_source(directory, ["A;X;1;1", "A;X;2;1"]))
             self.assertEqual(window.state, "Fichero analizado")
             self.assertEqual(window.preview_table.rowCount(), 2)
             window.final_weight.setText("1,50")
@@ -68,9 +75,8 @@ class RepartoMermaPrecintosWindowTests(unittest.TestCase):
 
     def test_vista_previa_limita_las_filas_renderizadas(self):
         with tempfile.TemporaryDirectory() as directory:
-            source = "\r\n".join(f"P{index};X;1,00" for index in range(300)) + "\r\n"
             window = RepartoMermaPrecintosWindow()
-            window.load_path(self.make_source(directory, source))
+            window.load_path(self.make_source(directory, [f"P{index};X;1,00;1" for index in range(300)]))
             self.assertEqual(len(window.source_result.records), 300)
             self.assertEqual(window.preview_table.rowCount(), 250)
             self.assertIn("250 de 300", window.preview_count.text())
@@ -78,9 +84,8 @@ class RepartoMermaPrecintosWindowTests(unittest.TestCase):
 
     def test_recargar_fichero_limpia_el_peso_final_anterior(self):
         with tempfile.TemporaryDirectory() as directory:
-            first = self.make_source(directory, "A;X;1,00\r\n")
-            second = Path(directory) / "segundo.txt"
-            second.write_text("B;X;2,00\r\n", encoding="utf-8", newline="")
+            first = self.make_source(directory, ["A;X;1,00;1"])
+            second = self.make_source(directory, ["B;X;2,00;1"], "segundo.xlsx")
             window = RepartoMermaPrecintosWindow()
             window.load_path(first)
             window.final_weight.setText("1,00")
@@ -94,7 +99,7 @@ class RepartoMermaPrecintosWindowTests(unittest.TestCase):
     def test_error_de_exportacion_se_muestra_y_no_deja_salida_lista(self):
         with tempfile.TemporaryDirectory() as directory:
             window = RepartoMermaPrecintosWindow()
-            window.load_path(self.make_source(directory, "A;X;1,00\r\n"))
+            window.load_path(self.make_source(directory, ["A;X;1,00;1"]))
             window.final_weight.setText("1,00")
             window.save_path(Path(directory) / "no_existe" / "ax.csv")
             self.assertEqual(window.state, "Error de exportación")
