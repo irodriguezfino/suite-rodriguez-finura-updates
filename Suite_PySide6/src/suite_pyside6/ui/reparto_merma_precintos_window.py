@@ -126,7 +126,7 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         actions_layout.addWidget(command, 1)
         self.load_button = QPushButton("Cargar fichero")
         self.load_button.setProperty("primary", True)
-        self.load_button.setAccessibleDescription("Selecciona un TXT o CSV con precinto en la primera columna y peso en la tercera.")
+        self.load_button.setAccessibleDescription("Selecciona un Excel de mensajes con precinto en el primer campo y peso en el tercero.")
         self.load_button.clicked.connect(self.select_file)
         self.clear_button = QPushButton("Reiniciar")
         self.clear_button.clicked.connect(self.clear)
@@ -188,7 +188,7 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         rail_layout.setSpacing(9)
         rail_layout.addWidget(section_label("Control del reparto"))
         self.rail_state = control_rail_label("Inicial", role="state")
-        self.rail_detail = control_rail_label("Carga un TXT o CSV para analizar sus precintos y pesos.")
+        self.rail_detail = control_rail_label("Carga un Excel de mensajes para analizar sus precintos y pesos.")
         self.rail_progress = QProgressBar()
         self.rail_progress.setObjectName("ControlProgress")
         self.rail_progress.setRange(0, 100)
@@ -207,7 +207,7 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         self.file_detail = control_rail_label("Sin fichero seleccionado")
         rail_layout.addWidget(self.file_detail)
         rail_layout.addWidget(section_label("Formato admitido"))
-        rail_layout.addWidget(control_rail_label("TXT o CSV; ; como separador; precinto en la columna 1 y peso en la columna 3."))
+        rail_layout.addWidget(control_rail_label("Excel .xlsx; cada mensaje en la columna A; precinto en el campo 1 y peso en el campo 3."))
 
         self.export_button = QPushButton("Guardar CSV AX")
         self.export_button.clicked.connect(self.save_csv_dialog)
@@ -231,7 +231,7 @@ class RepartoMermaPrecintosWindow(QMainWindow):
             self,
             "reparto_merma_precintos/input",
             "Selecciona fichero de pesos",
-            "TXT o CSV (*.txt *.csv);;TXT (*.txt);;CSV (*.csv);;Todos (*.*)",
+            "Excel (*.xlsx);;Todos (*.*)",
         )
         if path is not None:
             self.queue_load_path(path)
@@ -410,7 +410,7 @@ class RepartoMermaPrecintosWindow(QMainWindow):
             "Fichero analizado": ("Introduce el peso final para calcular el reparto.", 55),
             "Analizando": ("Leyendo formato, registros y validaciones.", 20),
             "Cargando": ("Preparando el fichero para su análisis.", 10),
-            "Inicial": ("Carga un TXT o CSV para analizar sus precintos y pesos.", 0),
+            "Inicial": ("Carga un Excel de mensajes para analizar sus precintos y pesos.", 0),
         }
         detail, progress = states.get(self.state, states["Inicial"])
         return self.state, detail, progress
@@ -448,7 +448,8 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         source_format = self.source_result.source_format
         if source_format is None:
             return f"{self.source_path.name}\nFormato no válido"
-        return f"{self.source_path.name}\n{source_format.encoding}, {source_format.line_ending}, separador {source_format.delimiter}"
+        header = "con encabezado de mensaje" if source_format.has_message_header else "sin encabezado de mensaje"
+        return f"{self.source_path.name}\nHoja {source_format.worksheet}, columna {source_format.column}, {header}"
 
     def _technical_error_text(self, fallback: str) -> str:
         source_errors = self.source_result.errors if self.source_result is not None else ()

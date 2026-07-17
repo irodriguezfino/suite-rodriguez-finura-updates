@@ -16,6 +16,7 @@ class WindowSpec:
 _WINDOW_SPECS: dict[str, WindowSpec] = {
     "exportar_precintos_excel": WindowSpec("suite_pyside6.ui.precintos_excel_window", "PrecintosExcelWindow"),
     "txt_csv": WindowSpec("suite_pyside6.ui.txt_csv_window", "TxtCsvWindow"),
+    "precintos_txt_ax": WindowSpec("suite_pyside6.ui.precintos_txt_ax_window", "PrecintosTxtAxWindow"),
     "palets": WindowSpec("suite_pyside6.ui.palets_window", "PaletsWindow"),
     "mermas": WindowSpec("suite_pyside6.ui.mermas_window", "MermasWindow"),
     "precintos_expedicion": WindowSpec("suite_pyside6.ui.precintos_expedicion_window", "PrecintosExpedicionWindow"),

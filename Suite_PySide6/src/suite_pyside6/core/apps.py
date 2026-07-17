@@ -88,6 +88,15 @@ APP_REGISTRY: tuple[AppDefinition, ...] = (
         migration_status="ported",
     ),
     AppDefinition(
+        key="precintos_txt_ax",
+        title="Precintos TXT a CSV AX",
+        description="Extrae los precintos a la derecha de -> y genera un CSV de una columna para AX.",
+        short_description="TXT de flechas a CSV AX.",
+        category="Excel / CSV",
+        shortcut="Alt+P",
+        migration_status="ported",
+    ),
+    AppDefinition(
         key="pesos",
         title="Pesos",
         description="Renombra la primera hoja visible de varios Excel a Hoja1 sin cambiar datos.",
@@ -99,8 +108,8 @@ APP_REGISTRY: tuple[AppDefinition, ...] = (
     AppDefinition(
         key="reparto_merma_precintos",
         title="Reparto de Merma por Precintos",
-        description="Distribuye proporcionalmente la merma entre precintos y genera el CSV para AX.",
-        short_description="TXT/CSV de pesos a CSV AX.",
+        description="Distribuye proporcionalmente la merma del Excel de mensajes y genera el CSV para AX.",
+        short_description="Excel de mensajes a CSV AX.",
         category="Pesos",
         shortcut="Alt+0",
         migration_status="ported",
