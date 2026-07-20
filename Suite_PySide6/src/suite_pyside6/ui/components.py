@@ -33,6 +33,14 @@ def labeled_field(label_text: str, field: QWidget, *, compact: bool = False) -> 
     return group
 
 
+def configure_header_action(button: QPushButton) -> QPushButton:
+    """Aplica la variante compartida para acciones de la cabecera principal."""
+    button.setProperty("headerAction", True)
+    button.setMinimumHeight(36)
+    button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Minimum)
+    return button
+
+
 def page_header(title: str, subtitle: str = "", actions: list[QWidget] | None = None) -> QFrame:
     header = QFrame()
     header.setObjectName("ConsoleHeader")
@@ -192,7 +200,15 @@ def dropzone(title: str, body: str, action: QPushButton | None = None) -> QFrame
     return empty_state(title, body, action)
 
 
-def module_row(title: str, description: str, category: str, status: str, shortcut: str, action: QPushButton) -> QFrame:
+def module_row(
+    title: str,
+    description: str,
+    category: str,
+    status: str,
+    shortcut: str,
+    action: QPushButton,
+    description_control: QWidget | None = None,
+) -> QFrame:
     row = QFrame()
     row.setObjectName("ModuleRow")
     row.setAccessibleName(title)
@@ -214,9 +230,10 @@ def module_row(title: str, description: str, category: str, status: str, shortcu
     title_label = QLabel(title)
     title_label.setObjectName("ModuleTitle")
     title_label.setWordWrap(True)
-    desc_label = QLabel(description)
-    desc_label.setObjectName("ModuleDescription")
-    desc_label.setWordWrap(True)
+    desc_label = description_control or QLabel(description)
+    if description_control is None:
+        desc_label.setObjectName("ModuleDescription")
+        desc_label.setWordWrap(True)
     text_layout.addWidget(title_label)
     text_layout.addWidget(desc_label)
 

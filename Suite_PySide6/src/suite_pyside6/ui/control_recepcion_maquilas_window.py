@@ -9,7 +9,6 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QHeaderView,
     QHBoxLayout,
-    QInputDialog,
     QLabel,
     QLineEdit,
     QMainWindow,
@@ -44,19 +43,12 @@ from suite_pyside6.ui.components import control_metric_pair, control_pill, contr
 from suite_pyside6.ui.file_dialogs import open_file, open_files, save_file
 from suite_pyside6.ui.polish import collapsible_section, confirm_discard_work, show_inline_message, polish_window, sync_recommended_action
 from suite_pyside6.ui.responsive import make_flow, make_widgets_resizable
-from suite_pyside6.ui.session import (
-    MAX_PERSONAL_DESCRIPTION_LENGTH,
-    personal_description,
-    remove_personal_description,
-    save_personal_description,
-    settings,
-)
+from suite_pyside6.ui.session import settings
 from suite_pyside6.ui.table_utils import bulk_table_update, update_count_label
 from suite_pyside6.ui.theme import base_qss
 
 
 ASUNTO_LEGACY_DEFECTO = "Recepcion maquilas - documentacion"
-PERSONAL_DESCRIPTION_KEY = "control_recepcion_precintos.description"
 
 
 class ControlRecepcionPrecintosWindow(QMainWindow):
@@ -99,30 +91,11 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
         hero_copy.setSpacing(3)
         title = QLabel("Control y Recepción Precintos")
         title.setObjectName("WindowTitle")
-        self.standard_description = QLabel(
-            "Valida TXT FAC, corrige incidencias, cruza SealsReport y prepara la salida documental."
-        )
+        self.standard_description = QLabel("Valida TXT FAC, corrige incidencias, cruza SealsReport y prepara la salida documental.")
         self.standard_description.setObjectName("WindowSubtitle")
         self.standard_description.setWordWrap(True)
-        self.personal_description_note = QLabel()
-        self.personal_description_note.setObjectName("PersonalDescription")
-        self.personal_description_note.setTextFormat(Qt.PlainText)
-        self.personal_description_note.setWordWrap(True)
-        self.personal_description_note.setAccessibleName("Aclaración personal")
         hero_copy.addWidget(title)
         hero_copy.addWidget(self.standard_description)
-        hero_copy.addWidget(self.personal_description_note)
-        personal_actions = QHBoxLayout()
-        personal_actions.setContentsMargins(0, 2, 0, 0)
-        self.personal_description_button = QPushButton()
-        self.personal_description_button.setAccessibleName("Añadir o editar aclaración personal")
-        self.personal_description_button.clicked.connect(self.edit_personal_description)
-        self.delete_personal_description_button = QPushButton("Eliminar aclaración personal")
-        self.delete_personal_description_button.clicked.connect(self.delete_personal_description)
-        personal_actions.addWidget(self.personal_description_button)
-        personal_actions.addWidget(self.delete_personal_description_button)
-        personal_actions.addStretch(1)
-        hero_copy.addLayout(personal_actions)
         hero_layout.addLayout(hero_copy, 1)
 
         hero_status = QFrame()
@@ -445,43 +418,6 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
         self.status.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.status)
         self.setCentralWidget(root)
-        self._refresh_personal_description()
-
-    def edit_personal_description(self) -> None:
-        current = personal_description(PERSONAL_DESCRIPTION_KEY)
-        text, accepted = QInputDialog.getMultiLineText(
-            self,
-            "Aclaración personal",
-            f"Añade una nota privada para este proceso (máximo {MAX_PERSONAL_DESCRIPTION_LENGTH} caracteres):",
-            current,
-        )
-        if not accepted:
-            return
-        try:
-            saved = save_personal_description(PERSONAL_DESCRIPTION_KEY, text)
-        except ValueError as exc:
-            self.status.setText(str(exc))
-            if self.show_dialogs:
-                show_inline_message(self, "warning", str(exc))
-            return
-        self.status.setText("Aclaración personal guardada." if saved else "Aclaración personal eliminada.")
-        self._refresh_personal_description()
-
-    def delete_personal_description(self) -> None:
-        if not personal_description(PERSONAL_DESCRIPTION_KEY):
-            return
-        remove_personal_description(PERSONAL_DESCRIPTION_KEY)
-        self.status.setText("Aclaración personal eliminada.")
-        self._refresh_personal_description()
-
-    def _refresh_personal_description(self) -> None:
-        note = personal_description(PERSONAL_DESCRIPTION_KEY)
-        self.personal_description_note.setText(note)
-        self.personal_description_note.setVisible(bool(note))
-        self.personal_description_button.setText(
-            "Editar aclaración personal" if note else "Añadir aclaración personal"
-        )
-        self.delete_personal_description_button.setEnabled(bool(note))
 
     def select_txt(self) -> None:
         files = open_files(self, "control_recepcion_maquilas/txt", "Selecciona TXT FAC", "TXT (*.txt);;Todos (*.*)")

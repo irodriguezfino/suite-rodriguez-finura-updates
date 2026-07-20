@@ -86,6 +86,8 @@ Desde v1.4.43 `Control y Recepcion Maquilas` reorganiza la interfaz en grupos de
 
 Desde v1.7.7 el flujo unificado pasa a llamarse `Control y Recepción Precintos`. Sustituye la entrada independiente de recepción y conserva el cruce con SealsReport, la corrección de TXT, los rangos PDF y el envío de correo. Cada perfil de Windows puede añadir una aclaración privada persistente que complementa las instrucciones del proceso.
 
+Desde v1.7.8 cada perfil puede personalizar de forma independiente la descripción de la cabecera de una aplicación y la de cada proceso de la bandeja. Las acciones de descripción, versión y Bandeja se agrupan en la cabecera con una disposición uniforme y siguen siendo visibles en resoluciones estrechas.
+
 ## Aplicaciones incluidas
 
 ### Merma jamones FAC embutidos Rodriguez

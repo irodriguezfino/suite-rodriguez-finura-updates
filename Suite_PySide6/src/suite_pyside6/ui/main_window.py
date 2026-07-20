@@ -28,8 +28,14 @@ from suite_pyside6.core.apps import APP_REGISTRY, AppDefinition, app_by_key, cat
 from suite_pyside6.core.paths import resource_path
 from suite_pyside6.ui.about_dialog import AboutDialog
 from suite_pyside6.ui.app_windows import get_window_class
-from suite_pyside6.ui.components import dropzone, empty_state, labeled_field, metric, module_row, panel, work_item
+from suite_pyside6.ui.components import configure_header_action, dropzone, empty_state, labeled_field, metric, module_row, panel, work_item
 from suite_pyside6.ui.polish import apply_premium_depth, apply_theme_mode, brand_logo_pixmap, focus_next_action, handle_dropped_paths, operational_snapshot, prepare_embedded_window, trigger_next_action
+from suite_pyside6.ui.personalized_descriptions import (
+    PersonalizedDescriptionControl,
+    header_description_key,
+    migrate_control_recepcion_precintos_header,
+    process_description_key,
+)
 from suite_pyside6.ui.session import recent_app_keys, recent_paths, remember_app_open
 from suite_pyside6.ui.theme import base_qss, current_theme_preference
 
@@ -227,12 +233,13 @@ class MainWindow(QMainWindow):
         title_box.setSpacing(2)
         self.workspace_title = QLabel("Bandeja")
         self.workspace_title.setObjectName("ShellTitle")
-        self.workspace_subtitle = QLabel("Carga archivos, detecta procesos y continúa trabajos activos.")
-        self.workspace_subtitle.setObjectName("ShellSubtitle")
-        self.workspace_subtitle.setWordWrap(True)
-        self.workspace_subtitle.setMinimumWidth(0)
+        self.workspace_description = PersonalizedDescriptionControl(
+            "Carga archivos, detecta procesos y continúa trabajos activos.",
+            label_object_name="ShellSubtitle",
+        )
+        self.workspace_subtitle = self.workspace_description.description_label
         title_box.addWidget(self.workspace_title)
-        title_box.addWidget(self.workspace_subtitle)
+        title_box.addWidget(self.workspace_description)
         layout.addLayout(title_box, 1)
 
         self.compact_context_bar = self._build_compact_context_bar()
@@ -253,21 +260,24 @@ class MainWindow(QMainWindow):
         actions_layout = QHBoxLayout(self.header_actions)
         actions_layout.setContentsMargins(0, 0, 0, 0)
         actions_layout.setSpacing(8)
+        self.workspace_description.move_actions_to(actions_layout)
 
         self.about_button = QPushButton(f"v{__version__}")
+        configure_header_action(self.about_button)
         self.about_button.setToolTip("Versión, diagnóstico y actualizaciones")
         self.about_button.setAccessibleName("Versión y actualizaciones")
         self.about_button.clicked.connect(self.show_about)
         actions_layout.addWidget(self.about_button)
 
         self.home_button = QPushButton("Bandeja")
+        configure_header_action(self.home_button)
         self.home_button.setToolTip("Volver a la bandeja sin cerrar trabajos.")
         self.home_button.setAccessibleName("Volver a Bandeja")
         self.home_button.setAccessibleDescription("Vuelve a la bandeja sin cerrar trabajos abiertos.")
         self.home_button.clicked.connect(self.show_dashboard)
         self.home_button.setVisible(False)
         actions_layout.addWidget(self.home_button)
-        layout.addWidget(self.header_actions, 0, Qt.AlignRight)
+        layout.addWidget(self.header_actions, 0, Qt.AlignRight | Qt.AlignVCenter)
         return header
 
     def _build_compact_context_bar(self) -> QFrame:
@@ -574,7 +584,12 @@ class MainWindow(QMainWindow):
         button.setProperty("primary", True)
         button.setAccessibleName(f"Abrir {app.title}")
         button.clicked.connect(lambda _checked=False, item=app: self.open_app(item))
-        return module_row(app.title, app.description, app.category, "Disponible", app.shortcut, button)
+        description = PersonalizedDescriptionControl(
+            app.description,
+            process_description_key(app.key),
+            label_object_name="ModuleDescription",
+        )
+        return module_row(app.title, app.description, app.category, "Disponible", app.shortcut, button, description)
 
     def _render_processes(self) -> None:
         if not hasattr(self, "processes_layout"):
@@ -722,7 +737,7 @@ class MainWindow(QMainWindow):
         }
         title, subtitle = titles[view]
         self.workspace_title.setText(title)
-        self.workspace_subtitle.setText(subtitle)
+        self._set_workspace_description(subtitle)
         self.search.setVisible(view in {"bandeja", "procesos"})
         self.home_button.setVisible(view != "bandeja")
         self.context_rail.setVisible(False)
@@ -760,7 +775,9 @@ class MainWindow(QMainWindow):
         if app.key in self.tab_keys:
             self.tabs.setCurrentIndex(self.tab_keys.index(app.key))
         self.workspace_title.setText(app.title)
-        self.workspace_subtitle.setText(app.description)
+        if app.key == "control_recepcion_precintos":
+            migrate_control_recepcion_precintos_header()
+        self._set_workspace_description(app.description, header_description_key(app.key))
         self.search.setVisible(False)
         self.home_button.setVisible(True)
         self.context_rail.setVisible(True)
@@ -991,11 +1008,11 @@ class MainWindow(QMainWindow):
             wide_context = self.width() >= 1000
             self.context_rail.setVisible(wide_context)
             self.compact_context_bar.setVisible(not wide_context)
-            self.workspace_subtitle.setVisible(wide_context)
-            self.header_actions.setVisible(wide_context)
+            self.workspace_description.setVisible(True)
+            self.header_actions.setVisible(True)
         elif hasattr(self, "compact_context_bar"):
             self.compact_context_bar.setVisible(False)
-            self.workspace_subtitle.setVisible(True)
+            self.workspace_description.setVisible(True)
             self.header_actions.setVisible(True)
         for category, button in self.category_buttons.items():
             count = len(list(APP_REGISTRY)) if category == "Todas" else len([app for app in APP_REGISTRY if app.category == category])
@@ -1114,6 +1131,9 @@ class MainWindow(QMainWindow):
             return app_by_key(key)
         except KeyError:
             return None
+
+    def _set_workspace_description(self, standard_description: str, preference_key: str | None = None) -> None:
+        self.workspace_description.configure(standard_description, preference_key)
 
     @staticmethod
     def _clear_layout(layout) -> None:

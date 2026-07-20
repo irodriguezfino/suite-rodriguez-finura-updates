@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.7.8
+
+- Se amplían las descripciones personales privadas a la cabecera y a cada proceso de la bandeja.
+- La cabecera agrupa y alinea Editar descripción, Restaurar, versión y Bandeja.
+- La disposición estrecha conserva las acciones visibles sin cajas vacías ni solapamientos.
+- Se conserva la compatibilidad con las aclaraciones existentes de Control y Recepción Precintos.

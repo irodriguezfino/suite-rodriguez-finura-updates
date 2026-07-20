@@ -119,6 +119,17 @@ def remove_personal_description(feature_key: str) -> None:
     app_settings.sync()
 
 
+def migrate_personal_description(source_key: str, target_key: str) -> None:
+    """Mueve una preferencia sólo si la nueva clave aún no tiene valor."""
+    if personal_description(target_key):
+        return
+    value = personal_description(source_key)
+    if not value:
+        return
+    save_personal_description(target_key, value)
+    remove_personal_description(source_key)
+
+
 def _sanitize_plain_text(value: str) -> str:
     # Se muestra siempre como texto plano; se eliminan controles no imprimibles.
     normalized = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
