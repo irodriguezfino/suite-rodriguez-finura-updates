@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from suite_pyside6 import __version__
-from suite_pyside6.core.apps import APP_REGISTRY, AppDefinition, categories
+from suite_pyside6.core.apps import APP_REGISTRY, AppDefinition, app_by_key, categories
 from suite_pyside6.core.paths import resource_path
 from suite_pyside6.ui.about_dialog import AboutDialog
 from suite_pyside6.ui.app_windows import get_window_class
@@ -420,7 +420,7 @@ class MainWindow(QMainWindow):
         columns.setSpacing(12)
         self.dashboard_columns = columns
         priority_panel, priority_layout = panel("Procesos frecuentes", "Acceso rápido a los flujos más usados.", name="ModulesPanel")
-        for key in ("control_recepcion_maquilas", "precintos_jamones", "recepcion_maquilas", "precintos_expedicion"):
+        for key in ("control_recepcion_precintos", "precintos_jamones", "precintos_expedicion"):
             app = self._app_from_key(key)
             if app is not None:
                 button = QPushButton("Abrir")
@@ -832,8 +832,7 @@ class MainWindow(QMainWindow):
             "Precintos Jamones": "PJ",
             "Precintos Expedición": "PE",
             "Precintos Excel a CSV": "XL",
-            "Recepción Maquilas": "REC",
-            "Control y Recepción Maquilas": "CTL",
+            "Control y Recepción Precintos": "CTL",
             "Pesos": "P",
             "Reparto de Merma por Precintos": "RM",
         }
@@ -843,8 +842,7 @@ class MainWindow(QMainWindow):
             "Precintos Jamones": "P. Jamones",
             "Precintos Expedición": "P. Exped.",
             "Precintos Excel a CSV": "Excel",
-            "Recepción Maquilas": "Recepción",
-            "Control y Recepción Maquilas": "Control",
+            "Control y Recepción Precintos": "Control",
             "Reparto de Merma por Precintos": "Merma precintos",
         }
         return (narrow_mapping if narrow else compact_mapping).get(text, text)
@@ -1099,9 +1097,9 @@ class MainWindow(QMainWindow):
         if csvs and excels:
             return self._app_from_key("mermas")
         if txts and excels:
-            return self._app_from_key("recepcion_maquilas")
+            return self._app_from_key("control_recepcion_precintos")
         if len(txts) > 1:
-            return self._app_from_key("control_recepcion_maquilas")
+            return self._app_from_key("control_recepcion_precintos")
         if txts:
             return self._app_from_key("txt_csv")
         if excels:
@@ -1112,7 +1110,10 @@ class MainWindow(QMainWindow):
 
     @staticmethod
     def _app_from_key(key: str) -> AppDefinition | None:
-        return next((app for app in APP_REGISTRY if app.key == key), None)
+        try:
+            return app_by_key(key)
+        except KeyError:
+            return None
 
     @staticmethod
     def _clear_layout(layout) -> None:

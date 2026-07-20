@@ -6,6 +6,8 @@ from importlib import import_module
 
 from PySide6.QtWidgets import QMainWindow
 
+from suite_pyside6.core.apps import resolve_app_key
+
 
 @dataclass(frozen=True)
 class WindowSpec:
@@ -21,10 +23,9 @@ _WINDOW_SPECS: dict[str, WindowSpec] = {
     "mermas": WindowSpec("suite_pyside6.ui.mermas_window", "MermasWindow"),
     "precintos_expedicion": WindowSpec("suite_pyside6.ui.precintos_expedicion_window", "PrecintosExpedicionWindow"),
     "precintos_jamones": WindowSpec("suite_pyside6.ui.precintos_jamones_window", "PrecintosJamonesWindow"),
-    "recepcion_maquilas": WindowSpec("suite_pyside6.ui.recepcion_maquilas_window", "RecepcionMaquilasWindow"),
-    "control_recepcion_maquilas": WindowSpec(
+    "control_recepcion_precintos": WindowSpec(
         "suite_pyside6.ui.control_recepcion_maquilas_window",
-        "ControlRecepcionMaquilasWindow",
+        "ControlRecepcionPrecintosWindow",
     ),
     "pesos": WindowSpec("suite_pyside6.ui.pesos_window", "PesosWindow"),
     "reparto_merma_precintos": WindowSpec(
@@ -37,6 +38,7 @@ _WINDOW_CACHE: dict[str, type[QMainWindow]] = {}
 
 
 def get_window_class(key: str) -> type[QMainWindow] | None:
+    key = resolve_app_key(key)
     spec = _WINDOW_SPECS.get(key)
     if spec is None:
         return None

@@ -12,9 +12,8 @@ from suite_pyside6.ui.app_windows import WINDOW_CLASSES
 
 
 MAX_INITIAL_VISIBLE_BUTTONS = {
-    "control_recepcion_maquilas": 4,
+    "control_recepcion_precintos": 6,
     "precintos_jamones": 5,
-    "recepcion_maquilas": 5,
 }
 
 

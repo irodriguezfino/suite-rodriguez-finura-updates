@@ -1,0 +1,6 @@
+Suite Rodriguez Finura v1.7.7
+
+- Control y Recepción Maquilas pasa a llamarse Control y Recepción Precintos.
+- La recepción independiente se integra en el flujo único, manteniendo compatibilidad con accesos anteriores.
+- Se añaden aclaraciones personales privadas por perfil para este proceso.
+- Las aclaraciones se conservan entre sesiones y actualizaciones, con validación y texto seguro.

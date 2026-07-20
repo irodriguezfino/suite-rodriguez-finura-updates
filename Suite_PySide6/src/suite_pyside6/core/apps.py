@@ -70,17 +70,8 @@ APP_REGISTRY: tuple[AppDefinition, ...] = (
         migration_status="ported",
     ),
     AppDefinition(
-        key="recepcion_maquilas",
-        title="Recepción Maquilas",
-        description="Compara TXT recibido con SealsReport y genera PDFs de diferencias y rangos.",
-        short_description="TXT, SealsReport y rangos PDF.",
-        category="Jamones",
-        shortcut="Alt+7",
-        migration_status="ported",
-    ),
-    AppDefinition(
-        key="control_recepcion_maquilas",
-        title="Control y Recepción Maquilas",
+        key="control_recepcion_precintos",
+        title="Control y Recepción Precintos",
         description="Corrige TXT de precintos, genera rangos y envía correo final con adjuntos.",
         short_description="TXT AX, rangos y correo.",
         category="Jamones",
@@ -117,7 +108,20 @@ APP_REGISTRY: tuple[AppDefinition, ...] = (
 )
 
 
+# Las claves antiguas quedan resueltas para favoritos, historial y accesos
+# programáticos guardados en versiones previas. No se publican como apps.
+APP_KEY_ALIASES: dict[str, str] = {
+    "control_recepcion_maquilas": "control_recepcion_precintos",
+    "recepcion_maquilas": "control_recepcion_precintos",
+}
+
+
+def resolve_app_key(key: str) -> str:
+    return APP_KEY_ALIASES.get(key, key)
+
+
 def app_by_key(key: str) -> AppDefinition:
+    key = resolve_app_key(key)
     for app in APP_REGISTRY:
         if app.key == key:
             return app

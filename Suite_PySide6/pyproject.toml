@@ -1,6 +1,6 @@
 [project]
 name = "suite-rodriguez-finura-pyside6"
-version = "1.7.6"
+version = "1.7.7"
 description = "Suite Rodriguez Finura profesional en PySide6."
 requires-python = ">=3.11"
 dependencies = [

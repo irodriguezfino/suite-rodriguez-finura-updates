@@ -32,7 +32,7 @@ SMTP_USUARIO = SMTP_USER
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD") or os.environ.get("SUITE_CONTROL_SMTP_PASSWORD", "")
 SMTP_SECURE = False
 SMTP_STARTTLS = SMTP_SECURE
-ASUNTO_DEFECTO = "Recepción maquilas - albarán {albaran}"
+ASUNTO_DEFECTO = "Recepción precintos - albarán {albaran}"
 MENSAJE_DEFECTO = (
     "Buenos dias,\n\n"
     "Adjuntamos la documentacion correspondiente a la recepcion.\n\n"

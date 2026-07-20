@@ -6,6 +6,7 @@ from PySide6.QtCore import QSettings
 
 
 MAX_RECENTS = 8
+MAX_PERSONAL_DESCRIPTION_LENGTH = 500
 
 
 def settings() -> QSettings:
@@ -91,6 +92,37 @@ def dialog_start_path(key: str, default_name: str = "") -> str:
     if directory and default_name:
         return str(Path(directory) / default_name)
     return directory
+
+
+def personal_description(feature_key: str) -> str:
+    """Devuelve la aclaración privada del perfil actual para una funcionalidad."""
+    return str(settings().value(f"preferences/{feature_key}", "") or "")
+
+
+def save_personal_description(feature_key: str, value: str) -> str:
+    """Valida y persiste texto plano en el almacén de preferencias del perfil."""
+    clean = _sanitize_plain_text(value)
+    if not clean:
+        remove_personal_description(feature_key)
+        return ""
+    if len(clean) > MAX_PERSONAL_DESCRIPTION_LENGTH:
+        raise ValueError(f"La aclaración no puede superar {MAX_PERSONAL_DESCRIPTION_LENGTH} caracteres.")
+    app_settings = settings()
+    app_settings.setValue(f"preferences/{feature_key}", clean)
+    app_settings.sync()
+    return clean
+
+
+def remove_personal_description(feature_key: str) -> None:
+    app_settings = settings()
+    app_settings.remove(f"preferences/{feature_key}")
+    app_settings.sync()
+
+
+def _sanitize_plain_text(value: str) -> str:
+    # Se muestra siempre como texto plano; se eliminan controles no imprimibles.
+    normalized = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+    return "".join(char for char in normalized if char in {"\n", "\t"} or ord(char) >= 32).strip()
 
 
 def _dedupe_existing(paths: list[str]) -> list[str]:

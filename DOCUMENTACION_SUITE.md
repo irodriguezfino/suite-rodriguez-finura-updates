@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.4.43
+Ultima revision: v1.7.7
 
 ## Para que sirve
 
@@ -84,6 +84,8 @@ Desde v1.4.42 `Control y Recepcion Maquilas` recupera el comportamiento del pane
 
 Desde v1.4.43 `Control y Recepcion Maquilas` reorganiza la interfaz en grupos de acciones por fase: TXT, Correccion, SealsReport/Albaran y Salida. Incorpora `Nuevo proceso` y `Limpiar correcciones`, mantiene la linea roja Rodriguez y los logos originales, y usa estilos compartidos para conservar compatibilidad con modo oscuro.
 
+Desde v1.7.7 el flujo unificado pasa a llamarse `Control y Recepción Precintos`. Sustituye la entrada independiente de recepción y conserva el cruce con SealsReport, la corrección de TXT, los rangos PDF y el envío de correo. Cada perfil de Windows puede añadir una aclaración privada persistente que complementa las instrucciones del proceso.
+
 ## Aplicaciones incluidas
 
 ### Merma jamones FAC embutidos Rodriguez
@@ -115,13 +117,11 @@ La aplicacion sugiere automaticamente el pallet o combinacion de pallets cuya cu
 
 Para cada jumbo reparte los kilos en milesimas entre sus unidades, cuadrando la suma exacta antes de permitir guardar. Genera un TXT independiente por cada Excel de salida con el formato `partida;fecha;hora;codigo_articulo;precinto;lote;peso;`, fecha/hora secuencial desde el momento de generacion y codificacion Windows sin BOM para evitar caracteres iniciales al importar en AX. Si la salida contiene un bloque exacto de 6 digitos, usa automaticamente `SCxxxxxx.TXT`; si no lo contiene, solicita el nombre TXT antes de guardar.
 
-### Recepcion Maquilas
+### Control y Recepción Precintos
 
-Genera informes PDF en A4 vertical a partir del TXT recibido de FAC, el Excel oficial SealsReport y el CSV interno de configuracion de articulos. El informe de diferencias muestra precintos recibidos que no aparecen en el oficial y precintos oficiales no recibidos, con tablas paginadas y texto ajustado a celda.
+Integra la validación y corrección de TXT FAC con el cruce contra SealsReport, la generación de rangos PDF y el envío de correo. Mantiene los campos de informe (ganadero, origen, DAC, contrato, temperatura, PH, observaciones y especificación) y guía el proceso por etapas.
 
-El informe de rangos agrupa las piezas por codigo FAC, lote real del TXT y rango de peso, mostrando lote, rango ajustado, piezas, peso total y peso medio. Incluye una tabla propia de lotes origen SealsReport, sin resumen truncado en cabecera. Los rangos se calculan con maximo exclusivo para evitar doble conteo: un rango `10,5-12` cuenta desde `10,50` hasta `11,99`, de modo que una pieza de `12,00` entra solo en el rango siguiente.
-
-La pantalla permite completar ganadero, origen, DAC, contrato, control de temperatura, PH, observaciones y especificacion antes de emitir el PDF de rangos. El albaran sale siempre de SealsReport; la cabecera mantiene `Lote:` para el lote del TXT y los lotes origen se muestran completos en el cuerpo del informe.
+Cada perfil puede añadir, editar o eliminar una aclaración personal. Se guarda fuera del repositorio y de los paquetes de actualización, por lo que no modifica las instrucciones comunes ni se sobrescribe al actualizar.
 
 ### Precintos Excel a CSV
 

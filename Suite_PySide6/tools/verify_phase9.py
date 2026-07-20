@@ -26,7 +26,7 @@ from suite_pyside6.core.control_recepcion_maquilas import (
     send_control_email,
     validar_destinatarios,
 )
-from suite_pyside6.ui.control_recepcion_maquilas_window import ControlRecepcionMaquilasWindow
+from suite_pyside6.ui.control_recepcion_maquilas_window import ControlRecepcionPrecintosWindow
 from suite_pyside6.ui.main_window import MainWindow
 
 
@@ -72,7 +72,7 @@ class DummySMTP:
 def main() -> int:
     app = QApplication.instance() or QApplication(sys.argv)
 
-    assert app_by_key("control_recepcion_maquilas").migration_status == "ported"
+    assert app_by_key("control_recepcion_precintos").migration_status == "ported"
     for module in (control_core, precintos_core):
         assert module.SMTP_HOST == "smtp.vallcompanys.es"
         assert module.SMTP_PORT == 25
@@ -150,7 +150,7 @@ def main() -> int:
         assert "ALB1" in msg["Subject"]
         assert len(msg.get_payload()) == 3
 
-        window = ControlRecepcionMaquilasWindow()
+        window = ControlRecepcionPrecintosWindow()
         window.show_dialogs = False
         window.config_file = config
         window.set_txt_files([txt])
@@ -168,7 +168,7 @@ def main() -> int:
         assert window.result.pdf_rangos is not None
         window.close()
 
-        correction_window = ControlRecepcionMaquilasWindow()
+        correction_window = ControlRecepcionPrecintosWindow()
         correction_window.show_dialogs = False
         correction_window.set_txt_files([bad_txt])
         app.processEvents()
@@ -181,13 +181,13 @@ def main() -> int:
 
     menu = MainWindow()
     menu.show()
-    menu.open_app(app_by_key("control_recepcion_maquilas"))
+    menu.open_app(app_by_key("control_recepcion_precintos"))
     app.processEvents()
-    assert "control_recepcion_maquilas" in menu.open_windows
+    assert "control_recepcion_precintos" in menu.open_windows
     menu.close()
 
     print("PHASE9_OK")
-    print("app_portada=Control y Recepcion Maquilas")
+    print("app_portada=Control y Recepcion Precintos")
     print("txt_ax_pdf_test=2")
     return 0
 

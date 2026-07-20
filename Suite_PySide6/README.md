@@ -109,25 +109,18 @@ El core separado vive en:
 
 ## Sexta app portada
 
-`Recepcion Maquilas` ya tiene ventana PySide6 propia:
+`Control y Recepción Precintos` ya tiene ventana PySide6 propia:
 
-`suite_pyside6.ui.recepcion_maquilas_window.RecepcionMaquilasWindow`
-
-El core separado vive en:
-
-`suite_pyside6.core.recepcion_maquilas`
-
-## Septima app portada
-
-`Control y Recepcion Maquilas` ya tiene ventana PySide6 propia:
-
-`suite_pyside6.ui.control_recepcion_maquilas_window.ControlRecepcionMaquilasWindow`
+`suite_pyside6.ui.control_recepcion_maquilas_window.ControlRecepcionPrecintosWindow`
 
 El core separado vive en:
 
 `suite_pyside6.core.control_recepcion_maquilas`
 
-## Octava app portada
+El cruce con SealsReport reutiliza `suite_pyside6.core.recepcion_maquilas`; ya no
+existe una ventana independiente de recepción.
+
+## Séptima app portada
 
 `Precintos Jamones` ya tiene ventana PySide6 propia:
 
