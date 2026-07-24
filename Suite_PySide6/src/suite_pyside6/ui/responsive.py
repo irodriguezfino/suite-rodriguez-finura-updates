@@ -75,7 +75,11 @@ class FlowLayout(QLayout):
     def minimumSize(self) -> QSize:  # noqa: N802 - Qt API
         size = QSize()
         for item in self._items:
-            size = size.expandedTo(item.minimumSize())
+            widget = item.widget()
+            minimum = item.minimumSize()
+            if widget is not None and widget.property("flowCanShrink"):
+                minimum.setWidth(0)
+            size = size.expandedTo(minimum)
         left, top, right, bottom = self.getContentsMargins()
         size += QSize(left + right, top + bottom)
         return size

@@ -14,7 +14,7 @@ from difflib import SequenceMatcher
 import openpyxl
 
 
-TIPOS_JAMON = ("Blanco", "Iberico")
+TIPOS_JAMON = ("Blanco", "Iberico", "Mixto")
 CAMPOS_ESPERADOS = 7
 SMTP_HOST = "smtp.vallcompanys.es"
 SMTP_PORT = 25
@@ -92,14 +92,43 @@ class PrecintosJamonesResult:
     duplicados: list[RegistroJamones] = field(default_factory=list)
     oficiales: set[str] = field(default_factory=set)
 
+    def tipo_registro(self, registro: RegistroJamones) -> str:
+        return clasificar_precinto(registro.precinto)
+
+    def es_lote_mixto(self) -> bool:
+        return self.tipo_jamon == "Mixto"
+
+    def detection_messages(self) -> list[str]:
+        registros = [*self.validos, *(registro for registro, _motivo in self.invalidos)]
+        if not registros:
+            return []
+        counts = Counter(clasificar_precinto(registro.precinto) for registro in registros)
+        messages: list[str] = []
+        if counts.get("Iberico"):
+            messages.append("Se han detectado precintos de jamón ibérico mediante validación GTIN-12.")
+        if counts.get("Blanco"):
+            messages.append("Se han detectado precintos internos correspondientes a jamón blanco.")
+        invalid_check = sum(
+            1
+            for registro in registros
+            if re.fullmatch(r"\d{12}", registro.precinto.strip()) and not gtin12_valido(registro.precinto)
+        )
+        if invalid_check:
+            messages.append(
+                f"{invalid_check} valor(es) tienen 12 dígitos pero un dígito de control GTIN no válido; se tratan según las reglas de precinto interno."
+            )
+        if len(counts) > 1:
+            messages.append("El fichero contiene una mezcla de precintos internos y GTIN-12. Revisa los registros indicados antes de continuar.")
+        return messages
+
     def differences(self) -> tuple[set[str], set[str]]:
         registros = list(self.validos) + [registro for registro, _motivo in self.invalidos]
-        leidos = {registro.precinto for registro in registros if re.fullmatch(r"\d{12}", registro.precinto)}
+        leidos = {registro.precinto for registro in registros if gtin12_valido(registro.precinto)}
         return leidos - self.oficiales, self.oficiales - leidos
 
     def summary_lines(self) -> list[str]:
         lines = [
-            f"Tipo: {self.tipo_jamon}",
+            f"Tipo detectado: {tipo_jamon_visible(self.tipo_jamon)}",
             f"Archivos: {len(self.selected_files)}",
             f"Registros validos: {len(self.validos)}",
             f"Incidencias: {len(self.invalidos)}",
@@ -114,6 +143,9 @@ class PrecintosJamonesResult:
                     f"Oficiales no leidos: {len(missing)}",
                 ]
             )
+        messages = self.detection_messages()
+        if messages:
+            lines.extend(["", *messages])
         return lines
 
     def preview_text(self) -> str:
@@ -146,12 +178,29 @@ def normalizar_precinto(value: str) -> str:
 
 
 def gtin12_valido(codigo: str) -> bool:
+    codigo = str(codigo or "").strip()
     if not re.fullmatch(r"\d{12}", codigo):
         return False
     digits = [int(char) for char in codigo]
     total = sum(digits[index] * (3 if index % 2 == 0 else 1) for index in range(11))
     check = (10 - (total % 10)) % 10
     return check == digits[11]
+
+
+def clasificar_precinto(codigo: str) -> str:
+    """Clasifica sin mutar el texto: sólo los GTIN-12 reales son ibéricos."""
+    return "Iberico" if gtin12_valido(codigo) else "Blanco"
+
+
+def tipo_jamon_visible(tipo: str) -> str:
+    return {"Iberico": "Jamón ibérico", "Blanco": "Jamón blanco", "Mixto": "Tipos mezclados"}.get(tipo, "Sin detectar")
+
+
+def tipo_lote(registros: list[RegistroJamones]) -> str:
+    detected = {clasificar_precinto(registro.precinto) for registro in registros}
+    if len(detected) > 1:
+        return "Mixto"
+    return next(iter(detected), "Blanco")
 
 
 def distancia_digitos(a: str, b: str) -> int:
@@ -188,12 +237,14 @@ def sugerir_precintos(codigo: str, oficiales: set[str], max_sugerencias: int = 3
 
 
 def validar_precinto(codigo: str, tipo_jamon: str) -> tuple[bool, str]:
-    limpio = normalizar_precinto(codigo)
-    if codigo != limpio:
+    original = str(codigo or "")
+    clean = original.strip()
+    limpio = normalizar_precinto(clean)
+    if clean != limpio:
         return False, "contiene caracteres no numericos"
-    if not re.fullmatch(r"\d{12}", codigo):
+    if not re.fullmatch(r"\d{12}", clean):
         return False, "debe tener exactamente 12 digitos numericos"
-    if tipo_jamon.lower() == "iberico" and not gtin12_valido(codigo):
+    if tipo_jamon.lower() == "iberico" and not gtin12_valido(clean):
         return False, "GTIN-12 incorrecto"
     return True, ""
 
@@ -346,7 +397,7 @@ def leer_precintos_excel_oficial(path: Path) -> list[str]:
 
 def process_precintos_jamones(
     paths: list[Path],
-    tipo_jamon: str = "Blanco",
+    tipo_jamon: str | None = None,
     official_excel: Path | None = None,
 ) -> PrecintosJamonesResult:
     registros = leer_ficheros(paths)
@@ -354,14 +405,15 @@ def process_precintos_jamones(
     validos_pre: list[RegistroJamones] = []
     invalidos: list[tuple[RegistroJamones, str]] = []
     for registro in registros:
-        motivos = validar_registro_completo(registro, tipo_jamon, partida, lote)
+        motivos = validar_registro_completo(registro, clasificar_precinto(registro.precinto), partida, lote)
         if motivos:
             invalidos.append((registro, "; ".join(motivos)))
         else:
             validos_pre.append(registro)
     validos, duplicados = deduplicar(validos_pre)
     oficiales = set(leer_precintos_excel_oficial(official_excel)) if official_excel is not None else set()
-    return PrecintosJamonesResult(list(paths), tipo_jamon, validos, invalidos, duplicados, oficiales)
+    lote_tipo = tipo_lote(registros)
+    return PrecintosJamonesResult(list(paths), lote_tipo, validos, invalidos, duplicados, oficiales)
 
 
 def correction_text(result: PrecintosJamonesResult) -> str:
@@ -389,7 +441,7 @@ def revalidate_corrections(result: PrecintosJamonesResult, text: str) -> Precint
         registro = parsear_linea(stripped, "CORRECCION_MANUAL", index, base_order + index)
         if registro is None:
             continue
-        motivos = validar_registro_completo(registro, result.tipo_jamon, partida, lote)
+        motivos = validar_registro_completo(registro, clasificar_precinto(registro.precinto), partida, lote)
         if motivos:
             errors.append((registro, "; ".join(motivos)))
         else:
@@ -397,7 +449,7 @@ def revalidate_corrections(result: PrecintosJamonesResult, text: str) -> Precint
     validos, duplicados = deduplicar(result.validos + corrected)
     return PrecintosJamonesResult(
         selected_files=list(result.selected_files),
-        tipo_jamon=result.tipo_jamon,
+        tipo_jamon=tipo_lote([*result.validos, *corrected, *(registro for registro, _motivo in errors)]),
         validos=validos,
         invalidos=errors,
         duplicados=list(result.duplicados) + duplicados,
@@ -490,6 +542,8 @@ def resumen_text(result: PrecintosJamonesResult) -> str:
 def save_precintos_csv(path: Path, result: PrecintosJamonesResult) -> Path | None:
     if result.invalidos:
         raise ValueError("Corrige las incidencias antes de guardar.")
+    if result.es_lote_mixto():
+        raise ValueError("El CSV requiere un único tipo de jamón. Separa o corrige los registros mixtos antes de continuar.")
     if result.tipo_jamon.lower() == "iberico":
         with path.open("w", encoding="utf-8-sig", newline="") as handle:
             writer = csv.writer(handle, delimiter=";", lineterminator="\r\n")

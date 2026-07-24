@@ -22,7 +22,7 @@ class PrecintosTxtAxWindowTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "listado precintos.txt"
             source.write_text("A -> P001\r\nB -> P001\r\nincorrecta\r\n", encoding="utf-8", newline="")
-            output = Path(directory) / "listado precintos.csv"
+            output = Path(directory) / "listado precintos"
             window = PrecintosTxtAxWindow()
             window.load_path(source)
             self.assertTrue(window.convert_button.isEnabled())
@@ -30,7 +30,7 @@ class PrecintosTxtAxWindowTests(unittest.TestCase):
             self.assertTrue(window.save_button.isEnabled())
             self.assertEqual(window.result.precintos, ["P001", "P001"])
             window.save_path(output)
-            self.assertEqual(output.read_bytes(), b"P001\r\nP001\r\n")
+            self.assertEqual(output.with_suffix(".csv").read_bytes(), b"P001\r\nP001\r\n")
             self.assertIn("CSV generado correctamente", window.status.text())
             window.close()
 
@@ -45,6 +45,23 @@ class PrecintosTxtAxWindowTests(unittest.TestCase):
             window.convert_selected_file()
             self.assertIn("No se han encontrado", window.status.text())
             self.assertFalse(window.save_button.isEnabled())
+            window.close()
+
+    def test_cargar_un_segundo_archivo_limpia_el_resultado_anterior(self):
+        with tempfile.TemporaryDirectory() as directory:
+            first = Path(directory) / "primero.txt"
+            second = Path(directory) / "segundo.txt"
+            first.write_text("A -> PRIMERO\n", encoding="utf-8")
+            second.write_text("B -> SEGUNDO\n", encoding="utf-8")
+            window = PrecintosTxtAxWindow()
+            window.load_path(first)
+            window.convert_selected_file()
+            self.assertEqual(window.result.precintos, ["PRIMERO"])
+            window.load_path(second)
+            self.assertEqual(window.result.precintos, [])
+            self.assertFalse(window.save_button.isEnabled())
+            window.convert_selected_file()
+            self.assertEqual(window.result.precintos, ["SEGUNDO"])
             window.close()
 
 

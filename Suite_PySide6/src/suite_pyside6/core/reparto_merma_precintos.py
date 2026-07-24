@@ -1,7 +1,8 @@
 """Dominio para repartir una merma de peso entre precintos y exportar a AX.
 
-El contrato de salida se concentra en :data:`AX_CSV_FORMAT`: dos columnas sin
-cabecera, ``;``, decimal con coma, cp1252, CRLF y sin BOM.  Los importes de
+El contrato de salida se concentra en :data:`AX_CSV_FORMAT`: orden de trabajo,
+precinto y peso ajustado, sin cabecera, ``;``, decimal con coma, cp1252, CRLF
+y sin BOM. Los importes de
 peso usan :class:`decimal.Decimal` de extremo a extremo.
 """
 
@@ -89,7 +90,7 @@ class AXCsvFormat:
     line_ending: str = "\r\n"
     include_header: bool = False
     bom: bytes = b""
-    headers: tuple[str, str] = ("Precinto", "Peso ajustado")
+    headers: tuple[str, ...] = ("Orden de trabajo", "Precinto", "Peso ajustado")
 
 
 AX_CSV_FORMAT = AXCsvFormat()
@@ -112,6 +113,26 @@ class FinalWeightValidation:
         if self.is_valid:
             assert self.weight is not None
             return self.weight
+        raise DomainValidationError(self.errors)
+
+
+@dataclass(frozen=True)
+class WorkOrderValidation:
+    value: str | None
+    issues: tuple[ValidationIssue, ...]
+
+    @property
+    def errors(self) -> tuple[ValidationIssue, ...]:
+        return tuple(issue for issue in self.issues if issue.severity == "error")
+
+    @property
+    def is_valid(self) -> bool:
+        return self.value is not None and not self.errors
+
+    def require_valid(self) -> str:
+        if self.is_valid:
+            assert self.value is not None
+            return self.value
         raise DomainValidationError(self.errors)
 
 
@@ -309,6 +330,18 @@ def validate_final_weight(
     return FinalWeightValidation(weight, ())
 
 
+def validate_work_order(value: str | None) -> WorkOrderValidation:
+    """Valida la orden de trabajo sin alterar su formato significativo."""
+
+    normalized = "" if value is None else str(value).strip()
+    if not normalized:
+        return WorkOrderValidation(
+            None,
+            (ValidationIssue("EMPTY_WORK_ORDER", "La orden de trabajo es obligatoria."),),
+        )
+    return WorkOrderValidation(normalized, ())
+
+
 def _rounding_order(
     exact_units: list[Decimal],
     rounded_units: list[int],
@@ -437,10 +470,15 @@ def _export_issues(result: AdjustmentResult) -> tuple[ValidationIssue, ...]:
     return tuple(issues)
 
 
-def render_ax_csv(result: AdjustmentResult, export_format: AXCsvFormat = AX_CSV_FORMAT) -> bytes:
+def render_ax_csv(
+    result: AdjustmentResult,
+    work_order: str | None,
+    export_format: AXCsvFormat = AX_CSV_FORMAT,
+) -> bytes:
     """Genera y valida el CSV AX, sin mutar identificadores de precinto."""
 
-    issues = _export_issues(result)
+    work_order_validation = validate_work_order(work_order)
+    issues = (*work_order_validation.issues, *_export_issues(result))
     if issues:
         raise DomainValidationError(issues)
     output = io.StringIO(newline="")
@@ -454,19 +492,25 @@ def render_ax_csv(result: AdjustmentResult, export_format: AXCsvFormat = AX_CSV_
     if export_format.include_header:
         writer.writerow(export_format.headers)
     for row in result.rows:
-        writer.writerow((row.source.precinto, _format_decimal(row.adjusted_weight, export_format)))
+        writer.writerow((work_order_validation.value, row.source.precinto, _format_decimal(row.adjusted_weight, export_format)))
     content = export_format.bom + output.getvalue().encode(export_format.encoding, errors="strict")
-    validate_ax_csv_content(content, result, export_format)
+    validate_ax_csv_content(content, result, work_order_validation.value, export_format)
     return content
 
 
-def write_ax_csv(path: Path, result: AdjustmentResult, export_format: AXCsvFormat = AX_CSV_FORMAT) -> None:
-    path.write_bytes(render_ax_csv(result, export_format))
+def write_ax_csv(
+    path: Path,
+    result: AdjustmentResult,
+    work_order: str | None,
+    export_format: AXCsvFormat = AX_CSV_FORMAT,
+) -> None:
+    path.write_bytes(render_ax_csv(result, work_order, export_format))
 
 
 def validate_ax_csv_content(
     content: bytes,
     result: AdjustmentResult,
+    work_order: str | None,
     export_format: AXCsvFormat = AX_CSV_FORMAT,
 ) -> None:
     """Relee los bytes exportados y comprueba contrato, filas y suma exacta."""
@@ -482,20 +526,29 @@ def validate_ax_csv_content(
     text = payload.decode(export_format.encoding, errors="strict")
     if not text.endswith(export_format.line_ending):
         raise ValueError("El CSV AX debe terminar en CRLF.")
-    raw_rows = text[: -len(export_format.line_ending)].split(export_format.line_ending)
     expected_count = len(result.rows) + (1 if export_format.include_header else 0)
-    if len(raw_rows) != expected_count or any(not row for row in raw_rows):
+    parsed = list(
+        csv.reader(
+            io.StringIO(text, newline=""),
+            delimiter=export_format.delimiter,
+            quotechar='"',
+            strict=True,
+        )
+    )
+    if len(parsed) != expected_count or any(not row for row in parsed):
         raise ValueError("El CSV AX contiene lineas adicionales o inesperadas.")
-    parsed = list(csv.reader(raw_rows, delimiter=export_format.delimiter, quotechar='"', strict=True))
     if export_format.include_header:
         if tuple(parsed.pop(0)) != export_format.headers:
             raise ValueError("Las cabeceras del CSV AX no coinciden.")
-    if any(len(row) != 2 for row in parsed):
-        raise ValueError("Cada fila del CSV AX debe tener exactamente dos columnas.")
+    normalized_work_order = validate_work_order(work_order).require_valid()
+    if any(len(row) != 3 for row in parsed):
+        raise ValueError("Cada fila del CSV AX debe tener exactamente tres columnas.")
+    if [row[0] for row in parsed] != [normalized_work_order] * len(parsed):
+        raise ValueError("La orden de trabajo exportada no coincide con la indicada.")
     expected_seals = [row.source.precinto for row in result.rows]
-    exported_seals = [row[0] for row in parsed]
+    exported_seals = [row[1] for row in parsed]
     if exported_seals != expected_seals:
         raise ValueError("Los precintos exportados no coinciden con los registros validos.")
-    exported_total = sum((_parse_decimal(row[1], "El peso ajustado") for row in parsed), Decimal("0"))
+    exported_total = sum((_parse_decimal(row[2], "El peso ajustado") for row in parsed), Decimal("0"))
     if exported_total != result.final_weight:
         raise ValueError("La suma del CSV AX no coincide exactamente con el peso final.")

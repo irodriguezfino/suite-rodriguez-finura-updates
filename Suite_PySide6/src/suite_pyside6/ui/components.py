@@ -1,16 +1,197 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPoint, Qt
+from PySide6.QtGui import QAction, QGuiApplication, QPainter, QPalette, QPen, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
+    QComboBox,
+    QCompleter,
     QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
+    QListView,
+    QMenu,
     QPushButton,
     QSizePolicy,
+    QStyle,
+    QStyleOptionComboBox,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
+
+
+class ModernSelect(QComboBox):
+    """Selector nativo con popup y teclado de Qt, unificado para toda la Suite."""
+
+    def __init__(self, parent: QWidget | None = None, *, placeholder: str = "Selecciona una opción") -> None:
+        super().__init__(parent)
+        self.setObjectName("ModernSelect")
+        self.setProperty("modernSelect", True)
+        self.setProperty("chevronVisible", True)
+        self.setProperty("popupOpen", False)
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setMinimumHeight(40)
+        self.setMaxVisibleItems(9)
+        self.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        self.setPlaceholderText(placeholder)
+        self.setAccessibleDescription("Selector desplegable. Usa Espacio o Enter para abrir las opciones.")
+        view = QListView(self)
+        view.setObjectName("ModernSelectPopup")
+        view.setUniformItemSizes(True)
+        view.setSpacing(2)
+        view.setVerticalScrollMode(QListView.ScrollPerPixel)
+        view.setTextElideMode(Qt.ElideRight)
+        self.setView(view)
+
+    def add_option(self, text: str, data: object = None, *, enabled: bool = True, description: str = "") -> None:
+        self.addItem(text, data)
+        index = self.count() - 1
+        item = self.model().item(index)
+        if item is not None:
+            item.setEnabled(enabled)
+            item.setToolTip(description or text)
+
+    def chevron_rect(self):
+        """Zona reservada para el indicador; útil para pintura y pruebas."""
+        option = QStyleOptionComboBox()
+        self.initStyleOption(option)
+        return self.style().subControlRect(QStyle.CC_ComboBox, option, QStyle.SC_ComboBoxArrow, self)
+
+    def _set_popup_open(self, is_open: bool) -> None:
+        self.setProperty("popupOpen", is_open)
+        self.style().unpolish(self)
+        self.style().polish(self)
+        self.update()
+
+    def showPopup(self) -> None:  # noqa: N802 - API de Qt
+        if not self.isEnabled():
+            return
+        self._set_popup_open(True)
+        super().showPopup()
+        popup = self.view().window()
+        anchor = self.mapToGlobal(self.rect().bottomLeft())
+        screen = QGuiApplication.screenAt(anchor) or QGuiApplication.primaryScreen()
+        if screen is None:
+            return
+        available = screen.availableGeometry()
+        content_width = self.view().sizeHintForColumn(0) + 42
+        width = min(max(self.width(), self.minimumWidth(), content_width), max(120, available.width() - 16))
+        height = min(360, max(160, popup.sizeHint().height()))
+        height = min(height, max(100, available.height() - 16))
+        below = available.bottom() - anchor.y()
+        above = self.mapToGlobal(self.rect().topLeft()).y() - available.top()
+        y = anchor.y() if below >= min(height, 160) or below >= above else self.mapToGlobal(self.rect().topLeft()).y() - height
+        y = max(available.top() + 8, min(y, available.bottom() - height + 1))
+        x = max(available.left() + 8, min(anchor.x(), available.right() - width + 1))
+        popup.setGeometry(x, y, width, height)
+
+    def hidePopup(self) -> None:  # noqa: N802 - API de Qt
+        super().hidePopup()
+        self._set_popup_open(False)
+
+    def paintEvent(self, event) -> None:  # type: ignore[override]
+        super().paintEvent(event)
+        rect = self.chevron_rect()
+        if not rect.isValid():
+            return
+        color = self.palette().text().color()
+        if not self.isEnabled():
+            color = self.palette().color(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text)
+        center = rect.center()
+        points = (
+            (QPoint(center.x() - 4, center.y() + 2), QPoint(center.x(), center.y() - 2), QPoint(center.x() + 4, center.y() + 2))
+            if self.property("popupOpen")
+            else (QPoint(center.x() - 4, center.y() - 2), QPoint(center.x(), center.y() + 2), QPoint(center.x() + 4, center.y() - 2))
+        )
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        pen = QPen(color)
+        pen.setWidthF(1.8)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen)
+        painter.drawLine(points[0], points[1])
+        painter.drawLine(points[1], points[2])
+        painter.end()
+
+    def keyPressEvent(self, event) -> None:  # type: ignore[override]
+        if event.key() in {Qt.Key_Space, Qt.Key_Return, Qt.Key_Enter} and not self.view().isVisible():
+            self.showPopup()
+            event.accept()
+            return
+        if event.key() == Qt.Key_Escape and self.view().isVisible():
+            self.hidePopup()
+            self.setFocus(Qt.ShortcutFocusReason)
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+
+class SearchableComboBox(ModernSelect):
+    """Combobox para listas que pueden crecer, con búsqueda nativa por texto."""
+
+    def __init__(self, parent: QWidget | None = None, *, placeholder: str = "Busca una opción") -> None:
+        super().__init__(parent, placeholder=placeholder)
+        self.setObjectName("SearchableComboBox")
+        self.setProperty("searchable", True)
+        self.setEditable(True)
+        self.setInsertPolicy(QComboBox.NoInsert)
+        line_edit = self.lineEdit()
+        if line_edit is None:  # Protección para stubs de Qt; el combobox ya es editable.
+            raise RuntimeError("No se pudo crear el campo de búsqueda")
+        line_edit.setCursor(Qt.CursorShape.IBeamCursor)
+        line_edit.setClearButtonEnabled(True)
+        line_edit.setPlaceholderText(placeholder)
+        line_edit.setAccessibleDescription("Escribe para buscar; usa las flechas y Enter para seleccionar.")
+        self._completer = QCompleter(self.model(), self)
+        self._completer.setCaseSensitivity(Qt.CaseInsensitive)
+        self._completer.setFilterMode(Qt.MatchContains)
+        self._completer.setCompletionMode(QCompleter.PopupCompletion)
+        self._completer.activated[str].connect(self._select_completion)
+        self.setCompleter(self._completer)
+        self._empty_model = QStandardItemModel(self)
+        empty_item = QStandardItem("No se encontraron opciones")
+        empty_item.setFlags(Qt.NoItemFlags)
+        self._empty_model.appendRow(empty_item)
+        line_edit.textEdited.connect(self._update_search_feedback)
+
+    def _select_completion(self, text: str) -> None:
+        index = self.findText(text, Qt.MatchFixedString)
+        if index >= 0:
+            self.setCurrentIndex(index)
+
+    def _update_search_feedback(self, text: str) -> None:
+        query = text.strip().casefold()
+        matches = any(query in self.itemText(index).casefold() for index in range(self.count()))
+        self._completer.setModel(self.model() if not query or matches else self._empty_model)
+        self._completer.setCompletionPrefix(query if matches else "")
+        if query:
+            self._completer.complete()
+
+
+class ActionMenuButton(QToolButton):
+    """Botón de acciones no seleccionables; evita confundir menús con selects."""
+
+    def __init__(self, parent: QWidget | None = None, *, accessible_name: str = "Más acciones") -> None:
+        super().__init__(parent)
+        self.setObjectName("ActionMenuButton")
+        self.setText("Más acciones  ⋯")
+        self.setToolButtonStyle(Qt.ToolButtonTextOnly)
+        self.setPopupMode(QToolButton.InstantPopup)
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.setAccessibleName(accessible_name)
+        self.setToolTip(accessible_name)
+        self._menu = QMenu(self)
+        self._menu.setObjectName("ActionDropdownMenu")
+        self.setMenu(self._menu)
+
+    def add_action(self, text: str, callback, *, destructive: bool = False) -> QAction:
+        action = self._menu.addAction(text)
+        action.setProperty("destructive", destructive)
+        action.triggered.connect(callback)
+        return action
 
 
 def labeled_field(label_text: str, field: QWidget, *, compact: bool = False) -> QWidget:

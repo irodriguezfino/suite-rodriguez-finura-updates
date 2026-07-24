@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QFrame,
@@ -12,13 +12,13 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMainWindow,
-    QProgressBar,
     QPushButton,
     QPlainTextEdit,
     QScrollArea,
     QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -38,8 +38,9 @@ from suite_pyside6.core.control_recepcion_maquilas import (
     ASUNTO_DEFECTO,
     MENSAJE_DEFECTO,
 )
+from suite_pyside6.core.empresas_clientes import EmpresasClientesLoadResult, load_empresas_clientes
 from suite_pyside6.core.paths import resource_path
-from suite_pyside6.ui.components import control_metric_pair, control_pill, control_rail_label, labeled_field, section_label, step_bar
+from suite_pyside6.ui.components import ModernSelect, control_metric_pair, control_pill, labeled_field, section_label, step_bar
 from suite_pyside6.ui.file_dialogs import open_file, open_files, save_file
 from suite_pyside6.ui.polish import collapsible_section, confirm_discard_work, show_inline_message, polish_window, sync_recommended_action
 from suite_pyside6.ui.responsive import make_flow, make_widgets_resizable
@@ -49,6 +50,22 @@ from suite_pyside6.ui.theme import base_qss
 
 
 ASUNTO_LEGACY_DEFECTO = "Recepcion maquilas - documentacion"
+RECIPIENTS_KEY = "mail/control_recepcion_precintos/recipients"
+LEGACY_RECIPIENT_1_KEY = "mail/control_recepcion_precintos/recipient_1"
+LEGACY_RECIPIENT_2_KEY = "mail/control_recepcion_precintos/recipient_2"
+LEGACY_RECIPIENTS_KEY = "mail/control_recepcion_precintos/recent_recipients"
+
+
+def responsive_labeled_field(label_text: str, field: QWidget) -> QWidget:
+    """Campo etiquetado que puede comprimirse y refluye dentro de paneles estrechos."""
+    group = labeled_field(label_text, field)
+    group.setMinimumWidth(0)
+    group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+    group.setProperty("flowCanShrink", True)
+    label = group.findChild(QLabel, "FieldLabel")
+    if label is not None:
+        label.setWordWrap(True)
+    return group
 
 
 class ControlRecepcionPrecintosWindow(QMainWindow):
@@ -58,6 +75,8 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
         self.seals_file: Path | None = None
         self.config_file: Path | None = resource_path("config_articulos.csv")
         self.result = ControlRecepcionResult()
+        self.empresas_clientes_result: EmpresasClientesLoadResult | None = None
+        self.empresas_clientes: tuple[str, ...] = ()
         self._metadata_warning_acknowledged = False
         self.show_dialogs = True
         self.setWindowTitle("Control y Recepción Precintos")
@@ -67,9 +86,12 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
         if icon_path.exists():
             self.setWindowIcon(QIcon(str(icon_path)))
         self.setStyleSheet(base_qss())
+        self.setProperty("contextPanelOutputOnly", True)
         self._build_ui()
+        self.reload_empresas_clientes()
         self._load_email_template()
-        polish_window(self, context_panel=False)
+        polish_window(self, context_panel=True, body_scroll=False)
+        self._install_output_context_section()
         self._refresh()
 
     def flow_steps(self) -> tuple[str, ...]:
@@ -201,35 +223,79 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
 
         email_panel = QFrame()
         email_panel.setObjectName("MailPanel")
+        email_panel.setMinimumWidth(0)
+        email_panel.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         email_panel_layout = QVBoxLayout(email_panel)
-        email_panel_layout.setContentsMargins(8, 6, 8, 6)
-        email_panel_layout.setSpacing(6)
-        email_fields = QWidget()
-        email_layout = make_flow(email_fields, margin=0, spacing=8)
-        email_layout.setContentsMargins(0, 0, 0, 0)
-        self.recipients = QLineEdit()
-        self.recipients.setPlaceholderText("Destinatarios")
+        email_panel_layout.setContentsMargins(12, 10, 12, 12)
+        email_panel_layout.setSpacing(12)
+        self.recipient_fields: list[QLineEdit] = []
+        self._recipient_rows: dict[QLineEdit, QWidget] = {}
+        self.recipients_editor = QFrame()
+        self.recipients_editor.setObjectName("RecipientEditor")
+        self.recipients_editor.setMinimumWidth(0)
+        self.recipients_editor.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        recipients_editor_layout = QVBoxLayout(self.recipients_editor)
+        recipients_editor_layout.setContentsMargins(0, 0, 0, 0)
+        recipients_editor_layout.setSpacing(8)
+        recipients_hint = QLabel("Los cambios son temporales hasta que guardes la lista habitual.")
+        recipients_hint.setObjectName("FieldHint")
+        recipients_hint.setWordWrap(True)
+        self.add_recipient_button = QPushButton("Añadir destinatario")
+        self.add_recipient_button.clicked.connect(lambda: self._add_recipient_field(focus=True))
+        self.recipients_rows = QWidget()
+        self.recipients_rows.setMinimumWidth(0)
+        self.recipients_rows.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        self.recipients_rows_layout = QVBoxLayout(self.recipients_rows)
+        self.recipients_rows_layout.setContentsMargins(0, 0, 0, 0)
+        self.recipients_rows_layout.setSpacing(6)
+        # La ayuda ocupa todo el ancho: con el botón a su lado se comprimía a
+        # demasiadas líneas en el carril lateral y ocultaba asunto y mensaje.
+        recipients_editor_layout.addWidget(recipients_hint)
+        recipients_editor_layout.addWidget(self.recipients_rows)
         self.subject = QLineEdit(ASUNTO_DEFECTO)
         self.subject.setPlaceholderText("Asunto")
-        make_widgets_resizable(self.recipients, self.subject)
-        self.save_template_button = QPushButton("Guardar plantilla")
+        make_widgets_resizable(self.subject)
+        self.save_template_button = QPushButton("Guardar destinatarios habituales")
         self.save_template_button.clicked.connect(self.save_email_template)
-        email_layout.addWidget(labeled_field("Destinatarios", self.recipients), 2)
-        email_layout.addWidget(labeled_field("Asunto", self.subject), 2)
-        email_layout.addWidget(self.save_template_button)
         self.body_editor = QPlainTextEdit()
         self.body_editor.setObjectName("MailBody")
-        self.body_editor.setMaximumHeight(72)
+        self.body_editor.setMinimumHeight(120)
+        self.body_editor.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.body_editor.setPlaceholderText("Mensaje del correo")
-        email_panel_layout.addWidget(email_fields)
-        email_panel_layout.addWidget(labeled_field("Mensaje del correo", self.body_editor))
+        email_actions = QFrame()
+        email_actions.setObjectName("MailActions")
+        email_actions_layout = QHBoxLayout(email_actions)
+        email_actions_layout.setContentsMargins(0, 0, 0, 0)
+        email_actions_layout.setSpacing(8)
+        email_actions_layout.addWidget(self.add_recipient_button)
+        email_actions_layout.addWidget(self.save_template_button)
+        email_actions_layout.addStretch(1)
+        email_panel_layout.addWidget(responsive_labeled_field("Destinatarios", self.recipients_editor))
+        email_panel_layout.addWidget(responsive_labeled_field("Asunto", self.subject))
+        body_field = responsive_labeled_field("Mensaje del correo", self.body_editor)
+        body_field.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        email_panel_layout.addWidget(body_field)
         email_scroll = QScrollArea()
         email_scroll.setObjectName("InlineSectionScroll")
         email_scroll.setWidgetResizable(True)
         email_scroll.setFrameShape(QFrame.NoFrame)
-        email_scroll.setMaximumHeight(176)
+        email_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        email_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        email_scroll.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         email_scroll.setWidget(email_panel)
-        self.email_section = collapsible_section("Correo", email_scroll)
+        self.email_scroll = email_scroll
+        # El contenido puede desplazarse, pero la acción de guardar permanece
+        # accesible al final del panel incluso con muchos destinatarios.
+        email_content = QWidget()
+        email_content.setMinimumWidth(0)
+        email_content.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Expanding)
+        email_content_layout = QVBoxLayout(email_content)
+        email_content_layout.setContentsMargins(0, 0, 0, 0)
+        email_content_layout.setSpacing(6)
+        email_content_layout.addWidget(email_scroll, 1)
+        email_content_layout.addWidget(email_actions)
+        self.email_actions = email_actions
+        self.email_section = collapsible_section("Correo", email_content)
 
         metadata = QFrame()
         metadata.setObjectName("FormPanel")
@@ -237,6 +303,10 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
         metadata_layout.setContentsMargins(10, 7, 10, 7)
         self.ganadero = QLineEdit("EMBUTIDOS RODRIGUEZ")
         self.ganadero.setPlaceholderText("Ganadero")
+        self.empresa_cliente = ModernSelect(placeholder="Selecciona una empresa cliente")
+        self.empresa_cliente.setAccessibleName("Empresa cliente")
+        self.empresa_cliente.setToolTip("Selecciona una empresa cliente de la lista configurable.")
+        self.empresa_cliente.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.origen = QLineEdit("España")
         self.origen.setPlaceholderText("Origen")
         self.dac = QLineEdit()
@@ -253,6 +323,7 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
         self.observaciones.setPlaceholderText("Observaciones")
         make_widgets_resizable(
             self.ganadero,
+            self.empresa_cliente,
             self.origen,
             self.dac,
             self.contrato,
@@ -261,14 +332,15 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
             self.especificacion,
             self.observaciones,
         )
-        metadata_layout.addWidget(labeled_field("Ganadero", self.ganadero), 0, 0)
-        metadata_layout.addWidget(labeled_field("Origen", self.origen), 0, 1)
-        metadata_layout.addWidget(labeled_field("N DAC", self.dac), 0, 2)
-        metadata_layout.addWidget(labeled_field("Contrato", self.contrato), 0, 3)
-        metadata_layout.addWidget(labeled_field("Control temperatura", self.control_temperatura), 1, 0)
-        metadata_layout.addWidget(labeled_field("PH", self.ph), 1, 1)
-        metadata_layout.addWidget(labeled_field("Especificación", self.especificacion), 1, 2)
-        metadata_layout.addWidget(labeled_field("Observaciones", self.observaciones), 1, 3)
+        metadata_layout.addWidget(responsive_labeled_field("Ganadero", self.ganadero), 0, 0)
+        metadata_layout.addWidget(responsive_labeled_field("Empresa cliente", self.empresa_cliente), 0, 1)
+        metadata_layout.addWidget(responsive_labeled_field("Origen", self.origen), 0, 2)
+        metadata_layout.addWidget(responsive_labeled_field("N DAC", self.dac), 0, 3)
+        metadata_layout.addWidget(responsive_labeled_field("Contrato", self.contrato), 1, 0)
+        metadata_layout.addWidget(responsive_labeled_field("Control temperatura", self.control_temperatura), 1, 1)
+        metadata_layout.addWidget(responsive_labeled_field("PH", self.ph), 1, 2)
+        metadata_layout.addWidget(responsive_labeled_field("Especificación", self.especificacion), 1, 3)
+        metadata_layout.addWidget(responsive_labeled_field("Observaciones", self.observaciones), 2, 0, 1, 4)
         for field in (
             self.ganadero,
             self.origen,
@@ -280,13 +352,18 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
             self.observaciones,
         ):
             field.textChanged.connect(self._mark_metadata_changed)
+        self.empresa_cliente.currentIndexChanged.connect(self._on_empresa_cliente_changed)
         metadata_scroll = QScrollArea()
         metadata_scroll.setObjectName("InlineSectionScroll")
         metadata_scroll.setWidgetResizable(True)
         metadata_scroll.setFrameShape(QFrame.NoFrame)
-        metadata_scroll.setMaximumHeight(152)
+        metadata_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        metadata_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        metadata_scroll.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         metadata_scroll.setWidget(metadata)
+        self.metadata_scroll = metadata_scroll
         self.metadata_section = collapsible_section("Campos manuales informe", metadata_scroll)
+        self._configure_auxiliary_accordion()
 
         workspace = QFrame()
         workspace.setObjectName("ControlPilotWorkspace")
@@ -362,44 +439,21 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
 
         rail = QFrame()
         rail.setObjectName("ControlStatusRail")
-        rail.setMinimumWidth(245)
+        rail.setMinimumWidth(0)
+        rail.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         rail_layout = QVBoxLayout(rail)
-        rail_layout.setContentsMargins(12, 10, 12, 10)
-        rail_layout.setSpacing(9)
-        rail_title = section_label("Salida e informe")
-        self.rail_state = control_rail_label("Pendiente de TXT", role="state")
-        self.rail_detail = control_rail_label("Carga un TXT FAC para iniciar la validación.")
-        self.rail_detail.setWordWrap(True)
-        self.rail_progress = QProgressBar()
-        self.rail_progress.setObjectName("ControlProgress")
-        self.rail_progress.setRange(0, 100)
-        self.rail_progress.setTextVisible(True)
-        next_title = section_label("Siguiente acción")
-        self.rail_next = control_rail_label("Cargar TXT FAC", role="action")
-        self.rail_next.setWordWrap(True)
-        alerts_title = section_label("Avisos")
-        self.rail_alerts = control_rail_label("Sin avisos.")
-        self.rail_alerts.setWordWrap(True)
+        self.rail_layout = rail_layout
+        rail_layout.setContentsMargins(10, 8, 10, 8)
+        rail_layout.setSpacing(8)
         self.output = QPlainTextEdit()
         self.output.setObjectName("OutputText")
         self.output.setAccessibleName("Resumen de salida TXT AX")
         self.output.setReadOnly(True)
         self.output.setLineWrapMode(QPlainTextEdit.WidgetWidth)
-        self.output.setMaximumHeight(112)
-        rail_layout.addWidget(rail_title)
-        rail_layout.addWidget(self.rail_state)
-        rail_layout.addWidget(self.rail_detail)
-        rail_layout.addWidget(self.rail_progress)
-        rail_layout.addWidget(next_title)
-        rail_layout.addWidget(self.rail_next)
-        rail_layout.addWidget(alerts_title)
-        rail_layout.addWidget(self.rail_alerts)
-        rail_layout.addWidget(self.metadata_section)
-        output_title = section_label("Salida TXT AX")
-        rail_layout.addWidget(output_title)
-        rail_layout.addWidget(self.output)
-        rail_layout.addWidget(self.email_section)
-        rail_layout.addStretch(1)
+        self.output.setMinimumHeight(120)
+        self.output.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        rail_layout.addWidget(self.metadata_section, 1)
+        rail_layout.addWidget(self.email_section, 1)
 
         content_stack = QFrame()
         content_stack.setObjectName("ControlContentStack")
@@ -409,7 +463,9 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
         content_layout.addWidget(preview_panel, 3)
         content_layout.addWidget(issues_panel, 2)
 
-        workspace_layout.addWidget(content_stack, 5)
+        # El carril de formularios crece hacia la izquierda sin invadir el
+        # contexto superior; ambos acordeones comparten el mismo ancho.
+        workspace_layout.addWidget(content_stack, 3)
         workspace_layout.addWidget(rail, 2)
         layout.addWidget(workspace, 1)
 
@@ -486,6 +542,8 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
     def save_pdf_dialog(self) -> None:
         if self.result.recepcion is None:
             return
+        if not self._validate_empresa_cliente():
+            return
         if self.show_dialogs and self._metadata_uses_defaults() and not self._metadata_warning_acknowledged:
             self._metadata_warning_acknowledged = True
             show_inline_message(
@@ -505,6 +563,8 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
             self.save_pdf(file)
 
     def save_pdf(self, path: Path) -> Path:
+        if not self._validate_empresa_cliente():
+            raise ValueError(self._empresa_cliente_validation_message())
         saved = save_pdf_rangos(path, self.result, self._metadata())
         self.status.setText(f"PDF guardado: {saved}")
         show_inline_message(self, "success", f"PDF guardado: {saved.name}")
@@ -512,16 +572,18 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
         return saved
 
     def send_email(self) -> None:
-        recipients = parsear_destinatarios(self.recipients.text())
-        invalid = validar_destinatarios(recipients)
-        if invalid:
+        if not self._validate_empresa_cliente():
+            return
+        recipients = self._validated_recipients()
+        if recipients is None:
+            message = self._recipient_validation_message
             if self.show_dialogs:
-                show_inline_message(self, "warning", "\n".join(invalid))
-            self.status.setText("Revisa los destinatarios.")
+                show_inline_message(self, "warning", message)
+            self.status.setText(message)
             return
         try:
             send_control_email(
-                self.recipients.text(),
+                "; ".join(recipients),
                 self.result,
                 subject=self._render_template(self.subject.text().strip() or ASUNTO_DEFECTO),
                 body=self._render_template(self.body_editor.toPlainText().strip() or MENSAJE_DEFECTO),
@@ -537,11 +599,20 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
         self._refresh()
 
     def save_email_template(self) -> None:
+        recipients = self._validated_recipients()
+        if recipients is None:
+            message = self._recipient_validation_message
+            self.status.setText(message)
+            if self.show_dialogs:
+                show_inline_message(self, "warning", message)
+            return
         app_settings = settings()
+        self._save_recipient_preferences(recipients, app_settings)
         app_settings.setValue("mail/control_recepcion_precintos/subject", self.subject.text().strip() or ASUNTO_DEFECTO)
         app_settings.setValue("mail/control_recepcion_precintos/body", self.body_editor.toPlainText().strip() or MENSAJE_DEFECTO)
-        self.status.setText("Plantilla de correo guardada.")
-        show_inline_message(self, "success", "Plantilla de correo guardada.")
+        app_settings.sync()
+        self.status.setText("Destinatarios habituales guardados.")
+        show_inline_message(self, "success", "Destinatarios habituales guardados.")
 
     def clear(self) -> None:
         if not confirm_discard_work(self, "Limpiar selección"):
@@ -562,6 +633,7 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
     def _metadata(self) -> dict[str, str]:
         return {
             "ganadero": self.ganadero.text().strip(),
+            "empresa_cliente": self._selected_empresa_cliente(),
             "origen": self.origen.text().strip(),
             "dac": self.dac.text().strip(),
             "contrato": self.contrato.text().strip(),
@@ -574,6 +646,7 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
     def _default_metadata(self) -> dict[str, str]:
         return {
             "ganadero": "EMBUTIDOS RODRIGUEZ",
+            "empresa_cliente": "",
             "origen": "España",
             "dac": "",
             "contrato": "",
@@ -589,8 +662,229 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
     def _mark_metadata_changed(self) -> None:
         self._metadata_warning_acknowledged = False
 
+    def _on_empresa_cliente_changed(self, _index: int) -> None:
+        self._mark_metadata_changed()
+        if self._selected_empresa_cliente():
+            self.empresa_cliente.setProperty("error", False)
+            self.empresa_cliente.style().unpolish(self.empresa_cliente)
+            self.empresa_cliente.style().polish(self.empresa_cliente)
+
+    def reload_empresas_clientes(self) -> None:
+        """Recarga el TXT al abrir Campos manuales, conservando una seleccion valida."""
+
+        selected = self._selected_empresa_cliente()
+        self.empresas_clientes_result = load_empresas_clientes()
+        self.empresas_clientes = self.empresas_clientes_result.companies
+        self.empresa_cliente.blockSignals(True)
+        self.empresa_cliente.clear()
+        for company in self.empresas_clientes:
+            self.empresa_cliente.add_option(company, company)
+        index = self.empresa_cliente.findData(selected) if selected else -1
+        self.empresa_cliente.setCurrentIndex(index)
+        self.empresa_cliente.blockSignals(False)
+        self.empresa_cliente.setProperty("error", False)
+        self.empresa_cliente.style().unpolish(self.empresa_cliente)
+        self.empresa_cliente.style().polish(self.empresa_cliente)
+        if selected and not self._selected_empresa_cliente():
+            self._mark_metadata_changed()
+
+    def _selected_empresa_cliente(self) -> str:
+        value = self.empresa_cliente.currentData()
+        if not isinstance(value, str) or value not in self.empresas_clientes:
+            return ""
+        return value
+
+    def _empresa_cliente_validation_message(self) -> str:
+        if not self.empresas_clientes:
+            return "No hay empresas cliente válidas. Revisa el archivo empresas_clientes.txt y vuelve a abrir Campos manuales informe."
+        return "Selecciona una empresa cliente antes de generar el informe."
+
+    def _validate_empresa_cliente(self) -> bool:
+        if self._selected_empresa_cliente():
+            self.empresa_cliente.setProperty("error", False)
+            return True
+        message = self._empresa_cliente_validation_message()
+        self.empresa_cliente.setProperty("error", True)
+        self.empresa_cliente.style().unpolish(self.empresa_cliente)
+        self.empresa_cliente.style().polish(self.empresa_cliente)
+        self.empresa_cliente.setFocus(Qt.OtherFocusReason)
+        self.status.setText(message)
+        if self.show_dialogs:
+            show_inline_message(self, "warning", message)
+        return False
+
+    def _configure_auxiliary_accordion(self) -> None:
+        self._accordion_sections = (self.metadata_section, self.email_section)
+        self._accordion_headers = (
+            self.metadata_section.findChild(QToolButton, "CollapsibleHeader"),
+            self.email_section.findChild(QToolButton, "CollapsibleHeader"),
+        )
+        self._accordion_headers = tuple(header for header in self._accordion_headers if header is not None)
+        self._metadata_header = self.metadata_section.findChild(QToolButton, "CollapsibleHeader")
+        self._accordion_syncing = False
+        for header in self._accordion_headers:
+            header.toggled.connect(lambda checked, source=header: self._sync_auxiliary_accordion(source, checked))
+        self._refresh_auxiliary_panel_layout()
+
+    def _install_output_context_section(self) -> None:
+        """Ubica el único visor TXT en la zona de contexto compartida."""
+        context_panel = self.findChild(QFrame, "ContextPanel")
+        if context_panel is None or context_panel.layout() is None:
+            return
+        self.output_section = collapsible_section("Salida TXT AX", self.output)
+        self.output_section.setObjectName("ContextOutputSection")
+        self.output_section.setMinimumWidth(0)
+        self.output_section.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.output_section.setProperty("flowCanShrink", True)
+        context_panel.layout().addWidget(self.output_section)
+
+    def _sync_auxiliary_accordion(self, source: QToolButton, expanded: bool) -> None:
+        if self._accordion_syncing:
+            return
+        self._accordion_syncing = True
+        try:
+            if expanded and source is self._metadata_header:
+                self.reload_empresas_clientes()
+            if expanded:
+                for header in self._accordion_headers:
+                    if header is not source and header.isChecked():
+                        header.setChecked(False)
+        finally:
+            self._accordion_syncing = False
+        self._refresh_auxiliary_panel_layout()
+
+    def _refresh_auxiliary_panel_layout(self) -> None:
+        sections = getattr(self, "_accordion_sections", ())
+        headers = getattr(self, "_accordion_headers", ())
+        for section in sections:
+            if section is not None:
+                section.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+                section.updateGeometry()
+        rail_layout = getattr(self, "rail_layout", None)
+        if rail_layout is not None:
+            for section, header in zip(sections, headers):
+                is_open = header.isChecked()
+                rail_layout.setStretch(rail_layout.indexOf(section), 3 if is_open else 0)
+            rail_layout.invalidate()
+            rail_layout.activate()
+
+    def resizeEvent(self, event) -> None:  # type: ignore[override]
+        super().resizeEvent(event)
+        if hasattr(self, "metadata_section"):
+            self._refresh_auxiliary_panel_layout()
+
+    def _add_recipient_field(self, value: str = "", *, index: int | None = None, focus: bool = False) -> QLineEdit:
+        field = QLineEdit(value)
+        field.setPlaceholderText("correo@empresa.com")
+        field.setAccessibleName("Destinatario")
+        field.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        field.editingFinished.connect(self._normalize_recipient_fields)
+        field.returnPressed.connect(lambda: QTimer.singleShot(0, self._commit_recipient_field))
+        remove_button = QPushButton("Eliminar")
+        remove_button.setProperty("destructive", True)
+        remove_button.setAccessibleName("Eliminar destinatario")
+        remove_button.clicked.connect(lambda _checked=False, current=field: self._remove_recipient_field(current))
+        row = QWidget()
+        row.setMinimumWidth(0)
+        row.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(6)
+        row_layout.addWidget(field, 1)
+        row_layout.addWidget(remove_button)
+        target_index = len(self.recipient_fields) if index is None else index
+        self.recipient_fields.insert(target_index, field)
+        self._recipient_rows[field] = row
+        self.recipients_rows_layout.insertWidget(target_index, row)
+        if focus:
+            field.setFocus(Qt.TabFocusReason)
+        return field
+
+    def _remove_recipient_field(self, field: QLineEdit) -> None:
+        row = self._recipient_rows.pop(field, None)
+        if row is None:
+            return
+        self.recipient_fields.remove(field)
+        self.recipients_rows_layout.removeWidget(row)
+        row.deleteLater()
+        self.recipients_rows.updateGeometry()
+
+    def _normalize_recipient_fields(self) -> None:
+        values = parsear_destinatarios("; ".join(field.text() for field in self.recipient_fields))
+        current = [field.text().strip() for field in self.recipient_fields if field.text().strip()]
+        if values != current:
+            self._set_recipient_fields(values)
+
+    def _commit_recipient_field(self) -> None:
+        self._normalize_recipient_fields()
+        if self.recipient_fields and self.recipient_fields[-1].text().strip():
+            self._add_recipient_field(focus=True)
+
+    def _set_recipient_fields(self, values: list[str], *, ensure_empty_field: bool = True) -> None:
+        for field in tuple(self.recipient_fields):
+            self._remove_recipient_field(field)
+        for value in values:
+            self._add_recipient_field(value)
+        if ensure_empty_field and not self.recipient_fields:
+            self._add_recipient_field()
+
+    def _validated_recipients(self) -> list[str] | None:
+        self._normalize_recipient_fields()
+        values = [field.text().strip() for field in self.recipient_fields if field.text().strip()]
+        invalid = set(validar_destinatarios(values))
+        for field in self.recipient_fields:
+            value = field.text().strip()
+            has_error = bool(value and value in invalid)
+            field.setProperty("error", has_error)
+            field.style().unpolish(field)
+            field.style().polish(field)
+        if not values:
+            self._recipient_validation_message = "Introduce al menos un destinatario válido."
+            return None
+        if invalid:
+            self._recipient_validation_message = "Dirección no válida: " + ", ".join(sorted(invalid))
+            return None
+        self._recipient_validation_message = ""
+        return parsear_destinatarios("; ".join(values))
+
+    def _save_recipient_preferences(self, recipients: list[str], app_settings=None) -> None:
+        if app_settings is None:
+            app_settings = settings()
+        app_settings.setValue(RECIPIENTS_KEY, recipients)
+        app_settings.sync()
+
+    @staticmethod
+    def _setting_values(value: object) -> list[str]:
+        def flatten(item: object) -> list[str]:
+            if isinstance(item, str):
+                return [item]
+            if isinstance(item, (list, tuple)):
+                return [part for nested in item for part in flatten(nested)]
+            return [str(item)] if item is not None else []
+
+        return parsear_destinatarios("; ".join(part.strip() for part in flatten(value) if part.strip()))
+
+    @staticmethod
+    def _valid_recipient_values(values: list[str]) -> list[str]:
+        return [value for value in parsear_destinatarios("; ".join(values)) if not validar_destinatarios([value])]
+
+    def _load_recipient_preferences(self, app_settings) -> None:
+        configured = self._valid_recipient_values(self._setting_values(app_settings.value(RECIPIENTS_KEY, [])))
+        if not configured:
+            legacy_fields = self._setting_values(
+                [
+                    app_settings.value(LEGACY_RECIPIENT_1_KEY, ""),
+                    app_settings.value(LEGACY_RECIPIENT_2_KEY, ""),
+                    app_settings.value(LEGACY_RECIPIENTS_KEY, []),
+                ]
+            )
+            configured = self._valid_recipient_values(legacy_fields)
+        self._save_recipient_preferences(configured, app_settings)
+        self._set_recipient_fields(configured)
+
     def _load_email_template(self) -> None:
         app_settings = settings()
+        self._load_recipient_preferences(app_settings)
         subject = str(
             app_settings.value(
                 "mail/control_recepcion_precintos/subject",
@@ -761,17 +1055,11 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
         self.issues.setVisible(has_issues)
         self.preview.setVisible(needs_corrections)
 
-        state, detail, progress = self._pilot_state_text()
-        self.rail_state.setText(state)
-        self.rail_state.setAccessibleDescription(f"Estado actual: {state}. {detail}")
-        self.rail_detail.setText(detail)
-        self.rail_progress.setValue(progress)
-        self.rail_progress.setAccessibleName("Progreso del proceso")
-        self.rail_progress.setAccessibleDescription(f"Progreso estimado del proceso: {progress} por ciento.")
-        self.rail_next.setText(self._next_action_text())
-        self.rail_next.setAccessibleDescription(f"Siguiente acción recomendada: {self.rail_next.text()}")
-        self.rail_alerts.setText(self._alerts_text())
-        self.rail_alerts.setAccessibleDescription("Avisos del proceso: " + self.rail_alerts.text().replace("\n", ". "))
+        state, detail, _progress = self._pilot_state_text()
+        next_action = self._next_action_text()
+        self.command_hint.setText(next_action)
+        self.command_hint.setToolTip(detail)
+        self.command_hint.setAccessibleDescription(f"{state}. {detail}")
         self.issues_empty.setText(self._empty_issue_text())
 
     def _pilot_state_text(self) -> tuple[str, str, int]:
@@ -810,20 +1098,6 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
         if self.result.recepcion is not None:
             return "Enviar correo"
         return "Completa el paso actual"
-
-    def _alerts_text(self) -> str:
-        alerts: list[str] = []
-        if self.result.invalidos:
-            alerts.append(f"{len(self.result.invalidos)} líneas pendientes")
-        if self.result.duplicados:
-            alerts.append(f"{len(self.result.duplicados)} duplicados suprimidos")
-        if self._can_continue_to_seals() and self.seals_file is None:
-            alerts.append("SealsReport no cargado")
-        if self.result.recepcion is not None and not self.recipients.text().strip():
-            alerts.append("Correo sin destinatarios")
-        if self.result.recepcion is not None and self._metadata_uses_defaults():
-            alerts.append("Campos manuales sin revisar")
-        return "\n".join(alerts) if alerts else "Sin avisos."
 
     def _empty_issue_text(self) -> str:
         if not self.paths and not self.result.validos:

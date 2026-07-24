@@ -2,16 +2,18 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import QEvent, QTimer, Qt
 from PySide6.QtGui import QAction, QFont, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QBoxLayout,
-    QComboBox,
     QFrame,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QMainWindow,
     QMessageBox,
     QPushButton,
@@ -24,11 +26,24 @@ from PySide6.QtWidgets import (
 )
 
 from suite_pyside6 import __version__
+from suite_pyside6.core.app_organization import CategoryDefinition
 from suite_pyside6.core.apps import APP_REGISTRY, AppDefinition, app_by_key, categories
 from suite_pyside6.core.paths import resource_path
 from suite_pyside6.ui.about_dialog import AboutDialog
-from suite_pyside6.ui.app_windows import get_window_class
-from suite_pyside6.ui.components import configure_header_action, dropzone, empty_state, labeled_field, metric, module_row, panel, work_item
+from suite_pyside6.ui.app_windows import preloaded_window_class, preload_window_class
+from suite_pyside6.ui.components import (
+    ActionMenuButton,
+    ModernSelect,
+    SearchableComboBox,
+    configure_header_action,
+    dropzone,
+    empty_state,
+    labeled_field,
+    metric,
+    module_row,
+    panel,
+    work_item,
+)
 from suite_pyside6.ui.polish import apply_premium_depth, apply_theme_mode, brand_logo_pixmap, focus_next_action, handle_dropped_paths, operational_snapshot, prepare_embedded_window, trigger_next_action
 from suite_pyside6.ui.personalized_descriptions import (
     PersonalizedDescriptionControl,
@@ -36,8 +51,19 @@ from suite_pyside6.ui.personalized_descriptions import (
     migrate_control_recepcion_precintos_header,
     process_description_key,
 )
-from suite_pyside6.ui.session import recent_app_keys, recent_paths, remember_app_open
+from suite_pyside6.ui.navigation import reveal_view
+from suite_pyside6.ui.session import (
+    load_app_organization,
+    recent_app_keys,
+    recent_paths,
+    remember_app_open,
+    reset_app_organization,
+    save_app_organization,
+)
 from suite_pyside6.ui.theme import base_qss, current_theme_preference
+
+
+NAVIGATION_LOADING_DELAY_MS = 120
 
 
 class MainWindow(QMainWindow):
@@ -53,8 +79,11 @@ class MainWindow(QMainWindow):
         self.category_buttons: dict[str, QPushButton] = {}
         self.active_job_buttons: dict[str, QPushButton] = {}
         self._current_app_key = ""
+        self._opening_app_key = ""
         self._continue_app_key = ""
         self._closing = False
+        self.app_organization = load_app_organization(APP_REGISTRY)
+        self._organization_updating = False
 
         self.setWindowTitle("Consola Operativa Rodriguez Finura")
         self.resize(1360, 820)
@@ -150,6 +179,8 @@ class MainWindow(QMainWindow):
             "historial": self.stack.addWidget(self.history_page),
             "ajustes": self.stack.addWidget(self.settings_page),
         }
+        self.navigation_loading_page = self._build_navigation_loading_page()
+        self.stack.addWidget(self.navigation_loading_page)
         self.setCentralWidget(root)
         self.result_label = QLabel()
         self.result_label.setVisible(False)
@@ -434,7 +465,7 @@ class MainWindow(QMainWindow):
             app = self._app_from_key(key)
             if app is not None:
                 button = QPushButton("Abrir")
-                button.clicked.connect(lambda _checked=False, item=app: self.open_app(item))
+                self._wire_app_button(button, app)
                 priority_layout.addWidget(work_item(app.title, app.description, "Disponible", button))
         columns.addWidget(priority_panel, 2)
 
@@ -500,10 +531,11 @@ class MainWindow(QMainWindow):
             brand_row.addWidget(finura, 0, Qt.AlignVCenter)
         settings_layout.addLayout(brand_row)
 
-        self.theme_combo = QComboBox()
+        self.theme_combo = ModernSelect(placeholder="Selecciona el tema visual")
         self.theme_combo.setObjectName("ThemePreference")
         self.theme_combo.blockSignals(True)
-        self.theme_combo.addItems(["Sistema", "Claro", "Oscuro"])
+        for label, value in (("Sistema", "system"), ("Claro", "light"), ("Oscuro", "dark")):
+            self.theme_combo.add_option(label, value, description=f"Tema visual: {label.lower()}")
         self.theme_combo.setCurrentText({"system": "Sistema", "light": "Claro", "dark": "Oscuro"}[current_theme_preference()])
         self.theme_combo.blockSignals(False)
         self.theme_combo.setAccessibleName("Tema visual")
@@ -517,11 +549,214 @@ class MainWindow(QMainWindow):
         update_button.clicked.connect(self.show_about)
         settings_layout.addWidget(update_button)
         layout.addWidget(settings_panel)
+
+        organization_panel, organization_layout = panel(
+            "Organización de procesos",
+            "Crea categorías personales y asigna cada proceso a una única categoría. Las categorías del sistema se conservan.",
+        )
+        self.organization_category_list = QListWidget()
+        self.organization_category_list.setObjectName("OrganizationCategoryList")
+        self.organization_category_list.setAccessibleName("Categorías de procesos")
+        self.organization_category_list.setAccessibleDescription("Selecciona una categoría personalizada para renombrarla, eliminarla o cambiar su orden.")
+        self.organization_category_list.currentItemChanged.connect(lambda *_args: self._refresh_organization_buttons())
+        organization_layout.addWidget(self.organization_category_list)
+
+        category_actions = QHBoxLayout()
+        self.add_category_button = QPushButton("Crear categoría")
+        self.category_actions_button = ActionMenuButton(accessible_name="Acciones de categoría")
+        category_actions.addWidget(self.add_category_button)
+        category_actions.addWidget(self.category_actions_button)
+        self.add_category_button.clicked.connect(self._create_category)
+        self.rename_category_action = self.category_actions_button.add_action("Renombrar", self._rename_category)
+        self.category_up_action = self.category_actions_button.add_action("Subir", lambda: self._move_selected_category(-1))
+        self.category_down_action = self.category_actions_button.add_action("Bajar", lambda: self._move_selected_category(1))
+        self.category_actions_button.menu().addSeparator()
+        self.delete_category_action = self.category_actions_button.add_action("Eliminar", self._delete_category, destructive=True)
+        organization_layout.addLayout(category_actions)
+
+        assignment_row = QHBoxLayout()
+        self.organization_app_combo = SearchableComboBox(placeholder="Busca un proceso")
+        self.organization_target_combo = ModernSelect(placeholder="Selecciona una categoría")
+        self.organization_app_combo.setAccessibleName("Proceso a organizar")
+        self.organization_target_combo.setAccessibleName("Categoría del proceso")
+        self.organization_app_combo.currentIndexChanged.connect(self._sync_assignment_category)
+        self.organization_target_combo.currentIndexChanged.connect(self._assign_selected_app)
+        assignment_row.addWidget(labeled_field("Proceso", self.organization_app_combo), 1)
+        assignment_row.addWidget(labeled_field("Categoría", self.organization_target_combo), 1)
+        organization_layout.addLayout(assignment_row)
+
+        self.restore_organization_button = QPushButton("Restaurar organización predeterminada")
+        self.restore_organization_button.setAccessibleDescription("Elimina sólo las categorías y asignaciones personalizadas del perfil actual.")
+        self.restore_organization_button.clicked.connect(self._restore_default_organization)
+        organization_layout.addWidget(self.restore_organization_button)
+        layout.addWidget(organization_panel)
         layout.addStretch(1)
         return page
 
     def _set_theme_preference(self, text: str) -> None:
         apply_theme_mode({"Claro": "light", "Oscuro": "dark", "Sistema": "system"}.get(text, "system"))
+
+    def _category_name_for(self, app: AppDefinition) -> str:
+        category_id = self.app_organization.category_for(app, APP_REGISTRY)
+        for category in self.app_organization.categories(APP_REGISTRY):
+            if category.id == category_id:
+                return category.name
+        return app.category
+
+    def _selected_category(self) -> CategoryDefinition | None:
+        item = getattr(self, "organization_category_list", None)
+        if item is None or item.currentItem() is None:
+            return None
+        category_id = str(item.currentItem().data(Qt.UserRole) or "")
+        return next((category for category in self.app_organization.categories(APP_REGISTRY) if category.id == category_id), None)
+
+    def _refresh_organization_controls(self) -> None:
+        if not hasattr(self, "organization_category_list") or self._organization_updating:
+            return
+        self._organization_updating = True
+        try:
+            selected_category = self._selected_category()
+            selected_category_id = selected_category.id if selected_category else ""
+            selected_app = self.organization_app_combo.currentData()
+            self.organization_category_list.blockSignals(True)
+            self.organization_category_list.clear()
+            category_items = self.app_organization.categories(APP_REGISTRY)
+            for category in category_items:
+                item = QListWidgetItem(category.name + ("" if category.is_custom else " (sistema)"))
+                item.setData(Qt.UserRole, category.id)
+                item.setToolTip("Categoría personalizada" if category.is_custom else "Categoría predeterminada del sistema")
+                self.organization_category_list.addItem(item)
+                if category.id == selected_category_id:
+                    self.organization_category_list.setCurrentItem(item)
+            if self.organization_category_list.currentItem() is None and self.organization_category_list.count():
+                self.organization_category_list.setCurrentRow(0)
+            self.organization_category_list.blockSignals(False)
+
+            self.organization_app_combo.blockSignals(True)
+            self.organization_app_combo.clear()
+            for app in APP_REGISTRY:
+                self.organization_app_combo.add_option(app.title, app.key, description=app.description)
+            app_index = self.organization_app_combo.findData(selected_app)
+            self.organization_app_combo.setCurrentIndex(app_index if app_index >= 0 else 0)
+            self.organization_app_combo.blockSignals(False)
+            self._sync_assignment_category()
+            self._refresh_organization_buttons()
+        finally:
+            self._organization_updating = False
+
+    def _refresh_organization_buttons(self) -> None:
+        if not hasattr(self, "rename_category_action"):
+            return
+        category = self._selected_category()
+        is_custom = bool(category and category.is_custom)
+        self.rename_category_action.setEnabled(is_custom)
+        self.delete_category_action.setEnabled(is_custom)
+        self.category_up_action.setEnabled(category is not None)
+        self.category_down_action.setEnabled(category is not None)
+        self.category_actions_button.setEnabled(category is not None)
+
+    def _sync_assignment_category(self) -> None:
+        if not hasattr(self, "organization_target_combo"):
+            return
+        app = self._app_from_key(str(self.organization_app_combo.currentData() or ""))
+        self.organization_target_combo.blockSignals(True)
+        self.organization_target_combo.clear()
+        for category in self.app_organization.categories(APP_REGISTRY):
+            detail = "Categoría personalizada" if category.is_custom else "Categoría predeterminada del sistema"
+            self.organization_target_combo.add_option(category.name, category.id, description=detail)
+        if app is not None:
+            index = self.organization_target_combo.findData(self.app_organization.category_for(app, APP_REGISTRY))
+            self.organization_target_combo.setCurrentIndex(index if index >= 0 else 0)
+        self.organization_target_combo.blockSignals(False)
+
+    def _assign_selected_app(self) -> None:
+        if self._organization_updating:
+            return
+        app = self._app_from_key(str(self.organization_app_combo.currentData() or ""))
+        category_id = str(self.organization_target_combo.currentData() or "")
+        if app is None or not category_id:
+            return
+        try:
+            self.app_organization.assign(app, category_id, APP_REGISTRY)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Organización de procesos", str(exc))
+            self._sync_assignment_category()
+            return
+        self._save_organization()
+
+    def _create_category(self) -> None:
+        name, accepted = QInputDialog.getText(self, "Crear categoría", "Nombre de la categoría:")
+        if not accepted:
+            return
+        try:
+            category = self.app_organization.add_category(name, APP_REGISTRY)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Crear categoría", str(exc))
+            return
+        self._save_organization(category.id)
+
+    def _rename_category(self) -> None:
+        category = self._selected_category()
+        if category is None or not category.is_custom:
+            return
+        name, accepted = QInputDialog.getText(self, "Renombrar categoría", "Nombre de la categoría:", text=category.name)
+        if not accepted:
+            return
+        try:
+            self.app_organization.rename_category(category.id, name, APP_REGISTRY)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Renombrar categoría", str(exc))
+            return
+        self._save_organization(category.id)
+
+    def _delete_category(self) -> None:
+        category = self._selected_category()
+        if category is None or not category.is_custom:
+            return
+        affected = [app for app in APP_REGISTRY if self.app_organization.category_for(app, APP_REGISTRY) == category.id]
+        detail = "Los procesos asignados volverán a su categoría predeterminada." if affected else "La categoría está vacía."
+        answer = QMessageBox.question(
+            self,
+            "Eliminar categoría",
+            f"¿Eliminar la categoría «{category.name}»?\n\n{detail}",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if answer != QMessageBox.Yes:
+            return
+        self.app_organization.delete_category(category.id)
+        self._save_organization()
+
+    def _move_selected_category(self, direction: int) -> None:
+        category = self._selected_category()
+        if category is None:
+            return
+        self.app_organization.move_category(category.id, direction, APP_REGISTRY)
+        self._save_organization(category.id)
+
+    def _restore_default_organization(self) -> None:
+        answer = QMessageBox.question(
+            self,
+            "Restaurar organización predeterminada",
+            "Se eliminarán sólo las categorías y asignaciones personalizadas. Las demás preferencias se conservarán. ¿Continuar?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if answer != QMessageBox.Yes:
+            return
+        self.app_organization.reset()
+        reset_app_organization()
+        self._refresh_all()
+
+    def _save_organization(self, selected_category_id: str = "") -> None:
+        save_app_organization(self.app_organization)
+        self._refresh_all()
+        if selected_category_id:
+            for row in range(self.organization_category_list.count()):
+                item = self.organization_category_list.item(row)
+                if str(item.data(Qt.UserRole) or "") == selected_category_id:
+                    self.organization_category_list.setCurrentItem(item)
+                    break
 
     @staticmethod
     def _brand_logo(name: str, width: int, height: int, accessible_name: str) -> QLabel | None:
@@ -547,6 +782,30 @@ class MainWindow(QMainWindow):
         scroll.setWidget(content)
         return scroll
 
+    def _build_navigation_loading_page(self) -> QWidget:
+        page = QFrame()
+        page.setObjectName("NavigationLoadingPage")
+        page.setAccessibleName("Preparando aplicación")
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(36, 36, 36, 36)
+        layout.setSpacing(10)
+        layout.addStretch(1)
+        self.navigation_loading_title = QLabel("Preparando aplicación")
+        self.navigation_loading_title.setObjectName("ModuleTitle")
+        self.navigation_loading_detail = QLabel("Cargando los componentes necesarios…")
+        self.navigation_loading_detail.setObjectName("ModuleDescription")
+        self.navigation_loading_detail.setWordWrap(True)
+        layout.addWidget(self.navigation_loading_title)
+        layout.addWidget(self.navigation_loading_detail)
+        for width in (100, 76, 88):
+            skeleton = QFrame()
+            skeleton.setObjectName("NavigationSkeleton")
+            skeleton.setFixedHeight(12)
+            skeleton.setMaximumWidth(width * 3)
+            layout.addWidget(skeleton)
+        layout.addStretch(2)
+        return page
+
     @staticmethod
     def _nav_label(text: str) -> QLabel:
         label = QLabel(text)
@@ -562,6 +821,18 @@ class MainWindow(QMainWindow):
         button.setCheckable(True)
         button.setAccessibleName(text)
         return button
+
+    def _wire_app_button(self, button: QPushButton, app: AppDefinition) -> None:
+        button.setProperty("appKey", app.key)
+        button.installEventFilter(self)
+        button.clicked.connect(lambda _checked=False, item=app: self.open_app(item))
+
+    def eventFilter(self, watched, event) -> bool:  # type: ignore[override]
+        if isinstance(watched, QPushButton) and event.type() in {QEvent.Enter, QEvent.FocusIn}:
+            key = str(watched.property("appKey") or "")
+            if key:
+                preload_window_class(key)
+        return super().eventFilter(watched, event)
 
     def _context_card(self, title: str, value: str) -> QFrame:
         frame = QFrame()
@@ -583,13 +854,13 @@ class MainWindow(QMainWindow):
         button = QPushButton("Abrir")
         button.setProperty("primary", True)
         button.setAccessibleName(f"Abrir {app.title}")
-        button.clicked.connect(lambda _checked=False, item=app: self.open_app(item))
+        self._wire_app_button(button, app)
         description = PersonalizedDescriptionControl(
             app.description,
             process_description_key(app.key),
             label_object_name="ModuleDescription",
         )
-        return module_row(app.title, app.description, app.category, "Disponible", app.shortcut, button, description)
+        return module_row(app.title, app.description, self._category_name_for(app), "Disponible", app.shortcut, button, description)
 
     def _render_processes(self) -> None:
         if not hasattr(self, "processes_layout"):
@@ -606,11 +877,11 @@ class MainWindow(QMainWindow):
         if not apps:
             self.processes_layout.addWidget(empty_state("Sin procesos", "Ajusta la busqueda para encontrar el proceso."))
             return
-        for category in categories():
-            group = [app for app in apps if category == "Todas" or app.category == category]
-            if category == "Todas" or not group:
+        for category in self.app_organization.categories(APP_REGISTRY):
+            group = [app for app in apps if self.app_organization.category_for(app, APP_REGISTRY) == category.id]
+            if not group:
                 continue
-            group_panel, group_layout = panel(category, f"{len(group)} procesos disponibles")
+            group_panel, group_layout = panel(category.name, f"{len(group)} procesos disponibles")
             for app in group:
                 group_layout.addWidget(self._process_row(app))
             self.processes_layout.addWidget(group_panel)
@@ -641,7 +912,7 @@ class MainWindow(QMainWindow):
             app = self._app_from_key(key)
             if app is not None:
                 button = QPushButton("Abrir")
-                button.clicked.connect(lambda _checked=False, item=app: self.open_app(item))
+                self._wire_app_button(button, app)
                 self.history_layout.addWidget(work_item(app.title, app.description, "Reciente", button))
 
     def _refresh_active_jobs(self) -> None:
@@ -661,7 +932,7 @@ class MainWindow(QMainWindow):
             button.setToolTip(app.title)
             button.setAccessibleName(app.title)
             button.setChecked(key == self._current_app_key)
-            button.clicked.connect(lambda _checked=False, item=app: self.open_app(item))
+            self._wire_app_button(button, app)
             self.active_job_buttons[key] = button
             self.active_jobs_box.addWidget(button)
 
@@ -709,6 +980,7 @@ class MainWindow(QMainWindow):
         self._refresh_history()
         self._refresh_active_jobs()
         self._render_processes()
+        self._refresh_organization_controls()
         self._update_nav_state()
         self._update_context()
         apply_premium_depth(self)
@@ -719,15 +991,19 @@ class MainWindow(QMainWindow):
             return list(APP_REGISTRY)
         result = []
         for app in APP_REGISTRY:
-            haystack = " ".join((app.title, app.description, app.category, app.short_description)).lower()
+            haystack = " ".join((app.title, app.description, self._category_name_for(app), app.short_description)).lower()
             if text in haystack:
                 result.append(app)
         return result
 
     def show_view(self, view: str) -> None:
+        self._opening_app_key = ""
         self.current_view = view
         self._current_app_key = ""
         self.stack.setCurrentIndex(self.page_indexes[view])
+        current_page = self.stack.currentWidget()
+        if current_page is not None:
+            reveal_view(current_page)
         titles = {
             "bandeja": ("Bandeja", "Carga archivos, detecta procesos y continúa trabajos activos."),
             "procesos": ("Procesos", "Elige manualmente una herramienta operativa."),
@@ -753,10 +1029,55 @@ class MainWindow(QMainWindow):
         remember_app_open(app.key)
         window = self.app_pages.get(app.key)
         if window is None:
-            window_class = get_window_class(app.key)
-            if window_class is None:
-                QMessageBox.warning(self, "No disponible", f"{app.title} no tiene una ventana asignada.")
+            if self._opening_app_key == app.key:
                 return
+            self._opening_app_key = app.key
+            self.workspace_title.setText(app.title)
+            self._set_workspace_description(app.description, header_description_key(app.key))
+            self.search.setVisible(False)
+            self.home_button.setVisible(True)
+            self.context_rail.setVisible(False)
+            self.compact_context_bar.setVisible(False)
+            self._update_nav_state()
+            preload_window_class(app.key)
+            QTimer.singleShot(0, lambda item=app: self._complete_app_open(item))
+            QTimer.singleShot(NAVIGATION_LOADING_DELAY_MS, lambda item=app: self._show_app_preparing_if_needed(item))
+            return
+
+        self._activate_app_page(app, window)
+
+    def _show_app_preparing(self, app: AppDefinition) -> None:
+        self.current_view = "trabajo"
+        self._current_app_key = ""
+        self.navigation_loading_title.setText(f"Abriendo {app.title}")
+        self.navigation_loading_detail.setText("Preparando la herramienta sin bloquear la consola…")
+        self.stack.setCurrentWidget(self.navigation_loading_page)
+        self.workspace_title.setText(app.title)
+        self._set_workspace_description(app.description, header_description_key(app.key))
+        self.search.setVisible(False)
+        self.home_button.setVisible(True)
+        self.context_rail.setVisible(False)
+        self.compact_context_bar.setVisible(False)
+        self._update_nav_state()
+
+    def _show_app_preparing_if_needed(self, app: AppDefinition) -> None:
+        if self._opening_app_key == app.key and app.key not in self.app_pages:
+            self._show_app_preparing(app)
+
+    def _complete_app_open(self, app: AppDefinition) -> None:
+        if self._opening_app_key != app.key:
+            return
+        try:
+            window_class = preloaded_window_class(app.key)
+        except Exception as exc:
+            self._opening_app_key = ""
+            self.navigation_loading_detail.setText(f"No se pudo abrir la aplicación: {exc}")
+            return
+        if window_class is None:
+            # Un sondeo espaciado deja tiempo al importador de Python para avanzar.
+            QTimer.singleShot(250, lambda item=app: self._complete_app_open(item))
+            return
+        try:
             window = window_class()
             window.setObjectName("EmbeddedAppWindow")
             prepare_embedded_window(window)
@@ -768,10 +1089,18 @@ class MainWindow(QMainWindow):
             self.app_page_indexes[app.key] = self.stack.addWidget(window)
             self.tabs.addTab(QWidget(), app.title)
             self.tab_keys.append(app.key)
+        except Exception as exc:
+            self._opening_app_key = ""
+            self.navigation_loading_detail.setText(f"No se pudo preparar la aplicación: {exc}")
+            return
+        self._opening_app_key = ""
+        self._activate_app_page(app, window)
 
+    def _activate_app_page(self, app: AppDefinition, window: QMainWindow) -> None:
         self._current_app_key = app.key
         self.current_view = "trabajo"
         self.stack.setCurrentWidget(window)
+        reveal_view(window)
         if app.key in self.tab_keys:
             self.tabs.setCurrentIndex(self.tab_keys.index(app.key))
         self.workspace_title.setText(app.title)
@@ -943,7 +1272,7 @@ class MainWindow(QMainWindow):
         for key, button in self.nav_buttons.items():
             button.setChecked(key == self.current_view)
         for key, button in self.active_job_buttons.items():
-            button.setChecked(key == self._current_app_key)
+            button.setChecked(key in {self._current_app_key, self._opening_app_key})
 
     def _forget_app_page(self, key: str) -> None:
         if self._closing or QApplication.closingDown():
@@ -973,6 +1302,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt API
         self._closing = True
+        self._opening_app_key = ""
         for key, window in list(self.open_windows.items()):
             if not window.close():
                 self._closing = False

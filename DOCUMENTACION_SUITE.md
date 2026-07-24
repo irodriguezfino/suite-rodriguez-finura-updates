@@ -88,6 +88,14 @@ Desde v1.7.7 el flujo unificado pasa a llamarse `Control y Recepción Precintos`
 
 Desde v1.7.8 cada perfil puede personalizar de forma independiente la descripción de la cabecera de una aplicación y la de cada proceso de la bandeja. Las acciones de descripción, versión y Bandeja se agrupan en la cabecera con una disposición uniforme y siguen siendo visibles en resoluciones estrechas.
 
+## Organización y detección automática
+
+La organización de procesos se guarda por perfil en `QSettings`, bajo `apps/organization`, como JSON versionado. Conserva las categorías predeterminadas del registro de aplicaciones, añade categorías personalizadas con identificadores UUID estables y guarda las asignaciones por clave interna de aplicación. Las preferencias corruptas, incompletas o que apuntan a aplicaciones eliminadas se ignoran de forma segura; restaurar la organización sólo elimina esta preferencia.
+
+`Precintos Jamones` detecta ahora el tipo automáticamente por registro: un GTIN-12 de doce dígitos con control válido es jamón ibérico y cualquier otro valor se trata con las validaciones internas de jamón blanco. Los lotes mixtos se señalan por fila; se permite conservarlos en TXT, pero se bloquea el CSV hasta que el lote tenga un único tipo porque sus formatos de salida son distintos.
+
+Los selectores visibles reutilizan `ModernSelect` (valor único), `SearchableComboBox` (listas que pueden crecer) y `ActionMenuButton` (acciones no seleccionables). Los tres conservan los controles nativos de PySide6 para teclado y lectores de pantalla; los estilos de popup, menú, foco y modo oscuro se centralizan en `ui/theme.py`.
+
 ## Aplicaciones incluidas
 
 ### Merma jamones FAC embutidos Rodriguez

@@ -32,11 +32,12 @@ from suite_pyside6.core.reparto_merma_precintos import (
     calculate_adjustment,
     read_source_file,
     validate_final_weight,
+    validate_work_order,
     write_ax_csv,
 )
 from suite_pyside6.ui.components import control_metric_pair, control_pill, control_rail_label, labeled_field, section_label, step_bar
 from suite_pyside6.ui.file_dialogs import open_file, save_file
-from suite_pyside6.ui.polish import polish_window, show_inline_message, sync_recommended_action
+from suite_pyside6.ui.polish import confirm_discard_work, polish_window, show_inline_message, sync_recommended_action
 from suite_pyside6.ui.table_utils import bulk_table_update, update_count_label
 from suite_pyside6.ui.theme import base_qss
 
@@ -84,7 +85,7 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         copy.setSpacing(3)
         title = QLabel("Reparto de Merma por Precintos")
         title.setObjectName("WindowTitle")
-        subtitle = QLabel("Distribuye el peso final proporcionalmente y prepara un CSV de dos columnas para AX.")
+        subtitle = QLabel("Distribuye el peso final proporcionalmente y prepara un CSV AX con orden de trabajo, precinto y peso.")
         subtitle.setObjectName("WindowSubtitle")
         subtitle.setWordWrap(True)
         copy.addWidget(title)
@@ -97,7 +98,7 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         hero_status_layout.setSpacing(3)
         kind = QLabel("SALIDA AX")
         kind.setObjectName("Overline")
-        value = QLabel("Precinto + peso")
+        value = QLabel("Orden + precinto + peso")
         value.setObjectName("ModuleTitle")
         hero_status_layout.addWidget(kind)
         hero_status_layout.addWidget(value)
@@ -203,6 +204,11 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         self.final_weight.setAccessibleDescription("Peso final en kilos. Se aceptan coma o punto decimal; AX exporta dos decimales.")
         self.final_weight.textChanged.connect(self._on_final_weight_changed)
         rail_layout.addWidget(labeled_field("Peso final", self.final_weight, compact=True))
+        self.work_order = QLineEdit()
+        self.work_order.setPlaceholderText("Ej.: OT-001234")
+        self.work_order.setAccessibleDescription("Orden obligatoria para el CSV AX. Se conserva como texto, incluidos los ceros iniciales.")
+        self.work_order.textChanged.connect(self._on_work_order_changed)
+        rail_layout.addWidget(labeled_field("Orden de trabajo", self.work_order, compact=True))
         rail_layout.addWidget(section_label("Fichero"))
         self.file_detail = control_rail_label("Sin fichero seleccionado")
         rail_layout.addWidget(self.file_detail)
@@ -211,7 +217,7 @@ class RepartoMermaPrecintosWindow(QMainWindow):
 
         self.export_button = QPushButton("Guardar CSV AX")
         self.export_button.clicked.connect(self.save_csv_dialog)
-        self.export_button.setAccessibleDescription("Guarda un CSV AX con solo precinto y peso ajustado.")
+        self.export_button.setAccessibleDescription("Guarda un CSV AX con la orden de trabajo, el precinto y el peso ajustado.")
         rail_layout.addWidget(self.export_button)
         workspace_layout.addWidget(preview_panel, 5)
         workspace_layout.addWidget(rail, 2)
@@ -258,12 +264,19 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         self.final_weight.blockSignals(True)
         self.final_weight.clear()
         self.final_weight.blockSignals(False)
+        self.work_order.blockSignals(True)
+        self.work_order.clear()
+        self.work_order.blockSignals(False)
         self.state = "Analizando"
         self.status.setText(f"Analizando fichero: {path.name}")
         self.source_result = read_source_file(path)
         self._recalculate()
 
     def _on_final_weight_changed(self, _text: str) -> None:
+        self.export_path = None
+        self._recalculate()
+
+    def _on_work_order_changed(self, _text: str) -> None:
         self.export_path = None
         self._recalculate()
 
@@ -288,7 +301,7 @@ class RepartoMermaPrecintosWindow(QMainWindow):
                     self.final_issues = exc.issues if isinstance(exc, DomainValidationError) else (ValidationIssue("CALCULATION_ERROR", str(exc)),)
                     self.state = "Con errores"
                 else:
-                    self.state = "Listo para exportar"
+                    self.state = "Listo para exportar" if validate_work_order(self.work_order.text()).is_valid else "Orden de trabajo pendiente"
         self._refresh()
 
     def save_csv_dialog(self) -> None:
@@ -304,13 +317,22 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         if path is not None:
             self.save_path(path)
 
-    def save_path(self, path: Path) -> None:
+    def save_path(self, path: Path, work_order: str | None = None) -> None:
         if self.adjustment is None:
+            return
+        if work_order is None:
+            work_order = self.work_order.text()
+        work_order_validation = validate_work_order(work_order)
+        if not work_order_validation.is_valid:
+            self.final_issues = work_order_validation.issues
+            self.status.setText(work_order_validation.issues[0].message)
+            show_inline_message(self, "error", work_order_validation.issues[0].message)
+            self._refresh()
             return
         self.state = "Generando archivo"
         self._refresh()
         try:
-            write_ax_csv(path, self.adjustment)
+            write_ax_csv(path, self.adjustment, work_order_validation.value)
         except (OSError, DomainValidationError, ValueError) as exc:
             self.state = "Error de exportación"
             self.final_issues = (ValidationIssue("EXPORT_ERROR", f"No se pudo generar el CSV: {exc}"),)
@@ -324,6 +346,8 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         self._refresh()
 
     def clear(self) -> None:
+        if not confirm_discard_work(self, "Limpiar reparto"):
+            return
         self.source_path = None
         self.source_result = None
         self.adjustment = None
@@ -332,6 +356,9 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         self.final_weight.blockSignals(True)
         self.final_weight.clear()
         self.final_weight.blockSignals(False)
+        self.work_order.blockSignals(True)
+        self.work_order.clear()
+        self.work_order.blockSignals(False)
         self.state = "Inicial"
         self.status.setText("Inicial")
         self._refresh()
@@ -359,9 +386,9 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         self.file_detail.setText(self._file_text())
         self.summary.setText(self._summary_text())
         self._populate_preview_table()
-        can_export = self.adjustment is not None and not self._blocking_errors() and self.adjustment.adjusted_total == self.adjustment.final_weight
+        can_export = self.state == "Listo para exportar" and self.adjustment is not None and self.adjustment.adjusted_total == self.adjustment.final_weight
         self.export_button.setEnabled(can_export)
-        self.clear_button.setEnabled(result is not None or bool(self.final_weight.text()))
+        self.clear_button.setEnabled(result is not None or bool(self.final_weight.text()) or bool(self.work_order.text()))
         self._refresh_pilot_state()
         self._sync_recommended_action()
 
@@ -407,6 +434,7 @@ class RepartoMermaPrecintosWindow(QMainWindow):
             "Generando archivo": ("Generando y validando los bytes del CSV AX.", 90),
             "Con errores": (self._technical_error_text("Corrige el fichero o el peso final antes de exportar."), 45),
             "Listo para exportar": ("La suma ajustada coincide exactamente con el peso final.", 85),
+            "Orden de trabajo pendiente": ("Introduce la orden de trabajo para activar el guardado del CSV AX.", 75),
             "Fichero analizado": ("Introduce el peso final para calcular el reparto.", 55),
             "Analizando": ("Leyendo formato, registros y validaciones.", 20),
             "Cargando": ("Preparando el fichero para su análisis.", 10),
@@ -422,6 +450,8 @@ class RepartoMermaPrecintosWindow(QMainWindow):
             return "Corregir el fichero o el peso final"
         if self.adjustment is None:
             return "Indicar peso final"
+        if self.state == "Orden de trabajo pendiente":
+            return "Indicar orden de trabajo"
         return "Guardar CSV AX"
 
     def _sync_recommended_action(self) -> None:

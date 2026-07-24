@@ -1,0 +1,5 @@
+Suite Rodriguez Finura v1.7.9
+
+- Reparto de Merma por Precintos incorpora la orden de trabajo como primera columna del CSV AX.
+- Control y Recepción Precintos permite seleccionar Empresa cliente desde una lista TXT editable.
+- La lista de empresas se conserva en la configuración del usuario y se recarga al abrir Campos manuales informe.

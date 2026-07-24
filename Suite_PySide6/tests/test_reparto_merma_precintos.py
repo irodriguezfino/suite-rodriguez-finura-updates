@@ -9,6 +9,7 @@ from openpyxl import Workbook
 
 from suite_pyside6.core.reparto_merma_precintos import (
     AX_CSV_FORMAT,
+    AXCsvFormat,
     DomainValidationError,
     build_preview,
     calculate_adjustment,
@@ -16,6 +17,7 @@ from suite_pyside6.core.reparto_merma_precintos import (
     render_ax_csv,
     validate_ax_csv_content,
     validate_final_weight,
+    validate_work_order,
 )
 
 
@@ -109,8 +111,8 @@ class RepartoMermaPrecintosTests(unittest.TestCase):
         self.assertEqual([row.source.precinto for row in result.rows], ["PRECINTO-001", "PRECINTO-001", "PRECINTO-002"])
         self.assertEqual([row.adjusted_weight for row in result.rows], [Decimal("50.00"), Decimal("25.00"), Decimal("75.00")])
         self.assertEqual(result.adjusted_total, Decimal("150.00"))
-        content = render_ax_csv(result).decode("cp1252")
-        self.assertEqual(content, "PRECINTO-001;50,00\r\nPRECINTO-001;25,00\r\nPRECINTO-002;75,00\r\n")
+        content = render_ax_csv(result, "OT-0001").decode("cp1252")
+        self.assertEqual(content, "OT-0001;PRECINTO-001;50,00\r\nOT-0001;PRECINTO-001;25,00\r\nOT-0001;PRECINTO-002;75,00\r\n")
 
     def test_validaciones_de_registro(self):
         cases = {
@@ -165,15 +167,41 @@ class RepartoMermaPrecintosTests(unittest.TestCase):
                 self.assertEqual(validate_final_weight(value, total).issues[0].code, code)
         self.assertTrue(validate_final_weight("11,00", total).is_valid)
 
-    def test_csv_ax_dos_columnas_suma_orden_y_bytes(self):
+    def test_validacion_orden_trabajo_conserva_texto_y_ceros_iniciales(self):
+        self.assertEqual(validate_work_order("  000123  ").value, "000123")
+        self.assertEqual(validate_work_order(" OT-A/001 ").value, "OT-A/001")
+        self.assertEqual(validate_work_order("   ").issues[0].code, "EMPTY_WORK_ORDER")
+        self.assertEqual(validate_work_order(None).issues[0].code, "EMPTY_WORK_ORDER")
+        result = self.result(["A;X;1,00;1"], "1,00")
+        with self.assertRaises(DomainValidationError) as raised:
+            render_ax_csv(result, " ")
+        self.assertEqual(raised.exception.issues[0].code, "EMPTY_WORK_ORDER")
+
+    def test_csv_ax_tres_columnas_suma_orden_y_bytes(self):
         result = self.result(["B;X;2,00;1", "A;X;1,00;1"], "2,00")
-        content = render_ax_csv(result)
+        content = render_ax_csv(result, "OT-001")
         self.assertFalse(content.startswith(b"\xef\xbb\xbf"))
         self.assertTrue(content.endswith(b"\r\n"))
-        self.assertEqual(content.decode("cp1252"), "B;1,33\r\nA;0,67\r\n")
-        validate_ax_csv_content(content, result)
+        self.assertEqual(content.decode("cp1252"), "OT-001;B;1,33\r\nOT-001;A;0,67\r\n")
+        validate_ax_csv_content(content, result, "OT-001")
         rows = content.decode("cp1252").split("\r\n")[:-1]
-        self.assertTrue(all(len(row.split(";")) == 2 for row in rows))
+        self.assertTrue(all(len(row.split(";")) == 3 for row in rows))
+
+    def test_csv_escapa_la_orden_de_trabajo_con_caracteres_especiales(self):
+        result = self.result(["A;X;1,00;1"], "1,00")
+        content = render_ax_csv(result, ' OT;"A",001 ').decode("cp1252")
+        self.assertEqual(content, '"OT;""A"",001";A;1,00\r\n')
+
+    def test_csv_admite_salto_de_linea_en_orden_de_trabajo(self):
+        result = self.result(["A;X;1,00;1"], "1,00")
+        content = render_ax_csv(result, "OT-001\nREV-A")
+        validate_ax_csv_content(content, result, "OT-001\nREV-A")
+
+    def test_csv_con_cabecera_antepone_orden_de_trabajo(self):
+        result = self.result(["A;X;1,00;1"], "1,00")
+        export_format = AXCsvFormat(include_header=True)
+        content = render_ax_csv(result, "OT-001", export_format).decode("cp1252")
+        self.assertEqual(content, "Orden de trabajo;Precinto;Peso ajustado\r\nOT-001;A;1,00\r\n")
 
     def test_modelo_de_vista_previa_conserva_pesos_y_orden(self):
         result = self.result(["B;X;2,00;1", "A;X;1,00;1"], "2,00")
@@ -185,7 +213,7 @@ class RepartoMermaPrecintosTests(unittest.TestCase):
     def test_csv_injection_se_rechaza_sin_mutar_el_identificador(self):
         result = self.result(["=1+1;X;1,00;1"], "1,00")
         with self.assertRaises(DomainValidationError) as raised:
-            render_ax_csv(result)
+            render_ax_csv(result, "OT-001")
         self.assertEqual(raised.exception.issues[0].code, "CSV_INJECTION_RISK")
 
     def test_formato_ax_centralizado(self):
@@ -195,6 +223,7 @@ class RepartoMermaPrecintosTests(unittest.TestCase):
         self.assertEqual(AX_CSV_FORMAT.precision, 2)
         self.assertEqual(AX_CSV_FORMAT.line_ending, "\r\n")
         self.assertFalse(AX_CSV_FORMAT.include_header)
+        self.assertEqual(AX_CSV_FORMAT.headers, ("Orden de trabajo", "Precinto", "Peso ajustado"))
 
 
 if __name__ == "__main__":

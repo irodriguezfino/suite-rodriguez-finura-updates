@@ -19,6 +19,7 @@ from suite_pyside6.core.paths import resource_path
 from suite_pyside6.core.precintos_txt_ax import (
     PrecintosTxtAxResult,
     csv_filename_from_source,
+    ensure_csv_extension,
     process_txt_file,
     write_ax_csv,
 )
@@ -272,6 +273,7 @@ class PrecintosTxtAxWindow(QMainWindow):
             self.save_path(path)
 
     def save_path(self, path: Path) -> None:
+        path = ensure_csv_extension(path)
         try:
             write_ax_csv(path, self.result.precintos)
         except (OSError, UnicodeError):

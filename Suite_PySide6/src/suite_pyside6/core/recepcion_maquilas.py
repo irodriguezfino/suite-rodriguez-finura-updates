@@ -83,6 +83,7 @@ class FilaRango:
     peso_medio: Decimal
     codigo_fac: str
     producto_completo: str
+    producto_base: str = ""
 
 
 @dataclass
@@ -366,6 +367,7 @@ def agrupar_por_rangos(
                         peso_medio=peso_total / Decimal(piezas),
                         codigo_fac=codigo,
                         producto_completo=rango.nombre_producto,
+                        producto_base=nombre_base_articulo(rango.nombre_producto, rango.rango_original),
                     )
                 )
         no_asignados = [registro for registro in por_codigo[codigo] if (registro.precinto, registro.linea) not in usados]
@@ -393,6 +395,70 @@ def unir_valores_unicos(valores) -> str:
             vistos.add(texto)
             resultado.append(texto)
     return ", ".join(resultado)
+
+
+PATRON_RANGO_PESO_FINAL = re.compile(
+    r"(?:\s*[,;]?\s*)(?:\d+(?:[,.]\d+)?\s*-\s*\d+(?:[,.]\d+)?)(?:\s*kgs?)?(?:\s*[,;])?\s*$",
+    re.IGNORECASE,
+)
+
+
+def nombre_base_articulo(nombre: str, rango_original: str = "") -> str:
+    """Separa exclusivamente el rango de peso final de una descripción.
+
+    En la configuración de artículos el rango ya se extrae de forma estructurada.
+    Ese valor se usa primero; el patrón final solo mantiene la compatibilidad con
+    descripciones de respaldo procedentes de informes externos.
+    """
+    texto = " ".join(str(nombre or "").split())
+    if not texto:
+        return ""
+    rango = " ".join(str(rango_original or "").split())
+    if rango:
+        sufijo = re.compile(rf"\s*{re.escape(rango)}\s*$", re.IGNORECASE)
+        base = sufijo.sub("", texto).rstrip(" ,;")
+        if base:
+            return base
+    return PATRON_RANGO_PESO_FINAL.sub("", texto).rstrip(" ,;")
+
+
+def unir_nombres_articulo_unicos(valores) -> str:
+    """Devuelve nombres de artículo base, únicos sin perder su orden ni formato."""
+    vistos: set[str] = set()
+    resultado: list[str] = []
+    for valor in valores:
+        texto = nombre_base_articulo(str(valor or ""))
+        clave = normalizar_texto(texto)
+        if texto and clave not in vistos:
+            vistos.add(clave)
+            resultado.append(texto)
+    return ", ".join(resultado)
+
+
+def nombres_articulo_informe(
+    filas: list[FilaRango], registros_oficiales: list[RegistroOficial], codigo_fac: str = ""
+) -> str:
+    """Devuelve el nombre descriptivo del artículo para la cabecera del informe.
+
+    Las filas de rangos contienen el nombre configurado para el código FAC. Si no
+    se ha podido generar una fila, se aprovecha como respaldo el nombre leído del
+    SealsReport, sin exponer nunca el código técnico en el documento.
+    """
+    codigo = str(codigo_fac or "").strip()
+    nombres_configurados = (
+        fila.producto_base or nombre_base_articulo(fila.producto_completo)
+        for fila in filas
+        if not codigo or str(fila.codigo_fac or "").strip() == codigo
+    )
+    nombre = unir_nombres_articulo_unicos(nombres_configurados)
+    if nombre:
+        return nombre
+    nombres_oficiales = (
+        registro.nombre_producto
+        for registro in registros_oficiales
+        if not codigo or str(registro.codigo_articulo or "").strip() == codigo
+    )
+    return unir_nombres_articulo_unicos(nombres_oficiales)
 
 
 def formatear_fecha_recepcion(valor: str) -> str:
@@ -602,7 +668,7 @@ class PdfSimple:
             filas = [["Sin datos"] + [""] * (len(columnas) - 1)]
         for idx, fila in enumerate(filas):
             lineas_por_col = [self.wrap(fila[i] if i < len(fila) else "", columnas[i][1] - 8, size) for i in range(len(columnas))]
-            alto = max(18, 9 + max(len(l) for l in lineas_por_col) * (size + 2))
+            alto = max(18, 9 + max(len(lineas) for lineas in lineas_por_col) * (size + 2))
             if y + alto > self.alto - margen_inferior:
                 self.nueva_pagina()
                 if titulo_continuacion:
@@ -755,6 +821,7 @@ def _generar_pdf_rangos_profesional(
 ) -> None:
     partida = valor_mayoritario(r.partida for r in registros_txt) or "-"
     codigo = valor_mayoritario(r.codigo_fac for r in registros_txt)
+    articulo = nombres_articulo_informe(filas, registros_oficiales, codigo)
     lote_txt = valor_mayoritario(r.lote for r in registros_txt)
     fecha_recepcion = unir_valores_unicos(formatear_fecha_recepcion(r.fecha) for r in registros_txt)
     albaran = unir_valores_unicos(r.albaran for r in registros_oficiales)
@@ -769,9 +836,10 @@ def _generar_pdf_rangos_profesional(
     y = titulo_seccion(pdf, 96, "Datos del informe", titulo_doc)
     info = [
         ("Ganadero", metadatos.get("ganadero") or "EMBUTIDOS RODRIGUEZ"),
+        ("Empresa cliente", metadatos.get("empresa_cliente") or ""),
         ("Partida", partida),
         ("Albaran", albaran),
-        ("Codigo FAC", codigo),
+        ("Artículo", articulo),
         ("Lote", lote_txt),
         ("Fecha recepcion", fecha_recepcion),
         ("Origen", metadatos.get("origen") or "Espana"),

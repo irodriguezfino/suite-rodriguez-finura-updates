@@ -36,7 +36,6 @@ LIGHT = {
     "info_soft": "#E7F6FB",
     "shadow": "rgba(18, 50, 131, 0.10)",
     "bg": "#F7F9FC",
-    "surface": "#ffffff",
     "surface_2": "#F1F4F8",
     "surface_3": "#E8EDF5",
     "ink": "#162033",
@@ -260,6 +259,19 @@ def base_qss() -> str:
         background: transparent;
         border: 0;
     }}
+    QFrame#RecipientEditor {{
+        background: {p["surface_2"]};
+        border: 1px solid {p["border"]};
+        border-radius: 8px;
+        padding: 8px;
+    }}
+    QFrame#RecipientEditor QLineEdit {{
+        min-height: 34px;
+    }}
+    QFrame#MailActions {{
+        border-top: 1px solid {p["border"]};
+        padding-top: 8px;
+    }}
     QToolButton#CollapsibleHeader {{
         min-height: 34px;
         padding: 0 8px;
@@ -398,6 +410,115 @@ def base_qss() -> str:
     QLineEdit:disabled, QComboBox:disabled {{
         color: {p["subtle"]};
         background: {p["surface_2"]};
+    }}
+    QComboBox[modernSelect="true"] {{
+        min-height: 38px;
+        padding: 0 38px 0 12px;
+        border-radius: 8px;
+        background: {p["surface_elevated"]};
+        font-weight: 600;
+    }}
+    QComboBox[modernSelect="true"][popupOpen="true"] {{
+        border: 2px solid {p["focus_ring"]};
+        padding: 0 37px 0 11px;
+        background: {p["primary_soft"]};
+    }}
+    QComboBox[modernSelect="true"][error="true"] {{
+        border: 2px solid {p["error"]};
+        padding: 0 37px 0 11px;
+    }}
+    QComboBox[modernSelect="true"]::drop-down {{
+        width: 32px;
+        border: 0;
+        border-left: 1px solid {p["border"]};
+        border-top-right-radius: 8px;
+        border-bottom-right-radius: 8px;
+        background: {p["surface_2"]};
+    }}
+    QComboBox[modernSelect="true"]:hover::drop-down {{
+        background: {p["primary_soft"]};
+    }}
+    QComboBox[modernSelect="true"]::down-arrow {{
+        image: none;
+        width: 12px;
+        height: 10px;
+    }}
+    QComboBox[modernSelect="true"] QLineEdit {{
+        border: 0;
+        background: transparent;
+        padding: 0;
+        min-height: 0;
+        font-weight: 600;
+    }}
+    QComboBox QAbstractItemView {{
+        background: {p["surface_elevated"]};
+        color: {p["ink"]};
+        border: 1px solid {p["border_strong"]};
+        border-radius: 8px;
+        padding: 5px;
+        outline: 0;
+        selection-background-color: {p["primary_soft"]};
+        selection-color: {p["ink"]};
+    }}
+    QComboBox QAbstractItemView::item {{
+        min-height: 34px;
+        padding: 3px 10px;
+        border-radius: 5px;
+    }}
+    QComboBox QAbstractItemView::item:hover {{
+        background: {p["primary_soft"]};
+        color: {p["ink"]};
+    }}
+    QComboBox QAbstractItemView::item:selected {{
+        background: {p["primary_soft"]};
+        color: {p["ink"]};
+        font-weight: 700;
+        border-left: 3px solid {p["primary"]};
+    }}
+    QComboBox QAbstractItemView::item:disabled {{
+        color: {p["subtle"]};
+    }}
+    QToolButton#ActionMenuButton {{
+        min-height: 38px;
+        padding: 0 10px;
+        border: 1px solid {p["border"]};
+        border-radius: 8px;
+        background: {p["surface_elevated"]};
+        color: {p["ink"]};
+        font-weight: 600;
+    }}
+    QToolButton#ActionMenuButton:hover {{
+        border-color: {p["border_strong"]};
+        background: {p["primary_soft"]};
+    }}
+    QToolButton#ActionMenuButton:focus {{
+        border: 2px solid {p["focus_ring"]};
+        padding: 0 9px;
+    }}
+    QToolButton#ActionMenuButton::menu-indicator {{
+        image: none;
+        width: 0;
+    }}
+    QMenu {{
+        background: {p["surface_elevated"]};
+        color: {p["ink"]};
+        border: 1px solid {p["border_strong"]};
+        border-radius: 8px;
+        padding: 6px;
+    }}
+    QMenu::item {{
+        min-height: 30px;
+        padding: 4px 28px 4px 12px;
+        border-radius: 5px;
+    }}
+    QMenu::item:selected {{
+        background: {p["primary_soft"]};
+        color: {p["ink"]};
+    }}
+    QMenu::separator {{
+        height: 1px;
+        margin: 5px 8px;
+        background: {p["border"]};
     }}
     QWidget#FieldGroup {{
         background: transparent;
@@ -681,6 +802,15 @@ def base_qss() -> str:
         border: 1px solid {p["border"]};
         border-radius: 8px;
         background: {p["surface"]};
+    }}
+    QFrame#NavigationLoadingPage {{
+        background: {p["surface"]};
+        border: 1px solid {p["border"]};
+        border-radius: 12px;
+    }}
+    QFrame#NavigationSkeleton {{
+        background: {p["surface_2"]};
+        border-radius: 6px;
     }}
     QScrollBar:vertical {{
         background: transparent;

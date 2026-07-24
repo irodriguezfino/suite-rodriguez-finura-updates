@@ -9,7 +9,9 @@ from pathlib import Path
 
 AX_ENCODING = "cp1252"
 AX_LINE_ENDING = "\r\n"
+AX_DELIMITER = ";"
 SOURCE_DELIMITER = "->"
+SUPPORTED_SOURCE_DELIMITERS = (SOURCE_DELIMITER, "→", "=>")
 _WINDOWS_INVALID_FILENAME = re.compile(r'[<>:"/\\|?*\x00-\x1f]+')
 _WINDOWS_RESERVED_NAMES = {
     "CON", "PRN", "AUX", "NUL",
@@ -49,22 +51,30 @@ def decode_txt_bytes(content: bytes) -> tuple[str, str]:
 
 
 def extract_precintos(text: str) -> PrecintosTxtAxResult:
-    """Extract the value after the first literal ASCII arrow on each valid line."""
+    """Extract the value after the first supported arrow on each valid line."""
     result = PrecintosTxtAxResult(lines_read=len(text.splitlines()))
     for line in text.splitlines():
         if not line.strip():
             result.skipped_lines += 1
             continue
-        _left, delimiter, right = line.partition(SOURCE_DELIMITER)
-        if not delimiter:
+        delimiter_position, delimiter = _first_delimiter(line)
+        if delimiter_position is None:
             result.skipped_lines += 1
             continue
-        precinto = right.strip()
+        precinto = line[delimiter_position + len(delimiter):].strip()
         if not precinto:
             result.skipped_lines += 1
             continue
         result.precintos.append(precinto)
     return result
+
+
+def _first_delimiter(line: str) -> tuple[int | None, str]:
+    matches = [(line.find(delimiter), delimiter) for delimiter in SUPPORTED_SOURCE_DELIMITERS]
+    valid_matches = [(position, delimiter) for position, delimiter in matches if position >= 0]
+    if not valid_matches:
+        return None, ""
+    return min(valid_matches, key=lambda match: match[0])
 
 
 def process_txt_file(path: Path) -> PrecintosTxtAxResult:
@@ -79,7 +89,12 @@ def process_txt_file(path: Path) -> PrecintosTxtAxResult:
 def render_ax_csv(precintos: list[str]) -> bytes:
     """Render one standard CSV field per row for Dynamics AX imports."""
     output = io.StringIO(newline="")
-    writer = csv.writer(output, lineterminator=AX_LINE_ENDING, quoting=csv.QUOTE_MINIMAL)
+    writer = csv.writer(
+        output,
+        delimiter=AX_DELIMITER,
+        lineterminator=AX_LINE_ENDING,
+        quoting=csv.QUOTE_MINIMAL,
+    )
     writer.writerows([[precinto] for precinto in precintos])
     return output.getvalue().encode(AX_ENCODING)
 
@@ -93,3 +108,7 @@ def csv_filename_from_source(path: Path) -> str:
     if not stem or stem.upper() in _WINDOWS_RESERVED_NAMES:
         stem = "precintos"
     return f"{stem}.csv"
+
+
+def ensure_csv_extension(path: Path) -> Path:
+    return path if path.suffix.lower() == ".csv" else path.with_suffix(".csv")

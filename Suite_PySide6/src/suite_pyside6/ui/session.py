@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from PySide6.QtCore import QSettings
 
+from suite_pyside6.core.app_organization import AppOrganization
+from suite_pyside6.core.apps import AppDefinition
+
 
 MAX_RECENTS = 8
 MAX_PERSONAL_DESCRIPTION_LENGTH = 500
+APP_ORGANIZATION_KEY = "apps/organization"
 
 
 def settings() -> QSettings:
@@ -85,6 +90,28 @@ def recent_app_keys() -> list[str]:
     if isinstance(value, str):
         return [value]
     return [str(item) for item in (value or [])]
+
+
+def load_app_organization(apps: tuple[AppDefinition, ...]) -> AppOrganization:
+    """Carga una preferencia versionada; datos antiguos o corruptos vuelven al orden estándar."""
+    raw = settings().value(APP_ORGANIZATION_KEY, "")
+    try:
+        data = json.loads(str(raw)) if raw else {}
+    except (TypeError, ValueError, json.JSONDecodeError):
+        data = {}
+    return AppOrganization.from_data(data, apps)
+
+
+def save_app_organization(organization: AppOrganization) -> None:
+    app_settings = settings()
+    app_settings.setValue(APP_ORGANIZATION_KEY, json.dumps(organization.to_data(), ensure_ascii=False, separators=(",", ":")))
+    app_settings.sync()
+
+
+def reset_app_organization() -> None:
+    app_settings = settings()
+    app_settings.remove(APP_ORGANIZATION_KEY)
+    app_settings.sync()
 
 
 def dialog_start_path(key: str, default_name: str = "") -> str:

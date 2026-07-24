@@ -8,6 +8,15 @@ Suite operativa profesional para procesos Rodriguez Finura.
 - Separar logica funcional reutilizable de la interfaz.
 - Publicar paquetes de actualizacion verificables para todos los equipos.
 
+## Empresas cliente de Control y Recepción
+
+La plantilla distribuida está en `resources/empresas_clientes.txt`. En la primera
+ejecución, la aplicación crea una copia editable en la configuración del usuario:
+`%APPDATA%\RodriguezFinura\SuitePySide6\control_recepcion_precintos\empresas_clientes.txt`.
+Añade una empresa por línea, guarda el archivo en UTF-8 y vuelve a abrir
+**Campos manuales informe** para recargar la lista. Las líneas vacías, comentarios
+que comienzan por `#` y duplicados no se muestran.
+
 ## Fuente de referencia
 
 La primera referencia funcional se toma de:

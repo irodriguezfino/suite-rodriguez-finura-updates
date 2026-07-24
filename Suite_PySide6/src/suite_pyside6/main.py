@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import sys
-
-
 def main() -> int:
     try:
         from suite_pyside6.ui.main_window import run

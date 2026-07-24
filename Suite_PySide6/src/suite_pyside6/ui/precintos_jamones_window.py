@@ -5,7 +5,6 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
-    QComboBox,
     QFrame,
     QGridLayout,
     QHeaderView,
@@ -31,6 +30,7 @@ from suite_pyside6.core.precintos_jamones import (
     revalidate_corrections,
     save_precintos_csv,
     save_precintos_txt,
+    tipo_jamon_visible,
     weight_filter_text,
 )
 from suite_pyside6.ui.components import control_metric_pair, control_pill, control_rail_label, section_label, step_bar
@@ -123,17 +123,11 @@ class PrecintosJamonesWindow(QMainWindow):
         command_copy.addWidget(self.command_hint)
         actions_layout.addWidget(command_panel, 1)
 
-        self.type_combo = QComboBox()
-        self.type_combo.setObjectName("CompactField")
-        self.type_combo.addItems(["Blanco", "Iberico"])
-        self.type_combo.currentTextChanged.connect(lambda _text: self.process_files() if self.paths else None)
-
-        entrada_label = QLabel("ENTRADA")
-        entrada_label.setObjectName("GroupLabel")
-        entrada_label.setVisible(False)
-        entrada_label.setMaximumSize(0, 0)
-        actions_layout.addWidget(entrada_label)
-        actions_layout.addWidget(self.type_combo)
+        self.type_detected_label = QLabel("Tipo: se detectará automáticamente")
+        self.type_detected_label.setObjectName("ControlPill")
+        self.type_detected_label.setAccessibleName("Tipo de jamón detectado")
+        self.type_detected_label.setAccessibleDescription("El tipo se detecta automáticamente mediante validación GTIN-12.")
+        actions_layout.addWidget(self.type_detected_label)
 
         self.txt_button = QPushButton("Cargar TXT/CSV")
         self.txt_button.setProperty("primary", True)
@@ -363,7 +357,7 @@ class PrecintosJamonesWindow(QMainWindow):
         if not self.paths:
             return
         try:
-            self.result = process_precintos_jamones(self.paths, self.type_combo.currentText(), self.official_excel)
+            self.result = process_precintos_jamones(self.paths, official_excel=self.official_excel)
         except Exception as exc:
             self.status.setText(f"Error: {exc}")
             if self.show_dialogs:
@@ -477,7 +471,10 @@ class PrecintosJamonesWindow(QMainWindow):
         self.process_button.setEnabled(bool(self.paths))
         self.revalidate_button.setEnabled(bool(self.result.invalidos or self.weight_filter_pending))
         self.save_txt_button.setEnabled(can_save)
-        self.save_csv_button.setEnabled(can_save)
+        self.save_csv_button.setEnabled(can_save and not self.result.es_lote_mixto())
+        self.save_csv_button.setToolTip(
+            "El CSV requiere un único tipo de jamón; revisa el lote mixto." if self.result.es_lote_mixto() else "Guardar CSV"
+        )
         self.weight_button.setEnabled(bool(self.result.validos and not self.result.invalidos))
         self.clear_filter_button.setEnabled(bool(self.result.validos or self.result.invalidos or self.weight_filter_pending))
         self.clear_button.setEnabled(bool(self.paths or self.result.validos or self.result.invalidos or self.official_excel))
@@ -521,7 +518,7 @@ class PrecintosJamonesWindow(QMainWindow):
                     registro.precinto or "-",
                     registro.peso or "-",
                     registro.lote or "-",
-                    "Válido",
+                    f"Válido · {tipo_jamon_visible(self.result.tipo_registro(registro))}",
                 )
             )
         for registro, motivo in self.result.invalidos[:80]:
@@ -532,7 +529,7 @@ class PrecintosJamonesWindow(QMainWindow):
                     registro.precinto or "-",
                     registro.peso or "-",
                     registro.lote or "-",
-                    f"Pendiente: {motivo}",
+                    f"Pendiente · {tipo_jamon_visible(self.result.tipo_registro(registro))}: {motivo}",
                 )
             )
         with bulk_table_update(self.preview_table):
@@ -568,7 +565,7 @@ class PrecintosJamonesWindow(QMainWindow):
             f"Incidencias detectadas: {pendientes}. Revisa el panel central si hay pendientes."
         )
 
-        has_issues = bool(self.result.invalidos or self.result.duplicados or self.result.oficiales)
+        has_issues = bool(self.result.invalidos or self.result.duplicados or self.result.oficiales or self.result.es_lote_mixto())
         needs_corrections = bool(self.result.invalidos or self.weight_filter_pending)
         self.issues_empty.setVisible(not has_issues and not needs_corrections)
         self.issues.setVisible(has_issues)
@@ -586,6 +583,10 @@ class PrecintosJamonesWindow(QMainWindow):
         self.rail_alerts.setText(self._alerts_text())
         self.rail_alerts.setAccessibleDescription("Avisos del proceso: " + self.rail_alerts.text().replace("\n", ". "))
         self.issues_empty.setText(self._empty_issue_text())
+        detected = bool(self.result.validos or self.result.invalidos)
+        self.type_detected_label.setText(
+            f"Tipo: {tipo_jamon_visible(self.result.tipo_jamon)}" if detected else "Tipo: se detectará automáticamente"
+        )
 
     def _pilot_state_text(self) -> tuple[str, str, int]:
         status = self.status.text().lower()
@@ -626,6 +627,8 @@ class PrecintosJamonesWindow(QMainWindow):
                 alerts.append(f"{len(extra)} precintos fuera del Excel oficial")
             if missing:
                 alerts.append(f"{len(missing)} precintos oficiales no leídos")
+        if self.result.es_lote_mixto():
+            alerts.append("Lote mixto: el CSV queda bloqueado hasta separarlo o corregirlo")
         return "\n".join(alerts) if alerts else "Sin avisos."
 
     def _empty_issue_text(self) -> str:
@@ -662,9 +665,11 @@ class PrecintosJamonesWindow(QMainWindow):
         return 1, False, False
 
     def _issues_text(self) -> str:
-        if not (self.result.invalidos or self.result.duplicados or self.result.oficiales):
+        if not (self.result.invalidos or self.result.duplicados or self.result.oficiales or self.result.es_lote_mixto()):
             return "Sin incidencias."
         lines: list[str] = []
+        if self.result.es_lote_mixto():
+            lines.extend(self.result.detection_messages())
         if self.result.invalidos:
             lines.append("Incidencias pendientes:")
             lines.extend(

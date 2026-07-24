@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.7.8"
+VERSION = "1.7.9"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
@@ -291,10 +291,9 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
     full_digest = sha256(full_package)
     installer_digest = sha256(installer_bat)
     notes = (
-        "- Se amplían las descripciones personales privadas a la cabecera y a cada proceso de la bandeja.\n"
-        "- La cabecera agrupa y alinea Editar descripción, Restaurar, versión y Bandeja.\n"
-        "- La disposición estrecha conserva las acciones visibles sin cajas vacías ni solapamientos.\n"
-        "- Se conserva la compatibilidad con las aclaraciones existentes de Control y Recepción Precintos."
+        "- Reparto de Merma por Precintos incorpora la orden de trabajo como primera columna del CSV AX.\n"
+        "- Control y Recepción Precintos permite seleccionar Empresa cliente desde una lista TXT editable.\n"
+        "- La lista de empresas se conserva en la configuración del usuario y se recarga al abrir Campos manuales informe."
     )
     manifest = {
         "schema": "suite-rodriguez-finura-update-v1",

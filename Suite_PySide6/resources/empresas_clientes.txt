@@ -1,0 +1,5 @@
+# Una empresa por linea. Guarda este archivo en UTF-8 y reinicia o reabre
+# Campos manuales informe para recargar la lista.
+JAMONES DURIBER, S.L.
+EMBUTIDOS RODRIGUEZ, S.L.U.
+VALL TRADICION IBERICA, S.L.

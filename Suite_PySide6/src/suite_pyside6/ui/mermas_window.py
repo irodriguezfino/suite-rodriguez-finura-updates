@@ -5,7 +5,6 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
-    QComboBox,
     QFrame,
     QGridLayout,
     QHeaderView,
@@ -24,7 +23,7 @@ from PySide6.QtWidgets import (
 
 from suite_pyside6.core.mermas import MermasResult, process_mermas, save_mermas_excel
 from suite_pyside6.core.paths import resource_path
-from suite_pyside6.ui.components import control_metric_pair, control_pill, control_rail_label, labeled_field, section_label, step_bar
+from suite_pyside6.ui.components import ModernSelect, control_metric_pair, control_pill, control_rail_label, labeled_field, section_label, step_bar
 from suite_pyside6.ui.file_dialogs import open_file, open_files, save_file
 from suite_pyside6.ui.polish import confirm_discard_work, show_inline_message, polish_window, sync_recommended_action
 from suite_pyside6.ui.table_utils import bulk_table_update, update_count_label
@@ -128,8 +127,13 @@ class MermasWindow(QMainWindow):
         self.origin_button.clicked.connect(self.select_origin_file)
         actions_layout.addWidget(self.origin_button)
 
-        self.filter_combo = QComboBox()
-        self.filter_combo.addItems(["SI", "NO", "TODOS"])
+        self.filter_combo = ModernSelect(placeholder="Filtra el cumplimiento")
+        self.filter_combo.setProperty("filterSelect", True)
+        self.filter_combo.setAccessibleName("Filtro de cumplimiento")
+        self.filter_combo.setAccessibleDescription("Filtra los resultados por cumplimiento. Abre las opciones con Espacio o Enter.")
+        self.filter_combo.add_option("SI", description="Mostrar sólo los registros que cumplen")
+        self.filter_combo.add_option("NO", description="Mostrar sólo los registros que no cumplen")
+        self.filter_combo.add_option("TODOS", description="Mostrar todos los registros")
         self.filter_combo.currentTextChanged.connect(lambda _text: self._refresh())
 
         proceso_label = QLabel("PROCESO")

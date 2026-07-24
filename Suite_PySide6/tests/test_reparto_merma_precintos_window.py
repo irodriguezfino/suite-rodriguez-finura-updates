@@ -38,24 +38,28 @@ class RepartoMermaPrecintosWindowTests(unittest.TestCase):
         self.assertFalse(window.export_button.isEnabled())
         self.assertTrue(window.load_button.accessibleName())
         self.assertTrue(window.final_weight.accessibleName())
+        self.assertTrue(window.work_order.accessibleName())
         self.assertTrue(window.preview_table.accessibleDescription())
         window.close()
 
-    def test_flujo_valido_exporta_solo_dos_columnas(self):
+    def test_flujo_valido_exporta_orden_precinto_y_peso(self):
         with tempfile.TemporaryDirectory() as directory:
             window = RepartoMermaPrecintosWindow()
             window.load_path(self.make_source(directory, ["A;X;10,00;1", "B;X;20,00;1"]))
             self.assertEqual(window.state, "Fichero analizado")
             self.assertFalse(window.export_button.isEnabled())
             window.final_weight.setText("27,00")
+            self.assertEqual(window.state, "Orden de trabajo pendiente")
+            self.assertFalse(window.export_button.isEnabled())
+            window.work_order.setText("OT-0001")
             self.assertEqual(window.state, "Listo para exportar")
             self.assertTrue(window.export_button.isEnabled())
             self.assertEqual(window.preview_table.columnCount(), 4)
             output = Path(directory) / "ax.csv"
-            window.save_path(output)
+            window.save_path(output, "OT-0001")
             self.assertEqual(window.state, "Exportación completada")
-            self.assertEqual(output.read_text(encoding="cp1252"), "A;9,00\nB;18,00\n")
-            self.assertTrue(all(len(row.split(";")) == 2 for row in output.read_text(encoding="cp1252").splitlines()))
+            self.assertEqual(output.read_text(encoding="cp1252"), "OT-0001;A;9,00\nOT-0001;B;18,00\n")
+            self.assertTrue(all(len(row.split(";")) == 3 for row in output.read_text(encoding="cp1252").splitlines()))
             window.close()
 
     def test_duplicados_no_bloquean_ni_muestran_avisos(self):
@@ -65,11 +69,12 @@ class RepartoMermaPrecintosWindowTests(unittest.TestCase):
             self.assertEqual(window.state, "Fichero analizado")
             self.assertEqual(window.preview_table.rowCount(), 2)
             window.final_weight.setText("1,50")
+            window.work_order.setText("OT-0002")
             self.assertEqual(window.state, "Listo para exportar")
             self.assertTrue(window.export_button.isEnabled())
             output = Path(directory) / "duplicados.csv"
-            window.save_path(output)
-            self.assertEqual(output.read_text(encoding="cp1252"), "A;0,50\nA;1,00\n")
+            window.save_path(output, "OT-0002")
+            self.assertEqual(output.read_text(encoding="cp1252"), "OT-0002;A;0,50\nOT-0002;A;1,00\n")
             self.assertFalse(hasattr(window, "issues"))
             window.close()
 
@@ -89,9 +94,11 @@ class RepartoMermaPrecintosWindowTests(unittest.TestCase):
             window = RepartoMermaPrecintosWindow()
             window.load_path(first)
             window.final_weight.setText("1,00")
+            window.work_order.setText("OT-0001")
             self.assertTrue(window.export_button.isEnabled())
             window.load_path(second)
             self.assertEqual(window.final_weight.text(), "")
+            self.assertEqual(window.work_order.text(), "")
             self.assertEqual(window.state, "Fichero analizado")
             self.assertFalse(window.export_button.isEnabled())
             window.close()
@@ -101,10 +108,38 @@ class RepartoMermaPrecintosWindowTests(unittest.TestCase):
             window = RepartoMermaPrecintosWindow()
             window.load_path(self.make_source(directory, ["A;X;1,00;1"]))
             window.final_weight.setText("1,00")
+            window.work_order.setText("OT-0003")
             window.save_path(Path(directory) / "no_existe" / "ax.csv")
             self.assertEqual(window.state, "Error de exportación")
             self.assertFalse(window.export_button.isEnabled())
             self.assertIn("No se pudo", window.rail_detail.text())
+            window.close()
+
+    def test_orden_de_trabajo_vacia_no_genera_archivo(self):
+        with tempfile.TemporaryDirectory() as directory:
+            window = RepartoMermaPrecintosWindow()
+            window.load_path(self.make_source(directory, ["A;X;1,00;1"]))
+            window.final_weight.setText("1,00")
+            output = Path(directory) / "ax.csv"
+            window.work_order.setText("   ")
+            window.save_path(output)
+            self.assertFalse(output.exists())
+            self.assertEqual(window.state, "Orden de trabajo pendiente")
+            self.assertFalse(window.export_button.isEnabled())
+            window.close()
+
+    def test_orden_de_trabajo_en_el_panel_activa_el_guardado_y_se_recorta(self):
+        with tempfile.TemporaryDirectory() as directory:
+            window = RepartoMermaPrecintosWindow()
+            window.load_path(self.make_source(directory, ["A;X;1,00;1"]))
+            window.final_weight.setText("1,00")
+            self.assertFalse(window.export_button.isEnabled())
+            window.work_order.setText("  000123  ")
+            self.assertEqual(window.state, "Listo para exportar")
+            self.assertTrue(window.export_button.isEnabled())
+            output = Path(directory) / "ax.csv"
+            window.save_path(output)
+            self.assertEqual(output.read_text(encoding="cp1252"), "000123;A;1,00\n")
             window.close()
 
 
