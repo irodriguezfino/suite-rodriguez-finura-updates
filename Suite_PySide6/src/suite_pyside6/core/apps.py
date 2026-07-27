@@ -98,9 +98,9 @@ APP_REGISTRY: tuple[AppDefinition, ...] = (
     ),
     AppDefinition(
         key="reparto_merma_precintos",
-        title="Reparto de Merma por Precintos",
-        description="Distribuye proporcionalmente la merma del Excel de mensajes y genera el CSV para AX.",
-        short_description="Excel de mensajes a CSV AX.",
+        title="Precintos Deshuesado",
+        description="Elige PDA para repartir la merma o FAC para consolidar CSV de deshuesado en AX.",
+        short_description="PDA/FAC a CSV AX.",
         category="Pesos",
         shortcut="Alt+0",
         migration_status="ported",

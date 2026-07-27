@@ -112,6 +112,13 @@ def _read_final_files(paths: list[Path]) -> pd.DataFrame:
                 columns = next(csv.reader([line], delimiter=";", quotechar='"'))
             except csv.Error:
                 columns = line.split(";")
+            # A final FAC record must provide its two identifiers.  Some devices
+            # can emit a line with date and weights but without FAC or seal; that
+            # is transmission noise, not a piece that can be reconciled.
+            if len(columns) < len(BASE_COLUMNS):
+                continue
+            if not columns[0].strip() or not columns[3].strip():
+                continue
             rows.append(columns)
     if not rows:
         raise ValueError("No hay datos validos en los ficheros finales.")

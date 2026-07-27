@@ -20,9 +20,9 @@ from suite_pyside6.core.precintos_txt_ax import (
 class PrecintosTxtAxTests(unittest.TestCase):
     def test_delimitador_real_y_variantes_de_espaciado(self):
         self.assertEqual(SOURCE_DELIMITER, "->")
-        result = extract_precintos("origen -> P001\ntexto\t→\tP002\nA=>P003")
-        self.assertEqual(result.precintos, ["P001", "P002", "P003"])
-        self.assertEqual(result.lines_read, 3)
+        result = extract_precintos("origen -> P001\ntexto\t\u2192\tP002\nA=>P003\nB\u00e2\u2020\u2019P004")
+        self.assertEqual(result.precintos, ["P001", "P002", "P003", "P004"])
+        self.assertEqual(result.lines_read, 4)
         self.assertEqual(result.skipped_lines, 0)
 
     def test_ignora_vacias_e_invalidas_y_conserva_duplicados(self):
@@ -30,10 +30,41 @@ class PrecintosTxtAxTests(unittest.TestCase):
         self.assertEqual(result.precintos, ["DUP", "DUP"])
         self.assertEqual(result.lines_read, 5)
         self.assertEqual(result.skipped_lines, 3)
+        self.assertEqual(result.valid_lines, 2)
+        self.assertEqual(result.duplicate_count, 1)
+        self.assertEqual(
+            [(line.line_number, line.original_content, line.reason) for line in result.ignored_lines],
+            [
+                (1, "", "Línea vacía"),
+                (3, "Sin flecha", "Separador no encontrado"),
+                (4, "B ->   ", "Segunda columna vacía"),
+            ],
+        )
 
     def test_saltos_windows_unix_y_contenido_exactamente_recortado_en_extremos(self):
-        result = extract_precintos("A ->  precinto con espacios  \r\nB ->\tX-01\nC -> uno -> dos\n")
+        result = extract_precintos("A ->  precinto con espacios  \r\nB ->\t\ufeffX-01\u200b\nC -> uno -> dos\n")
         self.assertEqual(result.precintos, ["precinto con espacios", "X-01", "uno -> dos"])
+        self.assertEqual(result.skipped_lines, 0)
+
+    def test_precinto_vacio_y_caracteres_no_permitidos_se_registran_con_motivo(self):
+        result = extract_precintos("A -> \ufeff\nB -> COD\x00IGO\nC -> VALIDO\n")
+        self.assertEqual(result.precintos, ["VALIDO"])
+        self.assertEqual(result.skipped_lines, 2)
+        self.assertEqual(
+            [line.reason for line in result.ignored_lines],
+            ["Precinto vacío", "Caracteres no permitidos en el precinto"],
+        )
+
+    def test_las_columnas_adicionales_mantienen_el_formato_actual(self):
+        result = extract_precintos("A -> P001 -> detalle\n")
+        self.assertEqual(result.precintos, ["P001 -> detalle"])
+        self.assertEqual(result.skipped_lines, 0)
+
+    def test_archivo_sin_precintos_registra_todas_las_lineas_ignoradas(self):
+        result = extract_precintos("\nSIN FLECHA\nA -> \n")
+        self.assertEqual(result.precintos, [])
+        self.assertEqual(result.skipped_lines, 3)
+        self.assertEqual(len(result.ignored_lines), result.skipped_lines)
 
     def test_archivo_cp1252_y_archivo_sin_datos_validos(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -53,6 +84,14 @@ class PrecintosTxtAxTests(unittest.TestCase):
             result = process_txt_file(path)
         self.assertEqual(result.source_encoding, "utf-8-sig")
         self.assertEqual(result.precintos, ["P001"])
+
+    def test_archivo_utf16_de_windows(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "utf16.txt"
+            path.write_bytes("lote \u2192 0000123\r\n".encode("utf-16"))
+            result = process_txt_file(path)
+        self.assertEqual(result.source_encoding, "utf-16")
+        self.assertEqual(result.precintos, ["0000123"])
 
     def test_csv_ax_una_columna_crlf_cp1252_sin_cabecera(self):
         content = render_ax_csv(["P001", "P001", "PRECINTO-Ñ"])

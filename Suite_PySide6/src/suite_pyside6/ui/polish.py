@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QGraphicsDropShadowEffect,
     QScrollArea,
     QSizePolicy,
+    QStackedWidget,
     QTableWidget,
     QToolButton,
     QVBoxLayout,
@@ -180,6 +181,8 @@ def prepare_embedded_window(widget: QMainWindow) -> None:
             label.setVisible(False)
             label.setMaximumHeight(0)
     for status in widget.findChildren(QLabel, "StatusLabel"):
+        if status.property("keepEmbeddedStatus"):
+            continue
         status.setVisible(False)
         status.setMaximumHeight(0)
     for panel in widget.findChildren(QFrame, "ContextPanel"):
@@ -278,6 +281,18 @@ def _prepare_embedded_surfaces(widget: QWidget) -> None:
 
 def operational_snapshot(widget: QWidget) -> dict[str, str]:
     """Return the compact operational state used by the shell header."""
+    provider = getattr(widget, "context_snapshot", None)
+    if callable(provider):
+        try:
+            snapshot = provider()
+        except Exception:
+            snapshot = None
+        if isinstance(snapshot, dict) and {"state", "next", "alerts"}.issubset(snapshot):
+            return {
+                "state": _compact_text(str(snapshot["state"]), 72),
+                "next": _compact_text(str(snapshot["next"]), 72),
+                "alerts": _compact_text(str(snapshot["alerts"]), 72),
+            }
     _update_context_panel(widget)
     status = widget.findChild(QLabel, "StatusLabel")
     summary = widget.findChild(QLabel, "ResultLabel")
@@ -426,7 +441,7 @@ def _inject_app_brand_bar(widget: QWidget) -> None:
     if not isinstance(widget, QMainWindow):
         return
     central = widget.centralWidget()
-    if central is None or central.findChild(QFrame, "Header") is not None:
+    if central is None or isinstance(central, QStackedWidget) or central.findChild(QFrame, "Header") is not None:
         return
     if central.findChild(QFrame, "AppBrandBar") is not None:
         return
@@ -559,7 +574,10 @@ def _wrap_operational_body(widget: QWidget) -> None:
     if not isinstance(widget, QMainWindow) or widget.property("bodyScrollWrapped"):
         return
     central = widget.centralWidget()
-    if central is None or central.findChild(QFrame, "Header") is not None:
+    # QStackedWidget usa internamente QStackedLayout. Sus páginas ya son el
+    # contenido operativo y QStackedLayout.addWidget solo admite el widget,
+    # no el parámetro de estiramiento usado por los QBoxLayout.
+    if central is None or isinstance(central, QStackedWidget) or central.findChild(QFrame, "Header") is not None:
         return
     layout = central.layout()
     if layout is None or layout.count() < 2:
@@ -609,7 +627,7 @@ def _inject_context_panel(widget: QWidget) -> None:
     if not isinstance(widget, QMainWindow):
         return
     central = widget.centralWidget()
-    if central is None or central.findChild(QFrame, "Header") is not None:
+    if central is None or isinstance(central, QStackedWidget) or central.findChild(QFrame, "Header") is not None:
         return
     if central.findChild(QFrame, "ContextPanel") is not None:
         return
@@ -654,7 +672,7 @@ def _inject_inline_banner(widget: QWidget) -> None:
     if not isinstance(widget, QMainWindow):
         return
     central = widget.centralWidget()
-    if central is None or central.findChild(QLabel, "InlineBanner") is not None:
+    if central is None or isinstance(central, QStackedWidget) or central.findChild(QLabel, "InlineBanner") is not None:
         return
     layout = central.layout()
     if layout is None:
@@ -1247,7 +1265,8 @@ def _drop_feedback(widget: QWidget, paths: list[Path]) -> str:
 
 
 def _update_flow_indicator(widget: QWidget, text: str = "") -> None:
-    badges = widget.findChildren(QLabel, "StepBadge")
+    all_badges = widget.findChildren(QLabel, "StepBadge")
+    badges = [badge for badge in all_badges if badge.isVisible()] or all_badges
     if not badges:
         return
     explicit = _explicit_flow_state(widget, len(badges))
@@ -1351,11 +1370,16 @@ def _next_action_text(widget: QWidget) -> str:
 
 
 def _next_action_button(widget: QWidget) -> QPushButton | None:
-    buttons = [
+    all_buttons = [
         button
         for button in widget.findChildren(QPushButton)
         if button.objectName() != "ThemeToggle" and _clean_text(button.text())
     ]
+    # Una ventana con QStackedWidget conserva los botones de páginas ocultas.
+    # En una ventana mostrada, esas acciones nunca deben ganar a la página
+    # actual al calcular el siguiente paso o al procesar Ctrl+Enter.
+    visible_buttons = [button for button in all_buttons if button.isVisible()]
+    buttons = visible_buttons or all_buttons
     if widget.property("outputFinalized"):
         for button in buttons:
             text = _clean_text(str(button.property("fullText") or button.text())).lower()
@@ -1577,7 +1601,11 @@ def _replace_step_bars(widget: QWidget) -> None:
         layout = parent.layout() if parent is not None else None
         if layout is None:
             continue
-        stepper = _stepper_from_parts(provided_steps) if provided_steps else _stepper_from_text(label.text())
+        configured_steps = label.property("stepParts")
+        label_steps = tuple(str(step).strip() for step in configured_steps if str(step).strip()) if isinstance(configured_steps, (list, tuple)) else ()
+        stepper = _stepper_from_parts(label_steps or provided_steps) if (label_steps or provided_steps) else _stepper_from_text(label.text())
+        if label.property("plainStepper"):
+            stepper.setProperty("plainStepper", True)
         layout.replaceWidget(label, stepper)
         label.setText("")
         label.setVisible(False)

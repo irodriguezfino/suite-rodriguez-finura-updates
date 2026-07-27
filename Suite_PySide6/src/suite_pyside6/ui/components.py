@@ -337,12 +337,23 @@ def control_rail_label(text: str, *, role: str = "detail") -> QLabel:
     return label
 
 
-def step_bar(text: str) -> QLabel:
+def step_bar(
+    text: str,
+    *,
+    steps: tuple[str, ...] | None = None,
+    plain: bool = False,
+) -> QLabel:
+    """Marcador de pasos con configuración propia para cada flujo."""
+
     label = QLabel(text)
     label.setObjectName("StepBar")
     label.setWordWrap(True)
     label.setAccessibleName("Progreso del flujo")
     label.setAccessibleDescription(text)
+    if steps:
+        label.setProperty("stepParts", list(steps))
+    if plain:
+        label.setProperty("plainStepper", True)
     return label
 
 

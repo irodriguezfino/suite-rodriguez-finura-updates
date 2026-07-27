@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.7.9"
+VERSION = "1.7.10"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
@@ -291,9 +291,9 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
     full_digest = sha256(full_package)
     installer_digest = sha256(installer_bat)
     notes = (
-        "- Reparto de Merma por Precintos incorpora la orden de trabajo como primera columna del CSV AX.\n"
-        "- Control y Recepción Precintos permite seleccionar Empresa cliente desde una lista TXT editable.\n"
-        "- La lista de empresas se conserva en la configuración del usuario y se recarga al abrir Campos manuales informe."
+        "- Precintos Deshuesado unifica los flujos PDA y FAC, refuerza la validación y permite reintentar una exportación AX sin perder los datos.\n"
+        "- La exportación CSV AX es atómica: un error de escritura no sustituye un fichero ya existente.\n"
+        "- Precintos TXT a CSV AX incorpora mejoras de validación, revisión y navegación de la interfaz."
     )
     manifest = {
         "schema": "suite-rodriguez-finura-update-v1",

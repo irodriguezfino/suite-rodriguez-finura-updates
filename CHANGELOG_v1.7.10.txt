@@ -1,0 +1,5 @@
+Suite Rodriguez Finura v1.7.10
+
+- Precintos Deshuesado unifica los flujos PDA y FAC, refuerza la validación y permite reintentar una exportación AX sin perder los datos.
+- La exportación CSV AX es atómica: un error de escritura no sustituye un fichero ya existente.
+- Precintos TXT a CSV AX incorpora mejoras de validación, revisión y navegación de la interfaz.

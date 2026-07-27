@@ -226,6 +226,11 @@ def base_qss() -> str:
         border: 1px solid {p["border"]};
         border-radius: 8px;
     }}
+    QFrame#Stepper[plainStepper="true"] {{
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+    }}
     QFrame#Toolbar[embeddedSurface="true"], QFrame#Stepper[embeddedSurface="true"] {{
         background: transparent;
         border: 0;

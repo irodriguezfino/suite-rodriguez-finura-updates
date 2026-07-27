@@ -10,7 +10,10 @@ from __future__ import annotations
 
 import csv
 import io
+import os
 import re
+import tempfile
+import unicodedata
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation, ROUND_FLOOR, ROUND_HALF_UP, localcontext
 from pathlib import Path
@@ -18,6 +21,7 @@ from typing import Literal
 from zipfile import BadZipFile
 
 from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
 from openpyxl.utils.exceptions import InvalidFileException
 from openpyxl.workbook.workbook import Workbook
 
@@ -52,6 +56,53 @@ class SourceRecord:
     position: int
     precinto: str
     peso_original: Decimal
+
+
+@dataclass(frozen=True)
+class AXExportRecord:
+    """Registro normalizado que entiende el escritor común de AX."""
+
+    precinto: str
+    peso_final: Decimal
+    source_name: str = ""
+    line_number: int | None = None
+
+
+@dataclass(frozen=True)
+class FACRecord:
+    articulo: str
+    fecha: str
+    hora: str
+    precinto: str
+    peso_inicial: str
+    peso_deshuesado: Decimal
+    porcentaje_merma: str
+    seleccion: str
+    archivo_origen: str
+    numero_linea: int
+
+    def as_ax_record(self) -> AXExportRecord:
+        return AXExportRecord(self.precinto, self.peso_deshuesado, self.archivo_origen, self.numero_linea)
+
+
+@dataclass(frozen=True)
+class FACReadResult:
+    records: tuple[FACRecord, ...]
+    ignored_empty_rows: int
+    excluded_no_rows: int
+    issues: tuple[ValidationIssue, ...]
+
+    @property
+    def errors(self) -> tuple[ValidationIssue, ...]:
+        return self.issues
+
+    @property
+    def total_weight(self) -> Decimal:
+        return sum((record.peso_deshuesado for record in self.records), Decimal("0"))
+
+    @property
+    def is_valid(self) -> bool:
+        return bool(self.records) and not self.issues
 
 
 @dataclass(frozen=True)
@@ -216,20 +267,52 @@ def _parse_decimal(value: str, field_name: str, line_number: int | None = None) 
         raise ValueError(f"{field_name} no numerico{suffix}") from exc
 
 
+def _message_column_index(rows: list[tuple[object, ...]]) -> int:
+    """Localiza la columna que realmente contiene los mensajes de PDA.
+
+    El formato histórico deja el mensaje en A. Las exportaciones actuales de
+    precintos ibéricos conservan información y rótulo en A/B y colocan el
+    mensaje completo en C. Se elige la columna con más valores delimitados.
+    """
+
+    scores: dict[int, int] = {}
+    headers: list[int] = []
+    for row in rows:
+        for index, value in enumerate(row):
+            text = "" if value is None else str(value).strip()
+            if _is_message_header(text):
+                headers.append(index)
+            if text.count(";") >= 2:
+                scores[index] = scores.get(index, 0) + 1
+    if scores:
+        return min(scores, key=lambda index: (-scores[index], index))
+    if headers:
+        return headers[0]
+    return 0
+
+
 def _read_message_workbook(workbook: Workbook) -> SourceReadResult:
     records: list[SourceRecord] = []
     ignored: list[IgnoredRow] = []
     issues: list[ValidationIssue] = []
-    first_content_seen = False
-    has_message_header = False
     worksheet = workbook.active
+    rows = list(worksheet.iter_rows(values_only=True))
+    message_column = _message_column_index(rows)
+    has_message_header = any(
+        _is_message_header("" if value is None else str(value))
+        for row in rows
+        for value in row
+    )
 
-    for line_number, row in enumerate(worksheet.iter_rows(values_only=True), start=1):
-        value = row[0] if row else None
+    for line_number, row in enumerate(rows, start=1):
+        value = row[message_column] if message_column < len(row) else None
         if value is None or not str(value).strip():
             ignored.append(IgnoredRow(line_number, "fila vacia"))
             continue
-        if any(cell is not None and str(cell).strip() for cell in row[1:]):
+        # En el legado, una segunda columna con datos era un Excel mal formado.
+        # El formato nuevo usa A/B como metadatos y C para el mensaje, por lo
+        # que esa regla solo se mantiene cuando el mensaje está en A.
+        if message_column == 0 and any(cell is not None and str(cell).strip() for cell in row[1:]):
             issues.append(
                 ValidationIssue(
                     "INVALID_WORKBOOK_LAYOUT",
@@ -239,12 +322,9 @@ def _read_message_workbook(workbook: Workbook) -> SourceReadResult:
             )
             continue
         message = str(value).strip()
-        if not first_content_seen:
-            first_content_seen = True
-            if _is_message_header(message):
-                has_message_header = True
-                ignored.append(IgnoredRow(line_number, "encabezado de mensaje"))
-                continue
+        if _is_message_header(message):
+            ignored.append(IgnoredRow(line_number, "encabezado de mensaje"))
+            continue
         try:
             fields = next(csv.reader([message], delimiter=";", quotechar='"', strict=True))
         except csv.Error as exc:
@@ -279,12 +359,12 @@ def _read_message_workbook(workbook: Workbook) -> SourceReadResult:
     if not records and not issues:
         issues.append(ValidationIssue("NO_VALID_RECORDS", "No hay registros validos."))
 
-    source_format = SourceFormat(worksheet.title, "A", has_message_header)
+    source_format = SourceFormat(worksheet.title, get_column_letter(message_column + 1), has_message_header)
     return SourceReadResult(source_format, tuple(records), tuple(ignored), tuple(issues))
 
 
 def read_source_file(path: Path) -> SourceReadResult:
-    """Lee el Excel de mensajes con precinto primero y peso tercero."""
+    """Lee el Excel PDA con precinto primero y peso tercero del mensaje."""
 
     if path.suffix.lower() != ".xlsx":
         return SourceReadResult(
@@ -301,6 +381,88 @@ def read_source_file(path: Path) -> SourceReadResult:
         return _read_message_workbook(workbook)
     finally:
         workbook.close()
+
+
+def _read_fac_text(path: Path) -> str:
+    """Lee exportaciones FAC sin asumir la página de códigos de Windows."""
+
+    raw = path.read_bytes()
+    for encoding in ("utf-8-sig", "utf-8", "cp1252", "latin-1"):
+        try:
+            return raw.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    raise UnicodeDecodeError("fac", raw, 0, len(raw), "No se pudo determinar la codificación")
+
+
+def _is_selected_yes(value: str) -> bool:
+    normalized = "".join(
+        character for character in unicodedata.normalize("NFD", value.strip().casefold())
+        if unicodedata.category(character) != "Mn"
+    )
+    return normalized == "si"
+
+
+def _is_selected_no(value: str) -> bool:
+    return value.strip().casefold() == "no"
+
+
+def read_fac_files(paths: list[Path] | tuple[Path, ...]) -> FACReadResult:
+    """Lee y valida CSV FAC conservando el orden de archivos y de sus filas.
+
+    Las filas vacías (incluida ``;;;;;;;``) se descartan antes de cualquier
+    validación. Solo las filas seleccionadas con SI producen registros AX.
+    """
+
+    records: list[FACRecord] = []
+    issues: list[ValidationIssue] = []
+    ignored_empty_rows = 0
+    excluded_no_rows = 0
+    for path in paths:
+        try:
+            text = _read_fac_text(path)
+        except (OSError, UnicodeError) as exc:
+            issues.append(ValidationIssue("FAC_READ_ERROR", f"{path.name}: no se pudo leer el fichero ({exc})."))
+            continue
+        for line_number, raw_line in enumerate(text.splitlines(), start=1):
+            if not raw_line.strip():
+                ignored_empty_rows += 1
+                continue
+            try:
+                fields = next(csv.reader([raw_line], delimiter=";", quotechar='"', strict=True))
+            except csv.Error as exc:
+                issues.append(ValidationIssue("FAC_INVALID_ROW", f"{path.name}, línea {line_number}: CSV inválido ({exc}).", line_number=line_number))
+                continue
+            if not any(field.strip() for field in fields):
+                ignored_empty_rows += 1
+                continue
+            if len(fields) != 8:
+                issues.append(ValidationIssue("FAC_COLUMN_COUNT", f"{path.name}, línea {line_number}: se esperaban 8 columnas.", line_number=line_number))
+                continue
+            values = [field.strip() for field in fields]
+            if _is_selected_no(values[7]):
+                excluded_no_rows += 1
+                continue
+            if not _is_selected_yes(values[7]):
+                # Una marca distinta de SI no participa en la salida; se trata
+                # como NO para no convertir un dato operativo normal en alerta.
+                excluded_no_rows += 1
+                continue
+            if not values[3]:
+                issues.append(ValidationIssue("FAC_EMPTY_SEAL", f"{path.name}, línea {line_number}: el precinto está vacío.", line_number=line_number))
+                continue
+            try:
+                weight = _parse_decimal(values[5], "El peso deshuesado", line_number)
+            except ValueError:
+                issues.append(ValidationIssue("FAC_INVALID_WEIGHT", f"{path.name}, línea {line_number}: el peso deshuesado no es numérico.", line_number=line_number))
+                continue
+            if weight <= 0:
+                issues.append(ValidationIssue("FAC_NON_POSITIVE_WEIGHT", f"{path.name}, línea {line_number}: el peso deshuesado debe ser mayor que cero.", line_number=line_number))
+                continue
+            records.append(FACRecord(*values[:5], weight, *values[6:], path.name, line_number))
+    if not records and not issues:
+        issues.append(ValidationIssue("FAC_NO_SELECTED_RECORDS", "No hay filas válidas marcadas como SI para exportar."))
+    return FACReadResult(tuple(records), ignored_empty_rows, excluded_no_rows, tuple(issues))
 
 
 def validate_final_weight(
@@ -470,6 +632,49 @@ def _export_issues(result: AdjustmentResult) -> tuple[ValidationIssue, ...]:
     return tuple(issues)
 
 
+def _export_record_issues(records: tuple[AXExportRecord, ...]) -> tuple[ValidationIssue, ...]:
+    issues: list[ValidationIssue] = []
+    for record in records:
+        if record.precinto.lstrip().startswith(("=", "+", "-", "@")):
+            location = f"{record.source_name}, línea {record.line_number}: " if record.source_name else ""
+            issues.append(ValidationIssue("CSV_INJECTION_RISK", f"{location}el precinto podría interpretarse como fórmula CSV; no se altera para preservar AX.", line_number=record.line_number))
+    return tuple(issues)
+
+
+def render_ax_csv_records(
+    records: tuple[AXExportRecord, ...] | list[AXExportRecord],
+    work_order: str | None,
+    export_format: AXCsvFormat = AX_CSV_FORMAT,
+) -> bytes:
+    """Escribe registros normalizados con el contrato único de importación AX."""
+
+    normalized_records = tuple(records)
+    work_order_validation = validate_work_order(work_order)
+    issues = (*work_order_validation.issues, *_export_record_issues(normalized_records))
+    if not normalized_records:
+        issues = (*issues, ValidationIssue("NO_EXPORT_RECORDS", "No hay registros para exportar."))
+    if issues:
+        raise DomainValidationError(issues)
+    output = io.StringIO(newline="")
+    writer = csv.writer(output, delimiter=export_format.delimiter, quotechar='"', quoting=csv.QUOTE_MINIMAL, lineterminator=export_format.line_ending)
+    if export_format.include_header:
+        writer.writerow(export_format.headers)
+    for record in normalized_records:
+        writer.writerow((work_order_validation.value, record.precinto, _format_decimal(record.peso_final, export_format)))
+    content = export_format.bom + output.getvalue().encode(export_format.encoding, errors="strict")
+    validate_ax_csv_records_content(content, normalized_records, work_order_validation.value, export_format)
+    return content
+
+
+def write_ax_csv_records(
+    path: Path,
+    records: tuple[AXExportRecord, ...] | list[AXExportRecord],
+    work_order: str | None,
+    export_format: AXCsvFormat = AX_CSV_FORMAT,
+) -> None:
+    _write_bytes_atomically(path, render_ax_csv_records(records, work_order, export_format))
+
+
 def render_ax_csv(
     result: AdjustmentResult,
     work_order: str | None,
@@ -481,19 +686,8 @@ def render_ax_csv(
     issues = (*work_order_validation.issues, *_export_issues(result))
     if issues:
         raise DomainValidationError(issues)
-    output = io.StringIO(newline="")
-    writer = csv.writer(
-        output,
-        delimiter=export_format.delimiter,
-        quotechar='"',
-        quoting=csv.QUOTE_MINIMAL,
-        lineterminator=export_format.line_ending,
-    )
-    if export_format.include_header:
-        writer.writerow(export_format.headers)
-    for row in result.rows:
-        writer.writerow((work_order_validation.value, row.source.precinto, _format_decimal(row.adjusted_weight, export_format)))
-    content = export_format.bom + output.getvalue().encode(export_format.encoding, errors="strict")
+    records = tuple(AXExportRecord(row.source.precinto, row.adjusted_weight, line_number=row.source.line_number) for row in result.rows)
+    content = render_ax_csv_records(records, work_order_validation.value, export_format)
     validate_ax_csv_content(content, result, work_order_validation.value, export_format)
     return content
 
@@ -504,7 +698,34 @@ def write_ax_csv(
     work_order: str | None,
     export_format: AXCsvFormat = AX_CSV_FORMAT,
 ) -> None:
-    path.write_bytes(render_ax_csv(result, work_order, export_format))
+    _write_bytes_atomically(path, render_ax_csv(result, work_order, export_format))
+
+
+def _write_bytes_atomically(path: Path, content: bytes) -> None:
+    """Sustituye el CSV solo cuando sus bytes ya se han escrito por completo.
+
+    Así, un error de disco, permisos o reemplazo no corrompe un CSV AX que
+    ya existía en la ubicación elegida por la persona usuaria.
+    """
+
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            delete=False,
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+        ) as temporary_file:
+            temporary_path = Path(temporary_file.name)
+            temporary_file.write(content)
+            temporary_file.flush()
+            os.fsync(temporary_file.fileno())
+        os.replace(temporary_path, path)
+        temporary_path = None
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
 
 
 def validate_ax_csv_content(
@@ -552,3 +773,41 @@ def validate_ax_csv_content(
     exported_total = sum((_parse_decimal(row[2], "El peso ajustado") for row in parsed), Decimal("0"))
     if exported_total != result.final_weight:
         raise ValueError("La suma del CSV AX no coincide exactamente con el peso final.")
+
+
+def validate_ax_csv_records_content(
+    content: bytes,
+    records: tuple[AXExportRecord, ...] | list[AXExportRecord],
+    work_order: str | None,
+    export_format: AXCsvFormat = AX_CSV_FORMAT,
+) -> None:
+    """Verifica los bytes comunes sin depender del cálculo proporcional PDA."""
+
+    normalized_records = tuple(records)
+    payload = content
+    if export_format.bom:
+        if not content.startswith(export_format.bom):
+            raise ValueError("El BOM de exportación no coincide con el formato.")
+        payload = content[len(export_format.bom) :]
+    elif content.startswith(b"\xef\xbb\xbf"):
+        raise ValueError("El CSV AX no debe incluir BOM UTF-8.")
+    text = payload.decode(export_format.encoding, errors="strict")
+    if not text.endswith(export_format.line_ending):
+        raise ValueError("El CSV AX debe terminar en CRLF.")
+    parsed = list(csv.reader(io.StringIO(text, newline=""), delimiter=export_format.delimiter, quotechar='"', strict=True))
+    expected_count = len(normalized_records) + (1 if export_format.include_header else 0)
+    if len(parsed) != expected_count or any(not row for row in parsed):
+        raise ValueError("El CSV AX contiene líneas adicionales o inesperadas.")
+    if export_format.include_header and tuple(parsed.pop(0)) != export_format.headers:
+        raise ValueError("Las cabeceras del CSV AX no coinciden.")
+    normalized_work_order = validate_work_order(work_order).require_valid()
+    if any(len(row) != 3 for row in parsed):
+        raise ValueError("Cada fila del CSV AX debe tener exactamente tres columnas.")
+    if [row[0] for row in parsed] != [normalized_work_order] * len(parsed):
+        raise ValueError("La orden de trabajo exportada no coincide con la indicada.")
+    if [row[1] for row in parsed] != [record.precinto for record in normalized_records]:
+        raise ValueError("Los precintos exportados no coinciden con los registros válidos.")
+    exported_weights = [_parse_decimal(row[2], "El peso ajustado") for row in parsed]
+    expected_weights = [record.peso_final.quantize(Decimal(1).scaleb(-export_format.precision)) for record in normalized_records]
+    if exported_weights != expected_weights:
+        raise ValueError("Los pesos exportados no coinciden con los registros válidos.")

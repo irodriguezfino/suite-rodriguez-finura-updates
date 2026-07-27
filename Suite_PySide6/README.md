@@ -154,6 +154,14 @@ El core separado vive en:
 La aplicacion permite seleccionar varios XLSX/XLSM y renombrar la primera hoja
 visible a `Hoja1` sin modificar datos ni formatos.
 
+## Precintos Deshuesado
+
+La herramienta conserva el identificador interno `reparto_merma_precintos` y
+presenta una selección inicial entre PDA y FAC. PDA mantiene el reparto
+proporcional del Excel de mensajes. FAC lee uno o varios CSV separados por
+`;`, ignora filas vacías, exporta solo `SI` y reutiliza el mismo contrato AX:
+CP1252, `;`, coma decimal, dos decimales, sin cabecera y CRLF.
+
 ## Pasada de paridad visual y funcional
 
 Se ha reforzado el tema global PySide6 con la identidad azul/rojo de Rodriguez:

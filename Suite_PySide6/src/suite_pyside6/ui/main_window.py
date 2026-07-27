@@ -1180,7 +1180,7 @@ class MainWindow(QMainWindow):
             "Precintos Excel a CSV": "XL",
             "Control y Recepción Precintos": "CTL",
             "Pesos": "P",
-            "Reparto de Merma por Precintos": "RM",
+            "Precintos Deshuesado": "PD",
         }
         compact_mapping = {
             "Merma Jamones FAC": "Merma FAC",
@@ -1189,7 +1189,7 @@ class MainWindow(QMainWindow):
             "Precintos Expedición": "P. Exped.",
             "Precintos Excel a CSV": "Excel",
             "Control y Recepción Precintos": "Control",
-            "Reparto de Merma por Precintos": "Merma precintos",
+            "Precintos Deshuesado": "Deshuesado",
         }
         return (narrow_mapping if narrow else compact_mapping).get(text, text)
 
