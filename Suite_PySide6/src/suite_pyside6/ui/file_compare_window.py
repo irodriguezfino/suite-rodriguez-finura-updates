@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+import difflib
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QThread, Signal, Qt, QUrl
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtGui import QColor, QDesktopServices, QTextCursor
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QFileDialog, QFormLayout, QHBoxLayout, QLabel,
     QApplication, QMainWindow, QMessageBox, QPushButton, QPlainTextEdit, QProgressBar,
-    QSpinBox, QVBoxLayout, QWidget,
+    QSpinBox, QSplitter, QTextEdit, QVBoxLayout, QWidget,
 )
 
+from suite_pyside6.core.file_compare.detectors import detect_encoding
 from suite_pyside6.core.file_compare.models import CompareMode, ComparisonOptions, ComparisonResult
 from suite_pyside6.core.file_compare.reports import as_text, write_report
 from suite_pyside6.core.file_compare.service import compare_paths
@@ -36,6 +38,9 @@ class FileCompareWindow(QMainWindow):
         self._thread: QThread | None = None
         self._worker: _Worker | None = None
         self._result: ComparisonResult | None = None
+        self._active_left: Path | None = None
+        self._active_right: Path | None = None
+        self._active_options: ComparisonOptions | None = None
         self._cancelled = False
         root = QWidget(self)
         layout = QVBoxLayout(root)
@@ -83,8 +88,27 @@ class FileCompareWindow(QMainWindow):
         self.summary = QLabel("Seleccione dos rutas para iniciar una comparacion.")
         layout.addWidget(self.summary)
         self.details = QPlainTextEdit(); self.details.setReadOnly(True)
-        layout.addWidget(self.details, 1)
+        self.details.setMaximumHeight(150)
+        layout.addWidget(self.details)
+        self.preview_label = QLabel("Vista comparada: el contenido de ambos archivos se alinea y las diferencias se resaltan abajo.")
+        layout.addWidget(self.preview_label)
+        self.preview_splitter = QSplitter(Qt.Horizontal)
+        left_preview_holder, self.left_preview_title, self.left_preview = self._preview_pane("Archivo A")
+        right_preview_holder, self.right_preview_title, self.right_preview = self._preview_pane("Archivo B")
+        self.preview_splitter.addWidget(left_preview_holder)
+        self.preview_splitter.addWidget(right_preview_holder)
+        self.preview_splitter.setSizes([410, 410])
+        layout.addWidget(self.preview_splitter, 2)
         self.setCentralWidget(root)
+
+    def _preview_pane(self, title: str) -> tuple[QWidget, QLabel, QPlainTextEdit]:
+        holder = QWidget()
+        layout = QVBoxLayout(holder); layout.setContentsMargins(0, 0, 0, 0)
+        label = QLabel(title)
+        editor = QPlainTextEdit(); editor.setReadOnly(True); editor.setLineWrapMode(QPlainTextEdit.NoWrap)
+        editor.setPlaceholderText("El contenido comparable aparecera aqui.")
+        layout.addWidget(label); layout.addWidget(editor, 1)
+        return holder, label, editor
 
     def _path_buttons(self, label: QLabel, which: str) -> QWidget:
         holder = QWidget(); layout = QHBoxLayout(holder); layout.setContentsMargins(0, 0, 0, 0)
@@ -121,9 +145,11 @@ class FileCompareWindow(QMainWindow):
             QMessageBox.warning(self, "Rutas necesarias", "Seleccione dos archivos o dos carpetas existentes.")
             return
         self._cancelled = False; self._result = None
+        self._active_left, self._active_right, self._active_options = left, right, self._options()
         self.compare_button.setEnabled(False); self.cancel_button.setEnabled(True)
         self.progress.setRange(0, 0); self.summary.setText("Comparando en segundo plano…"); self.details.clear()
-        self._thread = QThread(self); self._worker = _Worker(left, right, self._options())
+        self._clear_preview()
+        self._thread = QThread(self); self._worker = _Worker(left, right, self._active_options)
         self._worker.moveToThread(self._thread)
         self._thread.started.connect(self._worker.run)
         self._worker.finished.connect(self._finished)
@@ -146,6 +172,117 @@ class FileCompareWindow(QMainWindow):
         state = "IGUALES" if result.strict_equal else "DIFERENTES"
         self.summary.setText(f"{state} · {result.detected_type} · {result.total_differences} diferencias · {result.elapsed_seconds:.2f} s")
         self.details.setPlainText(as_text(result))
+        self._render_preview(result)
+
+    def _clear_preview(self) -> None:
+        self.left_preview_title.setText("Archivo A")
+        self.right_preview_title.setText("Archivo B")
+        self.left_preview.clear(); self.right_preview.clear()
+        self.left_preview.setExtraSelections([]); self.right_preview.setExtraSelections([])
+
+    @staticmethod
+    def _display_line(line: str) -> str:
+        return line.rstrip("\r\n")
+
+    def _normalise_preview_line(self, line: str) -> str:
+        options = self._active_options or ComparisonOptions()
+        if options.ignore_line_endings:
+            line = line.replace("\r\n", "\n").replace("\r", "\n")
+        if options.ignore_whitespace:
+            line = line.strip()
+        if options.ignore_case:
+            line = line.casefold()
+        return line
+
+    @staticmethod
+    def _read_preview_lines(path: Path) -> list[str] | None:
+        try:
+            encoding = detect_encoding(path)
+            return path.read_text(encoding=encoding).splitlines(keepends=True) if encoding else None
+        except (OSError, UnicodeDecodeError):
+            return None
+
+    @staticmethod
+    def _line_text(number: int | None, value: str | None) -> str:
+        return f"{number:>6} | {value}" if number is not None else "       |"
+
+    @staticmethod
+    def _highlight_ranges(editor: QPlainTextEdit, ranges: list[tuple[int, int, int]], colour: str) -> None:
+        selections: list[QTextEdit.ExtraSelection] = []
+        for row, start, end in ranges:
+            if start >= end:
+                continue
+            block = editor.document().findBlockByNumber(row)
+            if not block.isValid():
+                continue
+            selection = QTextEdit.ExtraSelection()
+            selection.cursor = QTextCursor(editor.document())
+            selection.cursor.setPosition(block.position() + start)
+            selection.cursor.setPosition(block.position() + end, QTextCursor.KeepAnchor)
+            selection.format.setBackground(QColor(colour))
+            selections.append(selection)
+        editor.setExtraSelections(selections)
+
+    @staticmethod
+    def _changed_character_ranges(left: str | None, right: str | None) -> tuple[list[tuple[int, int]], list[tuple[int, int]]]:
+        if left is None:
+            return [], [(0, len(right or ""))]
+        if right is None:
+            return [(0, len(left))], []
+        left_ranges: list[tuple[int, int]] = []
+        right_ranges: list[tuple[int, int]] = []
+        matcher = difflib.SequenceMatcher(None, left, right, autojunk=False)
+        for tag, left_start, left_end, right_start, right_end in matcher.get_opcodes():
+            if tag == "equal":
+                continue
+            if left_start < left_end:
+                left_ranges.append((left_start, left_end))
+            if right_start < right_end:
+                right_ranges.append((right_start, right_end))
+        return left_ranges, right_ranges
+
+    def _render_preview(self, result: ComparisonResult) -> None:
+        left, right = self._active_left, self._active_right
+        self._clear_preview()
+        if not left or not right or left.is_dir() or right.is_dir() or result.detected_type != "text":
+            self.preview_label.setText("Vista comparada disponible para archivos de texto; el detalle de esta comparacion aparece arriba.")
+            return
+        left_lines, right_lines = self._read_preview_lines(left), self._read_preview_lines(right)
+        if left_lines is None or right_lines is None:
+            self.preview_label.setText("No se pudo mostrar el contenido de uno de los archivos como texto.")
+            return
+
+        self.preview_label.setText("Contenido completo alineado. Solo los caracteres distintos se marcan en rojo (A) y verde (B).")
+        self.left_preview_title.setText(f"Archivo A · {left.name}")
+        self.right_preview_title.setText(f"Archivo B · {right.name}")
+        matcher = difflib.SequenceMatcher(
+            None,
+            [self._normalise_preview_line(line) for line in left_lines],
+            [self._normalise_preview_line(line) for line in right_lines],
+            autojunk=False,
+        )
+        left_rows: list[str] = []; right_rows: list[str] = []
+        left_ranges: list[tuple[int, int, int]] = []
+        right_ranges: list[tuple[int, int, int]] = []
+        for tag, a_start, a_end, b_start, b_end in matcher.get_opcodes():
+            row_count = max(a_end - a_start, b_end - b_start)
+            for offset in range(row_count):
+                a_index, b_index = a_start + offset, b_start + offset
+                left_value = self._display_line(left_lines[a_index]) if a_index < a_end else None
+                right_value = self._display_line(right_lines[b_index]) if b_index < b_end else None
+                left_row = self._line_text(a_index + 1 if a_index < a_end else None, left_value)
+                right_row = self._line_text(b_index + 1 if b_index < b_end else None, right_value)
+                left_rows.append(left_row); right_rows.append(right_row)
+                if tag != "equal":
+                    left_changes, right_changes = self._changed_character_ranges(left_value, right_value)
+                    row = len(left_rows) - 1
+                    left_prefix = len(left_row) - len(left_value or "")
+                    right_prefix = len(right_row) - len(right_value or "")
+                    left_ranges.extend((row, left_prefix + start, left_prefix + end) for start, end in left_changes)
+                    right_ranges.extend((row, right_prefix + start, right_prefix + end) for start, end in right_changes)
+        self.left_preview.setPlainText("\n".join(left_rows)); self.right_preview.setPlainText("\n".join(right_rows))
+        self._highlight_ranges(self.left_preview, left_ranges, "#ffe1e1")
+        self._highlight_ranges(self.right_preview, right_ranges, "#ddf6e5")
 
     def _copy(self) -> None:
         if self._result:

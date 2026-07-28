@@ -1,34 +1,34 @@
 {
   "schema": "suite-rodriguez-finura-update-v1",
-  "version": "1.7.11",
-  "published_at": "2026-07-28T08:49:55+02:00",
+  "version": "1.7.13",
+  "published_at": "2026-07-28T12:36:05+02:00",
   "auto_update": {
     "type": "zip",
-    "file": "Suite_Rodriguez_Finura_v1.7.11_update.zip",
-    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.7.11_update.zip",
-    "sha256": "3169ADBF459D38CE6659DACBD39C80DB3AAD51C105699D8DB4CAD055B3BD5B17"
+    "file": "Suite_Rodriguez_Finura_v1.7.13_update.zip",
+    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.7.13_update.zip",
+    "sha256": "CDCC02580269AF7A64391FBD62C294F3A4B90BE1214DBA2F77E12164E795D20E"
   },
   "fresh_install": {
     "type": "bat",
-    "file": "Instalar_Suite_Rodriguez_Finura_v1.7.11.bat",
-    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Instalar_Suite_Rodriguez_Finura_v1.7.11.bat",
-    "sha256": "5EF424B1D5687BF52CCD14661840F26297C821510A19F8C7A7E5573FF48CA62D",
-    "full_package": "Suite_Rodriguez_Finura_v1.7.11_full.zip",
-    "full_package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.7.11_full.zip",
-    "full_package_sha256": "AD7C71399A1E2EBD3778BCCF939019C5B2383FAED6935054A8DC256E1C1C5433"
+    "file": "Instalar_Suite_Rodriguez_Finura_v1.7.13.bat",
+    "url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Instalar_Suite_Rodriguez_Finura_v1.7.13.bat",
+    "sha256": "0598BC7671ADF19309F3AB4C7AFF498D4FCC06B04DCCD2719E95DB3A0A2CF471",
+    "full_package": "Suite_Rodriguez_Finura_v1.7.13_full.zip",
+    "full_package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.7.13_full.zip",
+    "full_package_sha256": "441E00D9C6AA8846922DD9E74452189BE81236B7EF4E6E8763F9748993AE832D"
   },
-  "notes": "- Nueva herramienta Comparador de archivos para comparar archivos y carpetas de forma exacta.\n- Incluye diferencias para texto, JSON, XML, CSV/TSV y ZIP, además de informes en texto, JSON y HTML.\n- La comparación estricta usa SHA-256 y lectura por bloques para manejar archivos grandes de forma segura.",
+  "notes": "- El Comparador de archivos muestra el contenido completo de ambos textos en paralelo.\n- Solo los caracteres distintos quedan resaltados: rojo para el archivo A y verde para el archivo B.\n- El acceso directo ya no depende de Windows Script Host (VBS).",
   "package_type": "zip",
-  "package": "Suite_Rodriguez_Finura_v1.7.11_update.zip",
-  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.7.11_update.zip",
-  "sha256": "3169ADBF459D38CE6659DACBD39C80DB3AAD51C105699D8DB4CAD055B3BD5B17",
+  "package": "Suite_Rodriguez_Finura_v1.7.13_update.zip",
+  "package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.7.13_update.zip",
+  "sha256": "CDCC02580269AF7A64391FBD62C294F3A4B90BE1214DBA2F77E12164E795D20E",
   "fresh_install_msi": "Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.3.33.msi",
   "fresh_install_sha256": "A4ABB193DB0CC17F5481B062D70B714038969B54D6F30957B33792091F8D0518",
-  "full_install_bat": "Instalar_Suite_Rodriguez_Finura_v1.7.11.bat",
-  "full_install_bat_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Instalar_Suite_Rodriguez_Finura_v1.7.11.bat",
-  "full_install_bat_sha256": "5EF424B1D5687BF52CCD14661840F26297C821510A19F8C7A7E5573FF48CA62D",
-  "full_install_package": "Suite_Rodriguez_Finura_v1.7.11_full.zip",
-  "full_install_package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.7.11_full.zip",
-  "full_install_package_sha256": "AD7C71399A1E2EBD3778BCCF939019C5B2383FAED6935054A8DC256E1C1C5433"
+  "full_install_bat": "Instalar_Suite_Rodriguez_Finura_v1.7.13.bat",
+  "full_install_bat_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Instalar_Suite_Rodriguez_Finura_v1.7.13.bat",
+  "full_install_bat_sha256": "0598BC7671ADF19309F3AB4C7AFF498D4FCC06B04DCCD2719E95DB3A0A2CF471",
+  "full_install_package": "Suite_Rodriguez_Finura_v1.7.13_full.zip",
+  "full_install_package_url": "https://raw.githubusercontent.com/irodriguezfino/suite-rodriguez-finura-updates/main/Suite_Rodriguez_Finura_v1.7.13_full.zip",
+  "full_install_package_sha256": "441E00D9C6AA8846922DD9E74452189BE81236B7EF4E6E8763F9748993AE832D"
 }

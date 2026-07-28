@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.7.11"
+VERSION = "1.7.13"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
@@ -109,9 +109,10 @@ shell.Run command, 0, False
 
 
 def compatibility_cmd_text() -> str:
-    return f"""@echo off
-setlocal
-wscript.exe "%~dp0{SILENT_LAUNCHER_NAME}"
+    return """@echo off
+setlocal EnableExtensions
+set "APP_DIR=%~dp0"
+start "" "%APP_DIR%runtime\\pythonw.exe" "%APP_DIR%SuiteLauncher.py"
 exit /b 0
 """
 
@@ -242,7 +243,7 @@ set "DOWNLOAD_URL={full_url}"
 
 echo Instalando %APP_NAME% {VERSION}
 echo Cerrando procesos abiertos de la suite...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$install=$env:INSTALL_DIR.ToLower(); Get-CimInstance Win32_Process | Where-Object {{ $_.CommandLine -and $_.CommandLine.ToLower().Contains($install) -and ($_.Name -match 'python|pythonw|Suite') }} | ForEach-Object {{ try {{ Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop }} catch {{}} }}"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$install='%INSTALL_DIR%'.ToLower(); Get-CimInstance Win32_Process | Where-Object {{ $_.CommandLine -and $_.CommandLine.ToLower().Contains($install) -and ($_.Name -match 'python|pythonw|Suite') }} | ForEach-Object {{ try {{ Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop }} catch {{}} }}"
 
 if not exist "%TEMP_ROOT%" mkdir "%TEMP_ROOT%"
 echo Descargando paquete completo...
@@ -271,7 +272,7 @@ robocopy "%TEMP_ROOT%\\extract\\Suite Rodriguez Finura" "%INSTALL_DIR%" /E /NFL 
 if %ERRORLEVEL% GEQ 8 goto error
 
 echo Abriendo suite actualizada...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$ws=New-Object -ComObject WScript.Shell; $desktop=[Environment]::GetFolderPath('Desktop'); $shortcut=$ws.CreateShortcut((Join-Path $desktop 'Suite Rodriguez Finura.lnk')); $shortcut.TargetPath=(Join-Path $env:INSTALL_DIR '{SILENT_LAUNCHER_NAME}'); $shortcut.WorkingDirectory=$env:INSTALL_DIR; $shortcut.IconLocation=(Join-Path $env:INSTALL_DIR 'ICONO_SUITE.ico'); $shortcut.Save()"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$install='%INSTALL_DIR%'; $ws=New-Object -ComObject WScript.Shell; $desktop=[Environment]::GetFolderPath('Desktop'); $shortcut=$ws.CreateShortcut((Join-Path $desktop 'Suite Rodriguez Finura.lnk')); $shortcut.TargetPath=(Join-Path $install 'runtime\\pythonw.exe'); $shortcut.Arguments=('"' + (Join-Path $install 'SuiteLauncher.py') + '"'); $shortcut.WorkingDirectory=$install; $shortcut.IconLocation=(Join-Path $install 'ICONO_SUITE.ico'); $shortcut.Save()"
 start "" "%INSTALL_DIR%\\runtime\\pythonw.exe" "%INSTALL_DIR%\\SuiteLauncher.py"
 echo Instalacion completada.
 pause
@@ -294,6 +295,11 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
         "- Nueva herramienta Comparador de archivos para comparar archivos y carpetas de forma exacta.\n"
         "- Incluye diferencias para texto, JSON, XML, CSV/TSV y ZIP, además de informes en texto, JSON y HTML.\n"
         "- La comparación estricta usa SHA-256 y lectura por bloques para manejar archivos grandes de forma segura."
+    )
+    notes = (
+        "- El Comparador de archivos muestra el contenido completo de ambos textos en paralelo.\n"
+        "- Solo los caracteres distintos quedan resaltados: rojo para el archivo A y verde para el archivo B.\n"
+        "- El acceso directo ya no depende de Windows Script Host (VBS)."
     )
     manifest = {
         "schema": "suite-rodriguez-finura-update-v1",

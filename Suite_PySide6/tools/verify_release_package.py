@@ -71,7 +71,7 @@ def main() -> int:
     installer_text = installer_bat.read_text(encoding="utf-8-sig")
     assert "Abrir_Suite_Rodriguez_Finura.cmd" not in installer_text
     assert "runtime\\pythonw.exe" in installer_text
-    assert "Abrir_Suite_Rodriguez_Finura.vbs" in installer_text
+    assert "Abrir_Suite_Rodriguez_Finura.vbs" not in installer_text
 
     with ZipFile(package) as archive:
         names = set(archive.namelist())

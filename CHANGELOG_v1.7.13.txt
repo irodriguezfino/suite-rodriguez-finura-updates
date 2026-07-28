@@ -1,0 +1,5 @@
+Suite Rodriguez Finura v1.7.13
+
+- El Comparador de archivos muestra el contenido completo de ambos textos en paralelo.
+- Solo los caracteres distintos quedan resaltados: rojo para el archivo A y verde para el archivo B.
+- El acceso directo ya no depende de Windows Script Host (VBS).
