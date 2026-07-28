@@ -1,6 +1,6 @@
 [project]
 name = "suite-rodriguez-finura-pyside6"
-version = "1.7.10"
+version = "1.7.11"
 description = "Suite Rodriguez Finura profesional en PySide6."
 requires-python = ">=3.11"
 dependencies = [
@@ -11,6 +11,7 @@ dependencies = [
 
 [project.scripts]
 suite-pyside6 = "suite_pyside6.main:main"
+filecompare = "suite_pyside6.filecompare_cli:main"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

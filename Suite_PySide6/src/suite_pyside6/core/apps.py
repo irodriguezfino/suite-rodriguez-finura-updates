@@ -105,6 +105,15 @@ APP_REGISTRY: tuple[AppDefinition, ...] = (
         shortcut="Alt+0",
         migration_status="ported",
     ),
+    AppDefinition(
+        key="file_compare",
+        title="Comparador de archivos",
+        description="Compara archivos o carpetas por bytes, texto y formatos estructurados.",
+        short_description="Comparacion exacta y diferencias.",
+        category="Utilidades",
+        shortcut="Alt+C",
+        migration_status="ported",
+    ),
 )
 
 

@@ -1,0 +1,5 @@
+Suite Rodriguez Finura v1.7.11
+
+- Nueva herramienta Comparador de archivos para comparar archivos y carpetas de forma exacta.
+- Incluye diferencias para texto, JSON, XML, CSV/TSV y ZIP, además de informes en texto, JSON y HTML.
+- La comparación estricta usa SHA-256 y lectura por bloques para manejar archivos grandes de forma segura.

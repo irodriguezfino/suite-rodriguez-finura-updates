@@ -34,6 +34,7 @@ _WINDOW_SPECS: dict[str, WindowSpec] = {
         "suite_pyside6.ui.reparto_merma_precintos_window",
         "RepartoMermaPrecintosWindow",
     ),
+    "file_compare": WindowSpec("suite_pyside6.ui.file_compare_window", "FileCompareWindow"),
 }
 
 _WINDOW_CACHE: dict[str, type[QMainWindow]] = {}

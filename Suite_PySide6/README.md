@@ -291,3 +291,70 @@ Se ha aplicado una pasada adicional sobre todas las toolbars:
 - El stepper dinamico usa textos mas cortos y conectores simples.
 - El modo oscuro se suaviza con fondos menos negros, superficies azul grisaceas
   y acentos menos agresivos, manteniendo contraste WCAG AA.
+
+## Comparador de archivos
+
+La suite incluye **Comparador de archivos**, disponible desde `Utilidades`. Su
+motor se ha diseñado por capas: `core/file_compare` contiene el modelo de
+resultado, deteccion, lectura binaria segura, comparadores de texto y formatos
+estructurados, carpetas e informes; la CLI y la ventana PySide6 reutilizan ese
+mismo motor.
+
+La igualdad estricta siempre se confirma leyendo ambos archivos por bloques y
+comparando bytes. SHA-256 y el tamano sirven de resumen y aceleracion, nunca
+son el unico criterio. Los archivos grandes no se cargan enteros en memoria;
+los diffs de texto se limitan a 20 MiB y, por encima, queda disponible el
+resultado binario. JSON, XML, CSV/TSV y ZIP se limitan a 50 MiB en modo
+semantico. JSON, XML y CSV/TSV pueden analizarse semanticamente; ZIP
+se compara por entradas descomprimidas sin extraer archivos al disco.
+
+### Instalacion y ejecucion
+
+Requiere Python 3.11+ y las dependencias ya declaradas en `pyproject.toml`.
+
+```powershell
+cd Suite_PySide6
+python -m pip install -e .
+filecompare "C:\datos\uno.json" "C:\datos\dos.json" --mode semantic --format html --output informe.html
+suite-pyside6
+```
+
+Tambien se puede ejecutar sin instalar desde este repositorio:
+
+```powershell
+$env:PYTHONPATH = "src"
+..\qtv\Scripts\python.exe -m suite_pyside6.filecompare_cli archivo1 archivo2 --max-differences 50
+```
+
+La CLI devuelve `0` si los bytes son iguales, `1` si son diferentes y `2` ante
+errores de ruta, lectura o analisis. Acepta `--mode strict|semantic|auto`,
+`--format text|json|html`, `--ignore-case`, `--ignore-whitespace`,
+`--ignore-line-endings`, `--exclude` y `--max-differences`. La ventana permite
+seleccionar archivos o carpetas, ver el detalle sin bloquear la interfaz,
+cancelar la presentacion del resultado, copiarlo, abrir las rutas y guardarlo
+como texto, JSON o HTML autocontenido.
+
+### Limitaciones y seguridad
+
+“Cualquier tipo” significa que cualquier archivo es comparable de forma
+binaria. La interpretacion semantica se limita actualmente a texto, JSON, XML,
+CSV/TSV y ZIP. Las imagenes y PDF se identifican y se comparan por bytes, pero
+no se incluye aun analisis visual ni extraccion de texto porque requeririan
+dependencias opcionales. YAML se trata como texto. Las entradas ZIP no se
+extraen, se ignoran enlaces simbolicos en carpetas y las entradas individuales
+de ZIP superiores a 512 MiB se omiten en el analisis semantico para evitar
+consumo desmedido de recursos.
+
+Para crear otro comparador, implemente una funcion que reciba dos `Path`,
+`ComparisonOptions` y `ComparisonResult`, agregue instancias de `Difference`,
+y regístrela en `core/file_compare/service.py` segun el tipo detectado.
+
+### Pruebas
+
+Las pruebas usan solo archivos temporales, incluidos binarios, Unicode, JSON,
+XML, CSV, ZIP, informes, CLI y carpetas:
+
+```powershell
+$env:PYTHONPATH = "src"
+..\qtv\Scripts\python.exe -m unittest discover -s tests -p test_file_compare.py -v
+```

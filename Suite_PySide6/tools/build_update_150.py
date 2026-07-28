@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.7.10"
+VERSION = "1.7.11"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
@@ -291,9 +291,9 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
     full_digest = sha256(full_package)
     installer_digest = sha256(installer_bat)
     notes = (
-        "- Precintos Deshuesado unifica los flujos PDA y FAC, refuerza la validación y permite reintentar una exportación AX sin perder los datos.\n"
-        "- La exportación CSV AX es atómica: un error de escritura no sustituye un fichero ya existente.\n"
-        "- Precintos TXT a CSV AX incorpora mejoras de validación, revisión y navegación de la interfaz."
+        "- Nueva herramienta Comparador de archivos para comparar archivos y carpetas de forma exacta.\n"
+        "- Incluye diferencias para texto, JSON, XML, CSV/TSV y ZIP, además de informes en texto, JSON y HTML.\n"
+        "- La comparación estricta usa SHA-256 y lectura por bloques para manejar archivos grandes de forma segura."
     )
     manifest = {
         "schema": "suite-rodriguez-finura-update-v1",

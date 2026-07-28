@@ -137,6 +137,14 @@ Cada perfil puede añadir, editar o eliminar una aclaración personal. Se guarda
 
 Extrae la columna de identificacion desde anexos Excel de trazabilidad y genera un CSV de una unica columna, preparado para importacion.
 
+## Comparador de archivos
+
+Nueva utilidad para comparar dos archivos o dos carpetas. La igualdad estricta
+se confirma por SHA-256 y lectura binaria por bloques; no depende del nombre,
+la extension ni los metadatos. Ofrece diff unificado de texto y analisis
+opcional de JSON, XML, CSV/TSV y ZIP, con exportacion de informes en texto,
+JSON o HTML. En el menu PySide6 se encuentra en **Utilidades**.
+
 ## Actualizaciones
 
 La suite consulta el canal remoto de GitHub al arrancar. Si existe una version superior, muestra una ventana con la version instalada, la version disponible y las mejoras de esa version.
