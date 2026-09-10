@@ -1,0 +1,5 @@
+Suite Rodriguez Finura v1.7.14
+
+- Mejora integral de estabilidad: las operaciones pesadas se ejecutan en segundo plano y no bloquean la consola.
+- Cierre seguro de herramientas activas, guardado atómico y recuperación clara ante archivos bloqueados o errores de red.
+- Comparador reforzado con cancelación real, límites de seguridad y vistas previas acotadas.

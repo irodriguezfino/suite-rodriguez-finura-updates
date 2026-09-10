@@ -8,10 +8,12 @@ from PySide6.QtGui import QAction, QColor, QIcon, QImage, QKeySequence, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QAbstractItemView,
+    QBoxLayout,
     QFrame,
     QHBoxLayout,
     QLabel,
     QComboBox,
+    QDialog,
     QLineEdit,
     QMainWindow,
     QMenu,
@@ -30,7 +32,7 @@ from PySide6.QtWidgets import (
 )
 
 from suite_pyside6.core.paths import resource_path
-from suite_pyside6.ui.responsive import make_flow, make_widgets_resizable
+from suite_pyside6.ui.responsive import make_flow, make_widgets_resizable, register_adaptive_layout
 from suite_pyside6.ui.table_utils import update_table_accessibility
 from suite_pyside6.ui.theme import base_qss, current_theme_mode, current_theme_preference, is_dark_mode, set_theme_mode
 
@@ -57,6 +59,9 @@ def polish_window(
     _inject_inline_banner(widget)
     _ensure_theme_toggle(widget)
     _wrap_toolbars_for_overflow(widget)
+    _compose_workflow_control_card(widget)
+    _normalise_operational_reading_order(widget)
+    _register_control_workspace_adaptivity(widget)
     if body_scroll:
         _wrap_operational_body(widget)
     _enable_drag_drop(widget)
@@ -103,8 +108,11 @@ def polish_window(
             )
         else:
             table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        table.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        if table.property("disableTableSelection"):
+            table.setSelectionMode(QAbstractItemView.NoSelection)
+        else:
+            table.setSelectionBehavior(QAbstractItemView.SelectRows)
+            table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         table.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
         table.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         table.setTextElideMode(Qt.ElideMiddle)
@@ -207,19 +215,10 @@ def apply_premium_depth(widget: QWidget) -> None:
     names = {
         "ConsoleHeader",
         "CompactContextBar",
+        "DashboardCommandCard",
+        "WorkflowControlCard",
         "Panel",
         "DsPanel",
-        "DsMetric",
-        "AppCard",
-        "FormPanel",
-        "MailPanel",
-        "ControlPreviewPanel",
-        "ControlIssuesPanel",
-        "OutputPanel",
-        "ControlStatusRail",
-        "Dropzone",
-        "WorkItem",
-        "MetricCard",
         "ContextCard",
         "ModuleRow",
         "ContinuePanel",
@@ -237,6 +236,19 @@ def apply_premium_depth(widget: QWidget) -> None:
         effect.setColor(color)
         frame.setGraphicsEffect(effect)
         frame.setProperty("premiumDepth", True)
+
+
+def _register_control_workspace_adaptivity(widget: QWidget) -> None:
+    """Stack operational content and status below it before either is cramped."""
+    registered = getattr(widget, "_adaptive_layouts", [])
+    for workspace in widget.findChildren(QFrame, "ControlPilotWorkspace"):
+        layout = workspace.layout()
+        if not isinstance(layout, QBoxLayout) or layout.count() < 2:
+            continue
+        if any(item.layout is layout for item in registered):
+            continue
+        register_adaptive_layout(widget, layout, breakpoint_width=1180)
+        registered = getattr(widget, "_adaptive_layouts", [])
 
 
 def _prepare_embedded_surfaces(widget: QWidget) -> None:
@@ -268,8 +280,12 @@ def _prepare_embedded_surfaces(widget: QWidget) -> None:
                     layout.setContentsMargins(10, 9, 10, 10)
                     layout.setSpacing(max(6, min(layout.spacing(), 8)))
         if name == "ControlStatusRail":
-            frame.setMinimumWidth(208)
-            frame.setMaximumWidth(236)
+            # Some operational pages move this rail below their table on
+            # narrower embedded workspaces.  A fixed 236 px maximum then
+            # leaves most of the available row blank and crushes its content.
+            # The parent layout already determines the appropriate side-rail
+            # width in desktop mode, so only remove the embedded hard cap.
+            frame.setMaximumWidth(16_777_215)  # Qt's QWIDGETSIZE_MAX
 
     for editor in widget.findChildren(QPlainTextEdit):
         editor.setMinimumHeight(84)
@@ -570,6 +586,103 @@ def _wrap_toolbars_for_overflow(widget: QWidget) -> None:
         toolbar.deleteLater()
 
 
+def _compose_workflow_control_card(widget: QWidget) -> None:
+    """Join a normal stepper and its command bar into one calm flow surface.
+
+    Pages retain their own layout and special plain steppers.  When both
+    elements are siblings in a vertical layout, however, presenting them as
+    separate bars creates unnecessary visual fragmentation and makes wrapping
+    feel accidental on medium screens.
+    """
+    for stepper in list(widget.findChildren(QFrame, "Stepper")):
+        if stepper.property("plainStepper") or stepper.property("workflowGrouped"):
+            continue
+        parent = stepper.parentWidget()
+        layout = parent.layout() if parent is not None else None
+        if not isinstance(layout, QBoxLayout) or layout.direction() not in {
+            QBoxLayout.TopToBottom,
+            QBoxLayout.BottomToTop,
+        }:
+            continue
+        step_index = layout.indexOf(stepper)
+        if step_index < 0:
+            continue
+        toolbar: QFrame | None = None
+        toolbar_index = -1
+        for index in range(step_index + 1, layout.count()):
+            candidate = layout.itemAt(index).widget()
+            if isinstance(candidate, QFrame) and candidate.objectName() == "Toolbar":
+                toolbar = candidate
+                toolbar_index = index
+                break
+            # A normal flow is contiguous.  A different visible panel means
+            # this toolbar belongs to another part of the page.
+            if candidate is not None and candidate.isVisible():
+                break
+        if toolbar is None or toolbar_index < 0:
+            continue
+
+        # Remove from right to left so the step index stays valid, then place
+        # both existing widgets in the shared card without recreating controls.
+        layout.takeAt(toolbar_index)
+        layout.takeAt(step_index)
+        card = QFrame(parent)
+        card.setObjectName("WorkflowControlCard")
+        card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(10, 9, 10, 10)
+        card_layout.setSpacing(8)
+
+        stepper.setParent(card)
+        stepper.setProperty("innerWorkflowStepper", True)
+        stepper.setProperty("workflowGrouped", True)
+        toolbar.setParent(card)
+        toolbar.setProperty("innerWorkflowToolbar", True)
+        toolbar.setProperty("workflowGrouped", True)
+
+        divider = QFrame(card)
+        divider.setObjectName("WorkflowDivider")
+        divider.setFixedHeight(1)
+        divider.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        card_layout.addWidget(stepper)
+        card_layout.addWidget(divider)
+        card_layout.addWidget(toolbar)
+        layout.insertWidget(step_index, card)
+
+
+def _normalise_operational_reading_order(widget: QWidget) -> None:
+    """Keep a compact summary immediately before the detail it describes.
+
+    Several independently-built tools placed their metric strip after the
+    preview table while others placed it before.  That makes the same control
+    read in two different directions and wastes the first visual scan.  This
+    is deliberately limited to direct siblings so it never changes business
+    widgets, data or the order of unrelated sections.
+    """
+    for strip in widget.findChildren(QFrame, "ControlMetricStrip"):
+        parent = strip.parentWidget()
+        layout = parent.layout() if parent is not None else None
+        if not isinstance(layout, QBoxLayout):
+            continue
+        strip_index = layout.indexOf(strip)
+        if strip_index < 0:
+            continue
+        first_table_index = next(
+            (
+                index
+                for index in range(layout.count())
+                if isinstance(layout.itemAt(index).widget(), QTableWidget)
+            ),
+            -1,
+        )
+        if first_table_index < 0 or strip_index < first_table_index:
+            continue
+        item = layout.takeAt(strip_index)
+        if item is not None:
+            layout.insertWidget(first_table_index, strip)
+
+
 def _wrap_operational_body(widget: QWidget) -> None:
     if not isinstance(widget, QMainWindow) or widget.property("bodyScrollWrapped"):
         return
@@ -588,6 +701,10 @@ def _wrap_operational_body(widget: QWidget) -> None:
 
     content = QWidget()
     content.setObjectName("WindowScrollContent")
+    # The shared stylesheet paints this canvas with the active theme.  Mark it
+    # as styled explicitly so it remains painted inside a QScrollArea viewport
+    # on every Windows/Qt style, instead of revealing the native fallback.
+    content.setAttribute(Qt.WA_StyledBackground, True)
     content_layout = QVBoxLayout(content)
     content_layout.setContentsMargins(0, 0, 0, 0)
     content_layout.setSpacing(layout.spacing())
@@ -611,6 +728,7 @@ def _wrap_operational_body(widget: QWidget) -> None:
     scroll = QScrollArea()
     scroll.setObjectName("WindowScroll")
     scroll.setWidgetResizable(True)
+    scroll.viewport().setAttribute(Qt.WA_StyledBackground, True)
     scroll.setFrameShape(QFrame.Shape.NoFrame)
     scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
     scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
@@ -976,7 +1094,7 @@ def _update_toolbar_group_visibility(widget: QWidget) -> None:
 
 
 def _compact_toolbar_button(button: QPushButton, original_text: str) -> None:
-    if not _is_toolbar_button(button) or _preserve_button_text(button):
+    if not _is_toolbar_button(button) or _preserve_button_text(button) or not button.property("compactToolbarText"):
         return
     compact = _compact_button_text(original_text)
     if compact == original_text:
@@ -1066,11 +1184,22 @@ def confirm_discard_work(widget: QWidget, title: str = "Descartar cambios") -> b
 
 
 def _install_close_guard(widget: QWidget) -> None:
-    if not isinstance(widget, QMainWindow) or widget.property("closeGuardPatched"):
+    if not isinstance(widget, (QMainWindow, QDialog)) or widget.property("closeGuardPatched"):
         return
     original_close_event = widget.closeEvent
 
     def close_event(event, *, _widget=widget, _original=original_close_event) -> None:
+        if _has_running_worker(_widget):
+            # Never detach a QMainWindow which owns a running QThread.  Qt will
+            # abort the entire process if the thread is destroyed underneath it.
+            if getattr(_widget, "show_dialogs", True) and QApplication.instance() is not None and QApplication.instance().platformName().lower() != "offscreen":
+                QMessageBox.information(
+                    _widget,
+                    "Operación en curso",
+                    "La operación actual sigue trabajando. Espera a que finalice o usa Cancelar cuando esté disponible.",
+                )
+            event.ignore()
+            return
         if confirm_discard_work(_widget, "Cerrar ventana"):
             _original(event)
         else:
@@ -1078,6 +1207,15 @@ def _install_close_guard(widget: QWidget) -> None:
 
     widget.closeEvent = close_event  # type: ignore[method-assign]
     widget.setProperty("closeGuardPatched", True)
+
+
+def _has_running_worker(widget: QWidget) -> bool:
+    """Detect worker threads without coupling the shared close guard to each app."""
+    thread = getattr(widget, "_thread", None)
+    if thread is not None and hasattr(thread, "isRunning") and thread.isRunning():
+        return True
+    threads = getattr(widget, "_background_threads", ())
+    return any(thread is not None and hasattr(thread, "isRunning") and thread.isRunning() for thread in threads)
 
 
 def _install_desktop_shortcuts(widget: QWidget) -> None:
@@ -1101,7 +1239,7 @@ def _cancel_transient_state(widget: QWidget) -> None:
 
 def close_risk_reason(widget: QWidget) -> str:
     """Describe el riesgo real de cierre; un archivo sólo seleccionado no basta."""
-    if widget.property("operationActive"):
+    if widget.property("operationActive") or _has_running_worker(widget):
         return "Hay una operación en curso. Cerrar ahora puede dejarla incompleta."
     snapshot = _pending_work_snapshot(widget)
     if not snapshot or snapshot == str(widget.property("closeSafeSnapshot") or ""):
@@ -1362,6 +1500,14 @@ def _apply_stepper_state(
         badge.setToolTip(description)
         badge.setAccessibleDescription(description)
         _refresh_style(badge)
+        # The label belongs to the same compact step item as its badge.  Give
+        # both elements the state so the active step reads as one unit rather
+        # than a coloured number next to unrelated grey text.
+        step_item = badge.parentWidget()
+        step_label = step_item.findChild(QLabel, "StepText") if step_item is not None else None
+        if step_label is not None:
+            step_label.setProperty("stepState", state)
+            _refresh_style(step_label)
 
 
 def _next_action_text(widget: QWidget) -> str:
@@ -1627,22 +1773,33 @@ def _stepper_from_parts(parts: Iterable[str]) -> QFrame:
 
     clean_parts = [str(part).strip() for part in parts if str(part).strip()]
     stepper.setAccessibleDescription(" | ".join(clean_parts))
+    intro = QLabel("Flujo")
+    intro.setObjectName("StepperIntro")
+    intro.setAccessibleName("Flujo de trabajo")
+    layout.addWidget(intro)
     for index, part in enumerate(clean_parts, start=1):
         label_text = part
         if label_text[:1].isdigit():
             label_text = label_text[1:].strip()
+        step_item = QWidget()
+        step_item.setObjectName("StepItem")
+        step_item.setProperty("stepIndex", index)
+        item_layout = QHBoxLayout(step_item)
+        item_layout.setContentsMargins(0, 0, 0, 0)
+        item_layout.setSpacing(6)
         label_text = _compact_step_text(label_text)
         badge = QLabel(str(index))
         badge.setObjectName("StepBadge")
         badge.setAlignment(Qt.AlignCenter)
-        layout.addWidget(badge)
         step_label = QLabel(label_text)
         step_label.setObjectName("StepText")
         step_label.setWordWrap(True)
         make_widgets_resizable(step_label)
-        layout.addWidget(step_label)
+        item_layout.addWidget(badge)
+        item_layout.addWidget(step_label)
+        layout.addWidget(step_item)
         if index < len(clean_parts):
-            connector = QLabel(">")
+            connector = QLabel("—")
             connector.setObjectName("StepConnector")
             connector.setAlignment(Qt.AlignCenter)
             layout.addWidget(connector)

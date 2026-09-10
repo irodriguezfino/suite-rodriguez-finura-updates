@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import difflib
 from pathlib import Path
+from collections.abc import Callable
 
+from .binary import ComparisonCancelled
 from .detectors import detect_encoding
 from .models import ComparisonOptions, ComparisonResult, Difference
 
 MAX_TEXT_ANALYSIS_SIZE = 20 * 1024 * 1024
+MAX_UNIFIED_DIFF_CHARS = 2 * 1024 * 1024
 
 
 def _normalise(line: str, options: ComparisonOptions) -> str:
@@ -19,7 +22,15 @@ def _normalise(line: str, options: ComparisonOptions) -> str:
     return line
 
 
-def compare_text(left: Path, right: Path, options: ComparisonOptions, result: ComparisonResult) -> None:
+def compare_text(
+    left: Path,
+    right: Path,
+    options: ComparisonOptions,
+    result: ComparisonResult,
+    cancelled: Callable[[], bool] | None = None,
+) -> None:
+    if cancelled and cancelled():
+        raise ComparisonCancelled()
     if left.stat().st_size > MAX_TEXT_ANALYSIS_SIZE or right.stat().st_size > MAX_TEXT_ANALYSIS_SIZE:
         result.warnings.append("Diff de texto omitido: el archivo supera el limite seguro de 20 MiB; consulte la comparacion binaria.")
         return
@@ -34,12 +45,25 @@ def compare_text(left: Path, right: Path, options: ComparisonOptions, result: Co
         result.warnings.append(f"No se pudo leer como texto ({error}); se uso comparacion binaria.")
         return
     left_lines, right_lines = left_raw.splitlines(keepends=True), right_raw.splitlines(keepends=True)
+    if cancelled and cancelled():
+        raise ComparisonCancelled()
     left_normalized = [_normalise(line, options) for line in left_lines]
     right_normalized = [_normalise(line, options) for line in right_lines]
     matcher = difflib.SequenceMatcher(None, left_normalized, right_normalized, autojunk=False)
-    unified = list(difflib.unified_diff(left_lines, right_lines, fromfile=str(left), tofile=str(right), lineterm=""))
+    unified: list[str] = []
+    unified_size = 0
+    for line in difflib.unified_diff(left_lines, right_lines, fromfile=str(left), tofile=str(right), lineterm=""):
+        if cancelled and cancelled():
+            raise ComparisonCancelled()
+        unified_size += len(line) + 1
+        if unified_size > MAX_UNIFIED_DIFF_CHARS:
+            result.warnings.append("Diff unificado truncado a 2 MiB para mantener la aplicación estable.")
+            break
+        unified.append(line)
     result.metadata["unified_diff"] = "\n".join(unified)
     for tag, a_start, a_end, b_start, b_end in matcher.get_opcodes():
+        if cancelled and cancelled():
+            raise ComparisonCancelled()
         if tag == "equal":
             continue
         location = f"lineas izquierda {a_start + 1}-{a_end}; derecha {b_start + 1}-{b_end}"

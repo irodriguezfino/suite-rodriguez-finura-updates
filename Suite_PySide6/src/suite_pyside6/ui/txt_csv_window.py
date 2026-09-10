@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 
 from suite_pyside6.core.paths import resource_path
 from suite_pyside6.core.txt_csv import TxtCsvResult, process_txt_files, write_txt_csv
+from suite_pyside6.ui.background import run_background
 from suite_pyside6.ui.components import control_metric_pair, control_pill, control_rail_label, section_label, step_bar
 from suite_pyside6.ui.file_dialogs import open_files, save_file
 from suite_pyside6.ui.polish import confirm_discard_work, show_inline_message, polish_window, sync_recommended_action
@@ -265,8 +266,20 @@ class TxtCsvWindow(QMainWindow):
         if not self.paths:
             show_inline_message(self, "warning", "Carga primero uno o varios archivos TXT.")
             return
-        self.result = process_txt_files(self.paths)
-        self.status.setText(self.result.summary())
+        paths = list(self.paths)
+        self.status.setText("Procesando TXT en segundo plano…")
+        self._refresh()
+        def completed(result: TxtCsvResult) -> None:
+            self.result = result
+            self.status.setText(self.result.summary())
+            self._refresh()
+        def failed(message: str) -> None:
+            self.status.setText(f"No se pudieron procesar los TXT: {message}")
+            show_inline_message(self, "error", message)
+            self._refresh()
+        if not run_background(self, lambda: process_txt_files(paths), completed, failed):
+            show_inline_message(self, "warning", "Ya hay una operación en curso.")
+            return
         self._refresh()
 
     def save_csv_dialog(self) -> None:
@@ -284,13 +297,21 @@ class TxtCsvWindow(QMainWindow):
             self.save_csv_path(file)
 
     def save_csv_path(self, path: Path) -> None:
-        write_txt_csv(path, self.result.processed_lines)
+        try:
+            write_txt_csv(path, self.result.processed_lines)
+        except Exception as exc:
+            self.status.setText(f"No se pudo guardar el CSV: {exc}")
+            if self.show_dialogs:
+                show_inline_message(self, "error", str(exc))
+            return
         self.status.setText(f"CSV guardado: {path}")
         show_inline_message(self, "success", f"CSV guardado: {path.name}")
         self._refresh_pilot_state()
         self._sync_recommended_action()
 
     def clear(self) -> None:
+        if self.property("operationActive"):
+            return
         if not confirm_discard_work(self, "Limpiar selección"):
             return
         self.paths = []
@@ -312,9 +333,10 @@ class TxtCsvWindow(QMainWindow):
             )
             self._fill_preview_table()
 
-        self.process_button.setEnabled(bool(self.paths))
-        self.save_button.setEnabled(bool(self.result.processed_lines))
-        self.clear_button.setEnabled(bool(self.paths or self.result.processed_lines))
+        busy = bool(self.property("operationActive"))
+        self.process_button.setEnabled(bool(self.paths) and not busy)
+        self.save_button.setEnabled(bool(self.result.processed_lines) and not busy)
+        self.clear_button.setEnabled(bool(self.paths or self.result.processed_lines) and not busy)
         self._refresh_pilot_state()
         self._sync_recommended_action()
 

@@ -89,7 +89,10 @@ class FlowLayout(QLayout):
         visible_items = [
             item
             for item in self._items
-            if item.widget() is None or item.widget().isVisible()
+            # A page is usually laid out before its top-level window is shown.
+            # isVisible() is false in that moment even for normal controls;
+            # only explicitly hidden widgets should be skipped.
+            if item.widget() is None or not item.widget().isHidden()
         ]
         if not visible_items:
             return left + right
@@ -99,29 +102,41 @@ class FlowLayout(QLayout):
     def _do_layout(self, rect: QRect, *, test_only: bool) -> int:
         left, top, right, bottom = self.getContentsMargins()
         effective = rect.adjusted(left, top, -right, -bottom)
-        x = effective.x()
-        y = effective.y()
-        line_height = 0
         spacing = self.spacing()
-
+        rows: list[list[tuple[QLayoutItem, int, int]]] = []
+        row: list[tuple[QLayoutItem, int, int]] = []
+        row_width = 0
         for item in self._items:
             widget = item.widget()
-            if widget is not None and not widget.isVisible():
+            if widget is not None and widget.isHidden():
                 continue
             hint = item.sizeHint()
             item_width = min(hint.width(), max(1, effective.width()))
             item_height = item.heightForWidth(item_width) if item.hasHeightForWidth() else hint.height()
-            next_x = x + item_width + spacing
-            if line_height > 0 and next_x - spacing > effective.right() + 1:
-                x = effective.x()
-                y += line_height + spacing
-                next_x = x + item_width + spacing
-                line_height = 0
-            if not test_only:
-                item.setGeometry(QRect(QPoint(x, y), QSize(item_width, item_height)))
-            x = next_x
-            line_height = max(line_height, item_height)
-        return y + line_height - rect.y() + bottom
+            required_width = item_width if not row else row_width + spacing + item_width
+            if row and required_width > effective.width():
+                rows.append(row)
+                row = []
+                row_width = 0
+            row.append((item, item_width, item_height))
+            row_width = item_width if len(row) == 1 else row_width + spacing + item_width
+        if row:
+            rows.append(row)
+
+        # Items such as a 50 px action summary and 34 px buttons frequently
+        # share one wrapping row.  Center them on the row's vertical axis so
+        # the toolbar and the stepper look intentional rather than top-heavy.
+        y = effective.y()
+        for row in rows:
+            line_height = max(item_height for _item, _item_width, item_height in row)
+            x = effective.x()
+            for item, item_width, item_height in row:
+                if not test_only:
+                    item.setGeometry(QRect(QPoint(x, y + (line_height - item_height) // 2), QSize(item_width, item_height)))
+                x += item_width + spacing
+            y += line_height + spacing
+        content_height = 0 if not rows else y - spacing - effective.y()
+        return top + content_height + bottom
 
 
 @dataclass

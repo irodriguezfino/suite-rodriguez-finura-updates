@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from suite_pyside6.core.paths import resource_path
+from suite_pyside6.ui.background import run_background
 from suite_pyside6.core.precintos_expedicion import (
     ExcelDetectado,
     ExpedicionCarga,
@@ -314,16 +315,30 @@ class PrecintosExpedicionWindow(QMainWindow):
         self.load_excels()
 
     def load_excels(self) -> None:
-        self.carga = cargar_excels(self.paths)
-        self.selected_pallets.clear()
-        self.pallets = []
-        self.pallet_data = {}
-        if self.carga.entrada is not None and self.carga.salidas:
-            entradas = self.carga.entrada.filas
-            self.pallets = pallets_disponibles(entradas)  # type: ignore[arg-type]
-            resumen = resumen_pivot_entrada(entradas)  # type: ignore[arg-type]
-            self.pallet_data = {pallet: (cuenta, peso) for _codigo, pallet, cuenta, peso in resumen}
-            self.suggest_pallets(silent=True)
+        paths = list(self.paths)
+        self.status.setText("Leyendo Excel en segundo plano…")
+        def completed(carga: ExpedicionCarga) -> None:
+            self.carga = carga
+            self.selected_pallets.clear()
+            self.pallets = []
+            self.pallet_data = {}
+            if self.carga.entrada is not None and self.carga.salidas:
+                entradas = self.carga.entrada.filas
+                self.pallets = pallets_disponibles(entradas)  # type: ignore[arg-type]
+                resumen = resumen_pivot_entrada(entradas)  # type: ignore[arg-type]
+                self.pallet_data = {pallet: (cuenta, peso) for _codigo, pallet, cuenta, peso in resumen}
+                self.suggest_pallets(silent=True)
+            self.status.setText("Excel analizados. Revisa la selección de pallets.")
+            self._refresh()
+        def failed(message: str) -> None:
+            self.status.setText(f"No se pudieron leer los Excel: {message}")
+            if self.show_dialogs:
+                show_inline_message(self, "error", message)
+            self._refresh()
+        if not run_background(self, lambda: cargar_excels(paths), completed, failed):
+            if self.show_dialogs:
+                show_inline_message(self, "warning", "Ya hay una operación en curso.")
+            return
         self._refresh()
 
     def suggest_pallets(self, silent: bool = False) -> None:
@@ -349,18 +364,27 @@ class PrecintosExpedicionWindow(QMainWindow):
             if self.show_dialogs:
                 show_inline_message(self, "warning", "Carga primero un Excel de entrada y una o varias salidas.")
             return
-        try:
-            entradas = self.carga.entrada.filas
-            filtradas = filtrar_precintos_por_pallets(entradas, self._selected_pallets_ordered())  # type: ignore[arg-type]
-            self.result = generar_txts_expedicion(filtradas, self.carga.salidas, inicio=datetime.now())
-        except Exception as exc:
+        entradas = self.carga.entrada.filas
+        salidas = list(self.carga.salidas)
+        selected = self._selected_pallets_ordered()
+        self.status.setText("Generando TXT en segundo plano…")
+        def operation():
+            filtradas = filtrar_precintos_por_pallets(entradas, selected)  # type: ignore[arg-type]
+            return generar_txts_expedicion(filtradas, salidas, inicio=datetime.now())
+        def completed(result) -> None:
+            self.result = result
+            self.status.setText(f"Comprobación correcta: {len(self.result.salidas)} TXT listos para guardar.")
+            self._refresh()
+        def failed(message: str) -> None:
             self.result = None
-            self.status.setText(f"No se generó ningún TXT: {exc}")
+            self.status.setText(f"No se generó ningún TXT: {message}")
             self._refresh()
             if self.show_dialogs:
-                show_inline_message(self, "error", str(exc))
+                show_inline_message(self, "error", message)
+        if not run_background(self, operation, completed, failed):
+            if self.show_dialogs:
+                show_inline_message(self, "warning", "Ya hay una operación en curso.")
             return
-        self.status.setText(f"Comprobación correcta: {len(self.result.salidas)} TXT listos para guardar.")
         self._refresh()
 
     def save_dialog(self) -> None:
@@ -384,7 +408,13 @@ class PrecintosExpedicionWindow(QMainWindow):
             raise ValueError("Genera primero los TXT.")
         manual_names = self._manual_names()
         self._validate_output_names(manual_names)
-        saved = guardar_txts_expedicion(self.result, folder, manual_names)
+        try:
+            saved = guardar_txts_expedicion(self.result, folder, manual_names)
+        except Exception as exc:
+            self.status.setText(f"No se pudieron guardar los TXT: {exc}")
+            if self.show_dialogs:
+                show_inline_message(self, "error", str(exc))
+            return []
         self.status.setText(f"TXT guardados: {', '.join(path.name for path in saved)}")
         show_inline_message(self, "success", f"TXT guardados: {', '.join(path.name for path in saved)}")
         self._refresh_pilot_state()
@@ -392,6 +422,8 @@ class PrecintosExpedicionWindow(QMainWindow):
         return saved
 
     def clear(self) -> None:
+        if self.property("operationActive"):
+            return
         if not confirm_discard_work(self, "Limpiar selección"):
             return
         self.paths = []
@@ -417,10 +449,11 @@ class PrecintosExpedicionWindow(QMainWindow):
             self.preview.setPlainText("Carga un Excel de entrada y una o varias salidas para empezar.")
 
         ready = self.carga.ready()
-        self.suggest_button.setEnabled(ready)
-        self.process_button.setEnabled(ready and bool(self.selected_pallets))
-        self.save_button.setEnabled(self.result is not None)
-        self.clear_button.setEnabled(bool(self.paths or self.result))
+        busy = bool(self.property("operationActive"))
+        self.suggest_button.setEnabled(ready and not busy)
+        self.process_button.setEnabled(ready and bool(self.selected_pallets) and not busy)
+        self.save_button.setEnabled(self.result is not None and not busy)
+        self.clear_button.setEnabled(bool(self.paths or self.result) and not busy)
         self._refresh_pilot_state()
         self._sync_recommended_action()
 

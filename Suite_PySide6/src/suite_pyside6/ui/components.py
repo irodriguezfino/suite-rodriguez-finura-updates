@@ -368,7 +368,10 @@ def badge(text: str, *, tone: str = "neutral") -> QLabel:
 
 def empty_state(title: str, body: str = "", action: QPushButton | None = None) -> QFrame:
     frame = QFrame()
-    frame.setObjectName("Dropzone")
+    # An empty screen is an informational state, not always a file target.
+    # Keeping it separate avoids showing a dashed upload affordance in output,
+    # history and review views where drag and drop is not available.
+    frame.setObjectName("EmptyState")
     layout = QVBoxLayout(frame)
     layout.setContentsMargins(24, 24, 24, 24)
     layout.setSpacing(8)
@@ -389,7 +392,9 @@ def empty_state(title: str, body: str = "", action: QPushButton | None = None) -
 
 
 def dropzone(title: str, body: str, action: QPushButton | None = None) -> QFrame:
-    return empty_state(title, body, action)
+    frame = empty_state(title, body, action)
+    frame.setObjectName("Dropzone")
+    return frame
 
 
 def module_row(
@@ -452,6 +457,63 @@ def module_row(
     action.setAccessibleDescription(f"Abre {title}.{shortcut_hint}")
     layout.addWidget(action, 0, Qt.AlignVCenter)
     return row
+
+
+def dashboard_process_card(
+    title: str,
+    description: str,
+    category: str,
+    shortcut: str,
+    action: QPushButton,
+) -> QFrame:
+    """A compact, recognisable entry point for the dashboard only.
+
+    Process rows are intentionally dense for the catalogue.  The dashboard
+    needs fewer, more easily scannable choices, so it uses a self-contained
+    card without duplicating the catalogue's status information.
+    """
+    card = QFrame()
+    card.setObjectName("DashboardProcessCard")
+    card.setAccessibleName(title)
+    card.setAccessibleDescription(description)
+    layout = QVBoxLayout(card)
+    layout.setContentsMargins(14, 13, 14, 13)
+    layout.setSpacing(8)
+
+    top = QHBoxLayout()
+    top.setSpacing(8)
+    icon = QLabel(_initials(title))
+    icon.setObjectName("DashboardProcessIcon")
+    icon.setAlignment(Qt.AlignCenter)
+    top.addWidget(icon)
+    top.addStretch(1)
+    top.addWidget(badge(category))
+    layout.addLayout(top)
+
+    title_label = QLabel(title)
+    title_label.setObjectName("ModuleTitle")
+    title_label.setWordWrap(True)
+    detail_label = QLabel(description)
+    detail_label.setObjectName("ModuleDescription")
+    detail_label.setWordWrap(True)
+    layout.addWidget(title_label)
+    layout.addWidget(detail_label, 1)
+
+    footer = QHBoxLayout()
+    footer.setSpacing(8)
+    if shortcut:
+        shortcut_label = QLabel(shortcut)
+        shortcut_label.setObjectName("DashboardProcessShortcut")
+        shortcut_label.setToolTip(f"Atajo: {shortcut}")
+        footer.addWidget(shortcut_label)
+    footer.addStretch(1)
+    action.setProperty("primary", False)
+    action.setMinimumWidth(78)
+    action.setToolTip(f"Abrir {title}")
+    action.setAccessibleName(f"Abrir {title}")
+    footer.addWidget(action)
+    layout.addLayout(footer)
+    return card
 
 
 def work_item(title: str, detail: str, status: str, action: QPushButton | None = None) -> QFrame:

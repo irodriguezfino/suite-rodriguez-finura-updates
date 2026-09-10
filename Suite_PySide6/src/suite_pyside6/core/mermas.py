@@ -4,6 +4,8 @@ import csv
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+import os
+import tempfile
 from typing import Literal
 
 import pandas as pd
@@ -205,22 +207,31 @@ def process_mermas(final_files: list[Path], origin_file: Path, filter_mode: Filt
 
 def save_mermas_excel(path: Path, result: MermasResult) -> None:
     df_export = result.dataframe.copy()
-    with pd.ExcelWriter(path, engine="openpyxl") as writer:
-        df_export.to_excel(writer, index=False, sheet_name="Resultado")
-        ws = writer.sheets["Resultado"]
-        ws.freeze_panes = "A2"
-        for column_index, column_name in enumerate(df_export.columns, start=1):
-            max_len = len(str(column_name))
-            for row_index in range(2, min(len(df_export) + 2, 300)):
-                value = ws.cell(row=row_index, column=column_index).value
-                if value is not None:
-                    max_len = max(max_len, len(str(value)))
-            ws.column_dimensions[ws.cell(row=1, column=column_index).column_letter].width = min(max_len + 2, 22)
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, dir=path.parent, suffix=".xlsx") as temporary:
+            temporary_path = Path(temporary.name)
+        with pd.ExcelWriter(temporary_path, engine="openpyxl") as writer:
+            df_export.to_excel(writer, index=False, sheet_name="Resultado")
+            ws = writer.sheets["Resultado"]
+            ws.freeze_panes = "A2"
+            for column_index, column_name in enumerate(df_export.columns, start=1):
+                max_len = len(str(column_name))
+                for row_index in range(2, min(len(df_export) + 2, 300)):
+                    value = ws.cell(row=row_index, column=column_index).value
+                    if value is not None:
+                        max_len = max(max_len, len(str(value)))
+                ws.column_dimensions[ws.cell(row=1, column=column_index).column_letter].width = min(max_len + 2, 22)
 
-        start_column = len(df_export.columns) + 3
-        ws.cell(row=2, column=start_column, value="RESUMEN")
-        for offset, line in enumerate(result.summary.lines(), start=3):
-            label, _, value = line.partition(": ")
-            ws.cell(row=offset, column=start_column, value=label)
-            ws.cell(row=offset, column=start_column + 1, value=value)
+            start_column = len(df_export.columns) + 3
+            ws.cell(row=2, column=start_column, value="RESUMEN")
+            for offset, line in enumerate(result.summary.lines(), start=3):
+                label, _, value = line.partition(": ")
+                ws.cell(row=offset, column=start_column, value=label)
+                ws.cell(row=offset, column=start_column + 1, value=value)
+        os.replace(temporary_path, path)
+        temporary_path = None
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
 

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import csv
+import io
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Sequence
+
+from .atomic_io import write_bytes_atomically
 
 
 VALID_PREFIXES = ("00",)
@@ -183,8 +186,9 @@ def integrate_corrections(base_valid: list[str], issues: list[CodeIssue], correc
 
 
 def write_palets_csv(path: Path, palets: Iterable[str]) -> None:
-    with path.open("w", encoding="utf-8-sig", newline="") as handle:
-        writer = csv.writer(handle, lineterminator="\r\n")
-        for pallet in palets:
-            writer.writerow([pallet])
+    output = io.StringIO(newline="")
+    writer = csv.writer(output, lineterminator="\r\n")
+    for pallet in palets:
+        writer.writerow([pallet])
+    write_bytes_atomically(path, output.getvalue().encode("utf-8-sig"))
 

@@ -56,6 +56,15 @@ class FileCompareTests(unittest.TestCase):
         left, right = write(self.root / "a.bin", b"x" * (2 * 1024 * 1024)), write(self.root / "b.bin", b"x" * (2 * 1024 * 1024))
         self.assertTrue(compare_paths(left, right, ComparisonOptions(block_size=65536)).strict_equal)
 
+    def test_binary_changed_ranges_are_bounded_and_cancel_is_recoverable(self) -> None:
+        left = write(self.root / "alternating-left.bin", bytes(range(100)))
+        right = write(self.root / "alternating-right.bin", bytes(value if value % 2 == 0 else (value + 1) % 256 for value in range(100)))
+        result = compare_paths(left, right, ComparisonOptions(max_differences=3, block_size=16))
+        self.assertEqual(len(result.metadata["changed_ranges"]), 3)
+        cancelled = compare_paths(left, right, cancelled=lambda: True)
+        self.assertTrue(cancelled.metadata["cancelled"])
+        self.assertIn("cancelada", cancelled.warnings[0].lower())
+
     def test_json_semantic_order_changed_and_invalid(self) -> None:
         options = ComparisonOptions(CompareMode.SEMANTIC)
         equal = compare_paths(write(self.root / "a.json", '{"a": 1, "b": 2}'), write(self.root / "b.json", '{"b": 2, "a": 1}'), options)

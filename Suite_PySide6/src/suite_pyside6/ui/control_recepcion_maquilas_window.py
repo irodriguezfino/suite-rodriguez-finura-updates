@@ -40,7 +40,8 @@ from suite_pyside6.core.control_recepcion_maquilas import (
 )
 from suite_pyside6.core.empresas_clientes import EmpresasClientesLoadResult, load_empresas_clientes
 from suite_pyside6.core.paths import resource_path
-from suite_pyside6.ui.components import ModernSelect, control_metric_pair, control_pill, labeled_field, section_label, step_bar
+from suite_pyside6.ui.background import run_background
+from suite_pyside6.ui.components import ActionMenuButton, ModernSelect, control_metric_pair, control_pill, labeled_field, section_label, step_bar
 from suite_pyside6.ui.file_dialogs import open_file, open_files, save_file
 from suite_pyside6.ui.polish import collapsible_section, confirm_discard_work, show_inline_message, polish_window, sync_recommended_action
 from suite_pyside6.ui.responsive import make_flow, make_widgets_resizable
@@ -183,10 +184,6 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
         self.revalidate_button.clicked.connect(self.revalidate)
         actions_layout.addWidget(self.revalidate_button)
 
-        self.clear_corrections_button = QPushButton("Limpiar correcciones")
-        self.clear_corrections_button.clicked.connect(self.clear_corrections)
-        actions_layout.addWidget(self.clear_corrections_button)
-
         salida_label = QLabel("SALIDA")
         salida_label.setObjectName("GroupLabel")
         salida_label.setVisible(False)
@@ -201,17 +198,18 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
         self.process_seals_button.clicked.connect(self.process_seals)
         actions_layout.addWidget(self.process_seals_button)
 
-        self.pdf_button = QPushButton("Generar PDF rangos")
-        self.pdf_button.clicked.connect(self.save_pdf_dialog)
-        actions_layout.addWidget(self.pdf_button)
-
         self.email_button = QPushButton("Enviar correo")
         self.email_button.clicked.connect(self.send_email)
         actions_layout.addWidget(self.email_button)
 
-        self.clear_button = QPushButton("Limpiar")
-        self.clear_button.clicked.connect(self.clear)
-        actions_layout.addWidget(self.clear_button)
+        # Keep the operational path visible; maintenance and secondary output
+        # actions live in one predictable menu instead of an overlong bar.
+        self.more_actions_button = ActionMenuButton(accessible_name="Más acciones de recepción")
+        self.clear_corrections_button = self.more_actions_button.add_action("Limpiar correcciones", self.clear_corrections)
+        self.pdf_button = self.more_actions_button.add_action("Generar PDF rangos", self.save_pdf_dialog)
+        self.more_actions_button.menu().addSeparator()
+        self.clear_button = self.more_actions_button.add_action("Limpiar trabajo", self.clear, destructive=True)
+        actions_layout.addWidget(self.more_actions_button)
         actions_layout.addStretch(1)
         layout.addWidget(actions)
 
@@ -482,9 +480,21 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
 
     def set_txt_files(self, paths: list[Path]) -> None:
         self.paths = list(paths)
-        self.result = process_control_txt(self.paths, self.config_file)
-        self.status.setText(f"TXT validado: {len(self.result.validos)} registros válidos.")
+        selected_paths, config_file = list(self.paths), self.config_file
+        self.status.setText("Validando TXT en segundo plano…")
         self._refresh()
+        def completed(result: ControlRecepcionResult) -> None:
+            self.result = result
+            self.status.setText(f"TXT validado: {len(self.result.validos)} registros válidos.")
+            self._refresh()
+        def failed(message: str) -> None:
+            self.status.setText(f"No se pudo validar el TXT: {message}")
+            if self.show_dialogs:
+                show_inline_message(self, "error", message)
+            self._refresh()
+        if not run_background(self, lambda: process_control_txt(selected_paths, config_file), completed, failed):
+            if self.show_dialogs:
+                show_inline_message(self, "warning", "Ya hay una operación en curso.")
 
     def revalidate(self) -> None:
         if not self.result.invalidos:
@@ -529,15 +539,23 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
             if self.show_dialogs:
                 show_inline_message(self, "warning", "Carga SealsReport antes de cruzar el albarán.")
             return
-        try:
-            run_recepcion_with_seals(self.result, self.seals_file, self.config_file)
-        except Exception as exc:
-            self.status.setText(f"Error: {exc}")
+        result, seals_file, config_file = self.result, self.seals_file, self.config_file
+        self.status.setText("Cruzando albarán en segundo plano…")
+        def operation() -> ControlRecepcionResult:
+            run_recepcion_with_seals(result, seals_file, config_file)
+            return result
+        def completed(updated: ControlRecepcionResult) -> None:
+            self.result = updated
+            self.status.setText("Cruce con albarán completado.")
+            self._refresh()
+        def failed(message: str) -> None:
+            self.status.setText(f"Error: {message}")
             if self.show_dialogs:
-                show_inline_message(self, "error", str(exc))
-            return
-        self.status.setText("Cruce con albarán completado.")
-        self._refresh()
+                show_inline_message(self, "error", message)
+            self._refresh()
+        if not run_background(self, operation, completed, failed):
+            if self.show_dialogs:
+                show_inline_message(self, "warning", "Ya hay una operación en curso.")
 
     def save_pdf_dialog(self) -> None:
         if self.result.recepcion is None:
@@ -581,22 +599,27 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
                 show_inline_message(self, "warning", message)
             self.status.setText(message)
             return
-        try:
-            send_control_email(
-                "; ".join(recipients),
-                self.result,
-                subject=self._render_template(self.subject.text().strip() or ASUNTO_DEFECTO),
-                body=self._render_template(self.body_editor.toPlainText().strip() or MENSAJE_DEFECTO),
-                metadata=self._metadata(),
-            )
-        except Exception as exc:
-            self.status.setText(f"No se pudo enviar el correo: {exc}")
+        recipient_text = "; ".join(recipients)
+        result = self.result
+        subject = self._render_template(self.subject.text().strip() or ASUNTO_DEFECTO)
+        body = self._render_template(self.body_editor.toPlainText().strip() or MENSAJE_DEFECTO)
+        metadata = self._metadata()
+        self.status.setText("Enviando correo en segundo plano…")
+        def completed(_value: object) -> None:
+            self.status.setText("Correo enviado correctamente.")
+            show_inline_message(self, "success", "Correo enviado correctamente.")
+            self._refresh()
+        def failed(message: str) -> None:
+            self.status.setText(f"No se pudo enviar el correo: {message}")
             if self.show_dialogs:
-                show_inline_message(self, "error", str(exc))
-            return
-        self.status.setText("Correo enviado correctamente.")
-        show_inline_message(self, "success", "Correo enviado correctamente.")
-        self._refresh()
+                show_inline_message(self, "error", message)
+        if not run_background(
+            self,
+            lambda: send_control_email(recipient_text, result, subject=subject, body=body, metadata=metadata),
+            completed,
+            failed,
+        ) and self.show_dialogs:
+            show_inline_message(self, "warning", "Ya hay una operación en curso.")
 
     def save_email_template(self) -> None:
         recipients = self._validated_recipients()
@@ -615,6 +638,8 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
         show_inline_message(self, "success", "Destinatarios habituales guardados.")
 
     def clear(self) -> None:
+        if self.property("operationActive"):
+            return
         if not confirm_discard_work(self, "Limpiar selección"):
             return
         self.paths = []
@@ -987,7 +1012,6 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
                 self.save_txt_button,
                 self.seals_button,
                 self.process_seals_button,
-                self.pdf_button,
                 self.email_button,
             ),
             primary_requires_enabled=False,

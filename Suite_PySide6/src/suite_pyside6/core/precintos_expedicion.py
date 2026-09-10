@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
+
+from .atomic_io import write_text_atomically
 import re
 import unicodedata
 
@@ -357,31 +359,30 @@ def buscar_combinacion_pallets_exacta(
     exactos = [pallet for pallet, cuenta in candidatos if cuenta == objetivo]
     if exactos:
         return [exactos[0]]
-
-    candidatos.sort(key=lambda item: item[1], reverse=True)
-    sufijos = [0] * (len(candidatos) + 1)
-    for item_index in range(len(candidatos) - 1, -1, -1):
-        sufijos[item_index] = sufijos[item_index + 1] + candidatos[item_index][1]
-    mejor: list[str] | None = None
-
-    def buscar(item_index: int, suma: int, seleccion: list[str]) -> bool:
-        nonlocal mejor
-        if suma == objetivo:
-            mejor = list(seleccion)
-            return True
-        if suma > objetivo or item_index >= len(candidatos):
-            return False
-        if suma + sufijos[item_index] < objetivo:
-            return False
-        pallet, cuenta = candidatos[item_index]
-        seleccion.append(pallet)
-        if buscar(item_index + 1, suma + cuenta, seleccion):
-            return True
-        seleccion.pop()
-        return buscar(item_index + 1, suma, seleccion)
-
-    buscar(0, 0, [])
-    return mejor or []
+    # The former depth-first search was exponential and froze the window for
+    # ordinary batches. A bounded dynamic-programming frontier is predictable:
+    # at most one state for every possible unit total up to the objective.
+    # Above this guard the automatic suggestion is deliberately skipped; manual
+    # selection remains available and is safer than a potentially endless UI.
+    if objetivo > 20_000:
+        return []
+    predecessors: dict[int, tuple[int, str]] = {0: (0, "")}
+    for pallet, cuenta in candidatos:
+        # Snapshot keys so one pallet is never reused during this iteration.
+        for total in tuple(predecessors):
+            next_total = total + cuenta
+            if next_total > objetivo or next_total in predecessors:
+                continue
+            predecessors[next_total] = (total, pallet)
+            if next_total == objetivo:
+                selected: list[str] = []
+                current = objetivo
+                while current:
+                    previous, selected_pallet = predecessors[current]
+                    selected.append(selected_pallet)
+                    current = previous
+                return list(reversed(selected))
+    return []
 
 
 def generar_txts_expedicion(
@@ -475,9 +476,7 @@ def guardar_txts_expedicion(
         if not nombre_txt:
             raise ValueError(f"Falta nombre TXT para {salida.ruta_origen.name}.")
         destino = nombre_unico(destino_dir / normalizar_nombre_txt_usuario(nombre_txt))
-        with destino.open("w", encoding="cp1252", newline="") as handle:
-            handle.write("\r\n".join(salida.lineas))
-            handle.write("\r\n")
+        write_text_atomically(destino, "\r\n".join(salida.lineas) + "\r\n", encoding="cp1252")
         guardados.append(destino)
     return guardados
 

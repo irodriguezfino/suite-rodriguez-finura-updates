@@ -21,6 +21,7 @@ from suite_pyside6.ui.session import (
     remove_personal_description,
     save_personal_description,
 )
+from suite_pyside6.ui.theme import base_qss
 
 
 def header_description_key(application_key: str) -> str:
@@ -37,6 +38,7 @@ class DescriptionEditorDialog(QDialog):
         self.setWindowTitle("Descripción personalizada")
         self.setModal(True)
         self.resize(520, 260)
+        self.setStyleSheet(base_qss())
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 14, 16, 14)
         layout.setSpacing(8)
@@ -136,6 +138,7 @@ class PersonalizedDescriptionControl(QWidget):
             return
         dialog = QDialog(self)
         dialog.setWindowTitle("Restaurar descripción estándar")
+        dialog.setStyleSheet(base_qss())
         layout = QVBoxLayout(dialog)
         layout.addWidget(QLabel("¿Quieres eliminar tu descripción personalizada y restaurar la estándar?"))
         buttons = QDialogButtonBox(QDialogButtonBox.Yes | QDialogButtonBox.No)

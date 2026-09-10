@@ -7,6 +7,7 @@ from PySide6.QtGui import QAction, QFont, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QBoxLayout,
+    QFileDialog,
     QFrame,
     QHBoxLayout,
     QInputDialog,
@@ -36,6 +37,7 @@ from suite_pyside6.ui.components import (
     ModernSelect,
     SearchableComboBox,
     configure_header_action,
+    dashboard_process_card,
     dropzone,
     empty_state,
     labeled_field,
@@ -246,10 +248,10 @@ class MainWindow(QMainWindow):
         layout.addLayout(self.active_jobs_box)
         layout.addStretch(1)
 
-        footer = QLabel(f"v{__version__}  |  Ctrl+F buscar  |  Alt+1-9 abrir  |  Ctrl+Enter siguiente")
-        footer.setObjectName("ModuleDescription")
-        footer.setWordWrap(True)
-        layout.addWidget(footer)
+        self.sidebar_footer = QLabel(f"v{__version__}  |  Ctrl+F buscar  |  Alt+1-9 abrir  |  Ctrl+Enter siguiente")
+        self.sidebar_footer.setObjectName("ModuleDescription")
+        self.sidebar_footer.setWordWrap(True)
+        layout.addWidget(self.sidebar_footer)
         return sidebar
 
     def _build_header(self) -> QFrame:
@@ -388,90 +390,149 @@ class MainWindow(QMainWindow):
         page.setObjectName("ConsolePage")
         layout = QVBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(12)
+        layout.setSpacing(16)
 
-        hero_panel, hero_layout = panel(name="HeroPanel")
-        hero_copy = QVBoxLayout()
-        hero_copy.setSpacing(3)
-        self.command_title = QLabel("Operación diaria")
-        self.command_title.setObjectName("PanelTitle")
-        self.command_detail = QLabel("Valida archivos, corrige incidencias y genera salidas desde una consola única.")
-        self.command_detail.setObjectName("PanelSubtitle")
+        intro = QFrame()
+        intro.setObjectName("DashboardIntro")
+        intro_layout = QVBoxLayout(intro)
+        intro_layout.setContentsMargins(0, 0, 0, 0)
+        intro_layout.setSpacing(3)
+        eyebrow = QLabel("BANDEJA DE TRABAJO")
+        eyebrow.setObjectName("Overline")
+        self.command_title = QLabel("Inicia o retoma una operación")
+        self.command_title.setObjectName("WindowTitle")
+        self.command_detail = QLabel("Carga archivos para detectar el flujo compatible o abre directamente una herramienta de la suite.")
+        self.command_detail.setObjectName("WindowSubtitle")
         self.command_detail.setWordWrap(True)
-        hero_copy.addWidget(self.command_title)
-        hero_copy.addWidget(self.command_detail)
-        hero_layout.addLayout(hero_copy)
+        intro_layout.addWidget(eyebrow)
+        intro_layout.addWidget(self.command_title)
+        intro_layout.addWidget(self.command_detail)
+        layout.addWidget(intro)
 
-        metrics = QHBoxLayout()
-        metrics.setSpacing(10)
+        command_card = QFrame()
+        command_card.setObjectName("DashboardCommandCard")
+        command_layout = QHBoxLayout(command_card)
+        self.dashboard_start_layout = command_layout
+        command_layout.setContentsMargins(16, 16, 16, 16)
+        command_layout.setSpacing(14)
+
+        drop_target = dropzone("Carga archivos", "Arrastra Excel, CSV o TXT aquí. La detección se realiza antes de abrir el proceso.")
+        drop_target.setObjectName("DashboardDropTarget")
+        drop_target.setMinimumHeight(132)
+        self._enable_dashboard_drop(drop_target)
+        drop_layout = drop_target.layout()
+        self.dashboard_load_button = QPushButton("Cargar archivos")
+        self.dashboard_load_button.setProperty("primary", True)
+        self.dashboard_load_button.setAccessibleDescription("Selecciona archivos para detectar y abrir el proceso compatible.")
+        self.dashboard_load_button.clicked.connect(self._select_dashboard_files)
+        if drop_layout is not None:
+            drop_layout.addWidget(self.dashboard_load_button, 0, Qt.AlignCenter)
+        command_layout.addWidget(drop_target, 3)
+
+        manual_card = QFrame()
+        manual_card.setObjectName("DashboardManualCard")
+        manual_layout = QVBoxLayout(manual_card)
+        manual_layout.setContentsMargins(14, 14, 14, 14)
+        manual_layout.setSpacing(6)
+        manual_overline = QLabel("ACCESO MANUAL")
+        manual_overline.setObjectName("Overline")
+        manual_title = QLabel("Elige una herramienta")
+        manual_title.setObjectName("ModuleTitle")
+        manual_detail = QLabel("Explora todos los procesos si ya sabes qué tarea necesitas realizar.")
+        manual_detail.setObjectName("ModuleDescription")
+        manual_detail.setWordWrap(True)
+        self.dashboard_process_button = QPushButton("Ver procesos")
+        self.dashboard_process_button.setAccessibleDescription("Abre el catálogo completo de herramientas operativas.")
+        self.dashboard_process_button.clicked.connect(lambda: self.show_view("procesos"))
+        manual_layout.addWidget(manual_overline)
+        manual_layout.addWidget(manual_title)
+        manual_layout.addWidget(manual_detail, 1)
+        manual_layout.addWidget(self.dashboard_process_button, 0, Qt.AlignLeft)
+        command_layout.addWidget(manual_card, 2)
+        layout.addWidget(command_card)
+
+        self.dashboard_metrics_strip = QFrame()
+        self.dashboard_metrics_strip.setObjectName("DashboardMetricsStrip")
+        metrics = QHBoxLayout(self.dashboard_metrics_strip)
         self.dashboard_metrics = metrics
-        self.metric_open = metric("Abiertos", "0", "Trabajos en la consola")
-        self.metric_recent = metric("Recientes", "0", "Procesos usados")
-        self.metric_outputs = metric("Salidas", "0", "Exportaciones registradas")
+        metrics.setContentsMargins(0, 0, 0, 0)
+        metrics.setSpacing(8)
+        self.metric_open = metric("Abiertos", "0", "Trabajos activos")
+        self.metric_recent = metric("Recientes", "0", "Procesos utilizados")
+        self.metric_outputs = metric("Salidas", "0", "Archivos generados")
         self.command_open_value = self.metric_open.property("valueLabel")
         self.command_recent_value = self.metric_recent.property("valueLabel")
         self.command_outputs_value = self.metric_outputs.property("valueLabel")
         metrics.addWidget(self.metric_open, 1)
         metrics.addWidget(self.metric_recent, 1)
         metrics.addWidget(self.metric_outputs, 1)
-        hero_layout.addLayout(metrics)
+        layout.addWidget(self.dashboard_metrics_strip)
 
-        open_process = QPushButton("Elegir proceso")
-        open_process.setProperty("primary", True)
-        open_process.setAccessibleName("Elegir proceso")
-        open_process.setAccessibleDescription("Abre la lista de procesos para seleccionar una herramienta operativa.")
-        open_process.clicked.connect(lambda: self.show_view("procesos"))
-        hero_drop = dropzone(
-            "Carga o inicia",
-            "Arrastra archivos aquí o elige un proceso manualmente.",
-            open_process,
-        )
-        hero_drop.setMaximumHeight(108)
-        self._enable_dashboard_drop(hero_drop)
-        hero_layout.addWidget(hero_drop)
-        layout.addWidget(hero_panel)
-
-        self.continue_strip, continue_layout = panel("Continuar", "Retoma el último trabajo abierto o reciente.")
-        continue_row = QHBoxLayout()
-        continue_row.setSpacing(10)
+        self.continue_strip = QFrame()
+        self.continue_strip.setObjectName("DashboardResumeCard")
+        continue_layout = QHBoxLayout(self.continue_strip)
+        self.dashboard_continue_row = continue_layout
+        continue_layout.setContentsMargins(14, 12, 14, 12)
+        continue_layout.setSpacing(12)
         continue_copy = QVBoxLayout()
         continue_copy.setSpacing(2)
-        self.continue_title = QLabel("Sin actividad reciente")
+        resume_overline = QLabel("RECUPERAR TRABAJO")
+        resume_overline.setObjectName("Overline")
+        self.continue_title = QLabel("Aún no hay actividad")
         self.continue_title.setObjectName("ModuleTitle")
-        self.continue_detail = QLabel("Abre un proceso para fijarlo aquí.")
+        self.continue_detail = QLabel("Cuando abras un proceso, podrás retomarlo desde este espacio.")
         self.continue_detail.setObjectName("ModuleDescription")
         self.continue_detail.setWordWrap(True)
+        continue_copy.addWidget(resume_overline)
         continue_copy.addWidget(self.continue_title)
         continue_copy.addWidget(self.continue_detail)
-        continue_row.addLayout(continue_copy, 1)
+        continue_layout.addLayout(continue_copy, 1)
         self.continue_activity = QLabel("")
         self.continue_activity.setObjectName("ModuleDescription")
         self.continue_activity.setWordWrap(True)
-        continue_row.addWidget(self.continue_activity)
-        self.continue_button = QPushButton("Continuar")
+        continue_layout.addWidget(self.continue_activity, 1)
+        self.continue_button = QPushButton("Ver procesos")
         self.continue_button.setProperty("primary", True)
         self.continue_button.setAccessibleName("Continuar trabajo")
         self.continue_button.setAccessibleDescription("Abre el último trabajo activo o reciente disponible.")
         self.continue_button.clicked.connect(self._open_continue_app)
-        continue_row.addWidget(self.continue_button)
-        continue_layout.addLayout(continue_row)
+        continue_layout.addWidget(self.continue_button, 0, Qt.AlignVCenter)
         layout.addWidget(self.continue_strip)
 
-        columns = QHBoxLayout()
-        columns.setSpacing(12)
-        self.dashboard_columns = columns
-        priority_panel, priority_layout = panel("Procesos frecuentes", "Acceso rápido a los flujos más usados.", name="ModulesPanel")
-        for key in ("control_recepcion_precintos", "precintos_jamones", "precintos_expedicion"):
-            app = self._app_from_key(key)
-            if app is not None:
-                button = QPushButton("Abrir")
-                self._wire_app_button(button, app)
-                priority_layout.addWidget(work_item(app.title, app.description, "Disponible", button))
-        columns.addWidget(priority_panel, 2)
+        quick_section = QFrame()
+        quick_section.setObjectName("DashboardQuickSection")
+        quick_layout = QVBoxLayout(quick_section)
+        quick_layout.setContentsMargins(0, 0, 0, 0)
+        quick_layout.setSpacing(10)
+        quick_header = QHBoxLayout()
+        quick_copy = QVBoxLayout()
+        quick_copy.setSpacing(2)
+        quick_title = QLabel("Herramientas frecuentes")
+        quick_title.setObjectName("PanelTitle")
+        quick_detail = QLabel("Tus procesos recientes se priorizan automáticamente.")
+        quick_detail.setObjectName("PanelSubtitle")
+        quick_copy.addWidget(quick_title)
+        quick_copy.addWidget(quick_detail)
+        quick_header.addLayout(quick_copy, 1)
+        quick_catalog_button = QPushButton("Ver catálogo")
+        quick_catalog_button.clicked.connect(lambda: self.show_view("procesos"))
+        quick_header.addWidget(quick_catalog_button, 0, Qt.AlignVCenter)
+        quick_layout.addLayout(quick_header)
+        quick_cards = QHBoxLayout()
+        self.dashboard_frequent_layout = quick_cards
+        quick_cards.setSpacing(10)
+        quick_layout.addLayout(quick_cards)
+        layout.addWidget(quick_section)
 
-        outputs_panel, self.dashboard_outputs_layout = panel("Actividad", "Salidas recientes y estado operativo.", name="ActivityPanel")
-        columns.addWidget(outputs_panel, 1)
-        layout.addLayout(columns, 1)
+        recent_columns = QHBoxLayout()
+        self.dashboard_recent_columns = recent_columns
+        recent_columns.setSpacing(12)
+        activity_panel, self.dashboard_activity_layout = panel("Actividad reciente", "Procesos abiertos o usados últimamente.", name="ActivityPanel")
+        outputs_panel, self.dashboard_outputs_layout = panel("Últimas salidas", "Archivos generados desde la consola.", name="ActivityPanel")
+        recent_columns.addWidget(activity_panel, 1)
+        recent_columns.addWidget(outputs_panel, 1)
+        layout.addLayout(recent_columns)
+        layout.addStretch(1)
         return page
 
     def _build_processes_page(self) -> QWidget:
@@ -902,6 +963,51 @@ class MainWindow(QMainWindow):
             for path in exports[:8]:
                 layout.addWidget(work_item(Path(path).name, path, "Generado"))
 
+    def _refresh_dashboard_activity(self) -> None:
+        """Render the short, actionable activity feed shown on the dashboard."""
+        layout = getattr(self, "dashboard_activity_layout", None)
+        if layout is None:
+            return
+        self._clear_layout(layout)
+        open_keys = list(self.app_pages)
+        recent_keys = [key for key in recent_app_keys() if key not in open_keys]
+        entries = [(key, "Abierto") for key in open_keys] + [(key, "Reciente") for key in recent_keys]
+        if not entries:
+            layout.addWidget(empty_state("Sin actividad todavía", "Los procesos que abras aparecerán aquí para recuperarlos rápidamente."))
+            return
+        for key, status in entries[:4]:
+            app = self._app_from_key(key)
+            if app is None:
+                continue
+            button = QPushButton("Continuar" if status == "Abierto" else "Abrir")
+            self._wire_app_button(button, app)
+            layout.addWidget(work_item(app.title, app.short_description or app.description, status, button))
+
+    def _refresh_dashboard_frequent(self) -> None:
+        """Mix recent use with the safe defaults without adding a preference UI."""
+        layout = getattr(self, "dashboard_frequent_layout", None)
+        if layout is None:
+            return
+        self._clear_layout(layout)
+        default_keys = ("control_recepcion_precintos", "precintos_jamones", "precintos_expedicion")
+        candidate_keys = list(dict.fromkeys([*recent_app_keys(), *default_keys]))
+        for key in candidate_keys[:3]:
+            app = self._app_from_key(key)
+            if app is None:
+                continue
+            button = QPushButton("Abrir")
+            self._wire_app_button(button, app)
+            layout.addWidget(
+                dashboard_process_card(
+                    app.title,
+                    app.short_description or app.description,
+                    self._category_name_for(app),
+                    app.shortcut,
+                    button,
+                ),
+                1,
+            )
+
     def _refresh_history(self) -> None:
         self._clear_layout(self.history_layout)
         recent_apps = recent_app_keys()
@@ -937,17 +1043,23 @@ class MainWindow(QMainWindow):
             self.active_jobs_box.addWidget(button)
 
     def _refresh_metrics(self) -> None:
+        open_count = len(self.app_pages)
+        recent_count = len(recent_app_keys())
+        output_count = len(recent_paths("exports"))
         values = (
-            (self.metric_open, str(len(self.app_pages))),
-            (self.metric_recent, str(len(recent_app_keys()))),
-            (self.metric_outputs, str(len(recent_paths("exports")))),
+            (self.metric_open, str(open_count)),
+            (self.metric_recent, str(recent_count)),
+            (self.metric_outputs, str(output_count)),
         )
         for frame, value in values:
             label = frame.property("valueLabel")
             if isinstance(label, QLabel):
                 label.setText(value)
         if hasattr(self, "command_title"):
-            self.command_title.setText("Operación en curso" if self.app_pages else "Operación diaria")
+            self.command_title.setText("Retoma o inicia una operación" if open_count else "Inicia o retoma una operación")
+        has_activity = bool(open_count or recent_count or output_count)
+        if hasattr(self, "dashboard_metrics_strip"):
+            self.dashboard_metrics_strip.setVisible(has_activity)
 
     def _refresh_continue(self) -> None:
         open_keys = list(self.app_pages.keys())
@@ -955,9 +1067,13 @@ class MainWindow(QMainWindow):
         candidate_key = (recent_keys[:1] or open_keys[:1] or [""])[0]
         app = self._app_from_key(candidate_key) if candidate_key else None
         has_activity = app is not None
-        self.continue_strip.setVisible(has_activity)
         if not has_activity:
             self._continue_app_key = ""
+            self.continue_title.setText("Aún no hay actividad")
+            self.continue_detail.setText("Empieza cargando archivos o elige uno de los procesos frecuentes.")
+            self.continue_activity.setText("Sugerencia: la suite detecta automáticamente el flujo según el tipo de archivo.")
+            self.continue_button.setText("Ver procesos")
+            self.continue_button.setToolTip("Abrir el catálogo de procesos")
             return
         self._continue_app_key = app.key
         prefix = "Trabajo abierto" if app.key in open_keys else "Último proceso"
@@ -966,17 +1082,22 @@ class MainWindow(QMainWindow):
         self.continue_activity.setText(
             f"Abiertos {len(open_keys)}  |  Recientes {len(recent_keys)}  |  Salidas {len(recent_paths('exports'))}"
         )
+        self.continue_button.setText(f"Continuar {app.short_description or app.title}")
         self.continue_button.setToolTip(f"Abrir {app.title}")
 
     def _open_continue_app(self) -> None:
         app = self._app_from_key(self._continue_app_key)
         if app is not None:
             self.open_app(app)
+            return
+        self.show_view("procesos")
 
     def _refresh_all(self) -> None:
         self._refresh_metrics()
         self._refresh_continue()
         self._refresh_outputs()
+        self._refresh_dashboard_activity()
+        self._refresh_dashboard_frequent()
         self._refresh_history()
         self._refresh_active_jobs()
         self._render_processes()
@@ -1181,6 +1302,7 @@ class MainWindow(QMainWindow):
             "Control y Recepción Precintos": "CTL",
             "Pesos": "P",
             "Precintos Deshuesado": "PD",
+            "Numerador de Etiquetas": "NE",
         }
         compact_mapping = {
             "Merma Jamones FAC": "Merma FAC",
@@ -1190,6 +1312,7 @@ class MainWindow(QMainWindow):
             "Precintos Excel a CSV": "Excel",
             "Control y Recepción Precintos": "Control",
             "Precintos Deshuesado": "Deshuesado",
+            "Numerador de Etiquetas": "Etiquetas",
         }
         return (narrow_mapping if narrow else compact_mapping).get(text, text)
 
@@ -1316,7 +1439,10 @@ class MainWindow(QMainWindow):
     def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API
         super().resizeEvent(event)
         if hasattr(self, "header_layout"):
-            direction = QBoxLayout.TopToBottom if self.width() < 1120 else QBoxLayout.LeftToRight
+            # The compact context is a complete row in the header.  Keeping
+            # the header horizontal while it is present made the title and
+            # search field compete for the same narrow strip of space.
+            direction = QBoxLayout.TopToBottom if self.width() < 1440 else QBoxLayout.LeftToRight
             self.header_layout.setDirection(direction)
         self._apply_responsive_state()
 
@@ -1326,16 +1452,30 @@ class MainWindow(QMainWindow):
         self.sidebar.setMaximumWidth(112 if narrow else 176 if compact else 240)
         self.sidebar.setMinimumWidth(96 if narrow else 164 if compact else 220)
         self.nav_title.setText("SRF" if compact else "Rodriguez Finura")
+        # At medium sizes the long keyboard-help paragraph competed with the
+        # actual navigation.  Its shortcuts remain available in tooltips and
+        # the command palette, so reserve the vertical rhythm for navigation.
+        if hasattr(self, "sidebar_footer"):
+            self.sidebar_footer.setVisible(not compact)
         if hasattr(self, "command_detail"):
             self.command_detail.setVisible(self.width() > 960)
-        if hasattr(self, "dashboard_columns"):
-            self.dashboard_columns.setDirection(QBoxLayout.TopToBottom if self.width() < 1320 else QBoxLayout.LeftToRight)
+        if hasattr(self, "dashboard_recent_columns"):
+            self.dashboard_recent_columns.setDirection(QBoxLayout.TopToBottom if self.width() < 1120 else QBoxLayout.LeftToRight)
+        if hasattr(self, "dashboard_frequent_layout"):
+            self.dashboard_frequent_layout.setDirection(QBoxLayout.TopToBottom if self.width() < 1180 else QBoxLayout.LeftToRight)
         if hasattr(self, "dashboard_metrics"):
             self.dashboard_metrics.setDirection(QBoxLayout.TopToBottom if self.width() < 900 else QBoxLayout.LeftToRight)
+        if hasattr(self, "dashboard_start_layout"):
+            self.dashboard_start_layout.setDirection(QBoxLayout.TopToBottom if self.width() < 1040 else QBoxLayout.LeftToRight)
+        if hasattr(self, "dashboard_continue_row"):
+            self.dashboard_continue_row.setDirection(QBoxLayout.TopToBottom if self.width() < 1040 else QBoxLayout.LeftToRight)
         if hasattr(self, "continue_activity"):
             self.continue_activity.setVisible(self.width() >= 1320)
         if hasattr(self, "context_rail") and self.current_view == "trabajo":
-            wide_context = self.width() >= 1000
+            # At medium widths the rail was technically visible but squeezed
+            # the active application into a column.  Surface the same state
+            # in the header and reserve the rail for genuinely wide layouts.
+            wide_context = self.width() >= 1440
             self.context_rail.setVisible(wide_context)
             self.compact_context_bar.setVisible(not wide_context)
             self.workspace_description.setVisible(True)
@@ -1408,6 +1548,21 @@ class MainWindow(QMainWindow):
         drop_target.dragMoveEvent = drag_enter  # type: ignore[method-assign]
         drop_target.dragLeaveEvent = drag_leave  # type: ignore[method-assign]
         drop_target.dropEvent = drop  # type: ignore[method-assign]
+
+    def _select_dashboard_files(self) -> None:
+        """Offer the same automatic detection used by the dashboard dropzone."""
+        selected, _filter = QFileDialog.getOpenFileNames(
+            self,
+            "Cargar archivos",
+            "",
+            "Archivos compatibles (*.xlsx *.xlsm *.xls *.csv *.txt);;Todos los archivos (*.*)",
+        )
+        paths = [Path(path) for path in selected if Path(path).is_file()]
+        if not paths:
+            return
+        if self._open_dropped_paths(paths):
+            return
+        self.command_detail.setText("No se pudo detectar un flujo para esos archivos. Elige un proceso y cárgalos desde su pantalla.")
 
     def _paths_from_drop_event(self, event) -> list[Path]:
         if not event.mimeData().hasUrls():
@@ -1484,5 +1639,7 @@ def run() -> int:
     app = QApplication(sys.argv)
     app.setFont(QFont("Segoe UI", 10))
     window = MainWindow()
-    window.show()
+    # Open maximized so operational pages receive the room they need while
+    # retaining the standard Windows title bar and window controls.
+    window.showMaximized()
     return app.exec()

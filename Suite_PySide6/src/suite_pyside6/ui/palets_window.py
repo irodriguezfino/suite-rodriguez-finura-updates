@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 
 from suite_pyside6.core.palets import PaletsResult, integrate_corrections, process_palets_files, validate_final_palets_text, write_palets_csv
 from suite_pyside6.core.paths import resource_path
+from suite_pyside6.ui.background import run_background
 from suite_pyside6.ui.components import control_metric_pair, control_pill, control_rail_label, section_label, step_bar
 from suite_pyside6.ui.file_dialogs import open_files, save_file
 from suite_pyside6.ui.polish import confirm_discard_work, show_inline_message, polish_window, sync_recommended_action
@@ -278,11 +279,25 @@ class PaletsWindow(QMainWindow):
             if self.show_dialogs:
                 show_inline_message(self, "warning", "Carga primero uno o varios archivos TXT.")
             return
-        self.result = process_palets_files(self.paths)
-        self.status.setText(self.result.summary())
+        paths = list(self.paths)
+        self.status.setText("Validando palets en segundo plano…")
         self._refresh()
-        if self.result.pending_correction and self.show_dialogs:
-            show_inline_message(self, "warning", "Hay códigos que requieren corrección antes de guardar.")
+        def completed(result: PaletsResult) -> None:
+            self.result = result
+            self.status.setText(self.result.summary())
+            self._refresh()
+            if self.result.pending_correction and self.show_dialogs:
+                show_inline_message(self, "warning", "Hay códigos que requieren corrección antes de guardar.")
+        def failed(message: str) -> None:
+            self.status.setText(f"No se pudieron procesar los palets: {message}")
+            if self.show_dialogs:
+                show_inline_message(self, "error", message)
+            self._refresh()
+        if not run_background(self, lambda: process_palets_files(paths), completed, failed):
+            if self.show_dialogs:
+                show_inline_message(self, "warning", "Ya hay una operación en curso.")
+            return
+        self._refresh()
 
     def revalidate(self) -> None:
         if self.result.pending_correction:
@@ -334,13 +349,21 @@ class PaletsWindow(QMainWindow):
             self.save_csv_path(file)
 
     def save_csv_path(self, path: Path) -> None:
-        write_palets_csv(path, self.result.final_palets)
+        try:
+            write_palets_csv(path, self.result.final_palets)
+        except Exception as exc:
+            self.status.setText(f"No se pudo guardar el CSV: {exc}")
+            if self.show_dialogs:
+                show_inline_message(self, "error", str(exc))
+            return
         self.status.setText(f"CSV guardado: {path}")
         show_inline_message(self, "success", f"CSV guardado: {path.name}")
         self._refresh_pilot_state()
         self._sync_recommended_action()
 
     def clear(self) -> None:
+        if self.property("operationActive"):
+            return
         if not confirm_discard_work(self, "Limpiar selección"):
             return
         self.paths = []
@@ -369,10 +392,11 @@ class PaletsWindow(QMainWindow):
                 self._set_review_text("La revisión y el CSV final aparecerán aquí después de procesar.", editable=False)
             self._fill_preview_table()
 
-        self.process_button.setEnabled(bool(self.paths) and not self.result.pending_correction)
-        self.revalidate_button.setEnabled(bool(self.result.pending_correction or self.result.final_palets))
-        self.save_button.setEnabled(bool(self.result.final_palets) and not self.result.pending_correction)
-        self.clear_button.setEnabled(bool(self.paths or self.result.final_palets or self.result.issues))
+        busy = bool(self.property("operationActive"))
+        self.process_button.setEnabled(bool(self.paths) and not self.result.pending_correction and not busy)
+        self.revalidate_button.setEnabled(bool(self.result.pending_correction or self.result.final_palets) and not busy)
+        self.save_button.setEnabled(bool(self.result.final_palets) and not self.result.pending_correction and not busy)
+        self.clear_button.setEnabled(bool(self.paths or self.result.final_palets or self.result.issues) and not busy)
         self._refresh_pilot_state()
         self._sync_recommended_action()
 

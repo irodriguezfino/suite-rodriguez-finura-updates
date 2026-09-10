@@ -7,6 +7,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .atomic_io import write_bytes_atomically
+
 
 AX_ENCODING = "cp1252"
 AX_LINE_ENDING = "\r\n"
@@ -24,6 +26,9 @@ _WINDOWS_RESERVED_NAMES = {
     *(f"LPT{index}" for index in range(1, 10)),
 }
 LOGGER = logging.getLogger(__name__)
+MAX_SOURCE_BYTES = 32 * 1024 * 1024
+MAX_IGNORED_LINE_DETAILS = 10_000
+MAX_IGNORED_LINE_CHARS = 2_048
 
 
 @dataclass(frozen=True)
@@ -42,6 +47,7 @@ class PrecintosTxtAxResult:
     lines_read: int = 0
     precintos: list[str] = field(default_factory=list)
     ignored_lines: list[IgnoredTxtLine] = field(default_factory=list)
+    ignored_count: int = 0
 
     @property
     def exported_count(self) -> int:
@@ -60,7 +66,7 @@ class PrecintosTxtAxResult:
     @property
     def skipped_lines(self) -> int:
         """Keep the summary count tied to the detailed ignored-line register."""
-        return len(self.ignored_lines)
+        return self.ignored_count
 
     def summary(self) -> str:
         return (
@@ -91,8 +97,9 @@ def decode_txt_bytes(content: bytes) -> tuple[str, str]:
 
 def extract_precintos(text: str) -> PrecintosTxtAxResult:
     """Extract the value after the first supported arrow on each valid line."""
-    result = PrecintosTxtAxResult(lines_read=len(text.splitlines()))
+    result = PrecintosTxtAxResult()
     for line_number, line in enumerate(text.splitlines(), start=1):
+        result.lines_read = line_number
         if not line.strip():
             _record_ignored_line(result, line_number, line, "Línea vacía")
             continue
@@ -116,7 +123,9 @@ def extract_precintos(text: str) -> PrecintosTxtAxResult:
 
 
 def _record_ignored_line(result: PrecintosTxtAxResult, line_number: int, content: str, reason: str) -> None:
-    result.ignored_lines.append(IgnoredTxtLine(line_number, content, reason))
+    result.ignored_count += 1
+    if len(result.ignored_lines) < MAX_IGNORED_LINE_DETAILS:
+        result.ignored_lines.append(IgnoredTxtLine(line_number, content[:MAX_IGNORED_LINE_CHARS], reason))
 
 
 def _clean_precinto(value: str) -> str:
@@ -139,6 +148,8 @@ def _first_delimiter(line: str) -> tuple[int | None, str]:
 
 def process_txt_file(path: Path) -> PrecintosTxtAxResult:
     LOGGER.info("Procesando TXT de precintos: %s", path)
+    if path.stat().st_size > MAX_SOURCE_BYTES:
+        raise ValueError("El TXT supera el límite seguro de 32 MiB. Divídelo en archivos más pequeños.")
     content = path.read_bytes()
     text, encoding = decode_txt_bytes(content)
     result = extract_precintos(text)
@@ -170,7 +181,7 @@ def render_ax_csv(precintos: list[str]) -> bytes:
 
 def write_ax_csv(path: Path, precintos: list[str]) -> None:
     LOGGER.info("Iniciando escritura de CSV AX: archivo=%s precintos=%s", path, len(precintos))
-    path.write_bytes(render_ax_csv(precintos))
+    write_bytes_atomically(path, render_ax_csv(precintos))
     LOGGER.info("CSV AX generado: archivo=%s precintos=%s", path, len(precintos))
 
 

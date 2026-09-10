@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import csv
+import io
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
 from email.message import EmailMessage
 import os
 from pathlib import Path
+
+from .atomic_io import write_text_atomically
 import re
 import smtplib
 from difflib import SequenceMatcher
@@ -531,7 +534,7 @@ def save_precintos_txt(path: Path, result: PrecintosJamonesResult) -> Path:
     if result.invalidos:
         raise ValueError("Corrige las incidencias antes de guardar.")
     text = "\r\n".join(registro.a_linea().lstrip("\ufeff") for registro in result.validos)
-    path.write_text(text + ("\r\n" if text else ""), encoding="utf-8", newline="")
+    write_text_atomically(path, text + ("\r\n" if text else ""), encoding="utf-8")
     return path
 
 
@@ -545,20 +548,22 @@ def save_precintos_csv(path: Path, result: PrecintosJamonesResult) -> Path | Non
     if result.es_lote_mixto():
         raise ValueError("El CSV requiere un único tipo de jamón. Separa o corrige los registros mixtos antes de continuar.")
     if result.tipo_jamon.lower() == "iberico":
-        with path.open("w", encoding="utf-8-sig", newline="") as handle:
-            writer = csv.writer(handle, delimiter=";", lineterminator="\r\n")
-            for registro in result.validos:
-                writer.writerow([registro.precinto])
-        summary = ruta_resumen_para_csv(path)
-        summary.write_text(resumen_text(result), encoding="utf-8")
-        return summary
-    with path.open("w", encoding="utf-8-sig", newline="") as handle:
-        writer = csv.writer(handle, delimiter=";", lineterminator="\r\n")
+        output = io.StringIO(newline="")
+        writer = csv.writer(output, delimiter=";", lineterminator="\r\n")
         for registro in result.validos:
-            campos = list(registro.campos[:CAMPOS_ESPERADOS])
-            while len(campos) < CAMPOS_ESPERADOS:
-                campos.append("")
-            writer.writerow(campos + [""])
+            writer.writerow([registro.precinto])
+        write_text_atomically(path, output.getvalue(), encoding="utf-8-sig")
+        summary = ruta_resumen_para_csv(path)
+        write_text_atomically(summary, resumen_text(result), encoding="utf-8")
+        return summary
+    output = io.StringIO(newline="")
+    writer = csv.writer(output, delimiter=";", lineterminator="\r\n")
+    for registro in result.validos:
+        campos = list(registro.campos[:CAMPOS_ESPERADOS])
+        while len(campos) < CAMPOS_ESPERADOS:
+            campos.append("")
+        writer.writerow(campos + [""])
+    write_text_atomically(path, output.getvalue(), encoding="utf-8-sig")
     return None
 
 

@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 import unicodedata
 from pathlib import Path
+
+from .atomic_io import write_text_atomically
 from zipfile import BadZipFile, ZipFile
 from xml.etree import ElementTree as ET
 from dataclasses import dataclass, field
@@ -212,4 +214,4 @@ def process_files(paths: list[Path]) -> ProcessResult:
 
 
 def write_precintos_csv(path: Path, precintos: list[str]) -> None:
-    path.write_text(csv_precintos_windows(precintos), encoding="utf-8-sig", newline="")
+    write_text_atomically(path, csv_precintos_windows(precintos), encoding="utf-8-sig")

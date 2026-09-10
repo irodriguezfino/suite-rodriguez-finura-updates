@@ -85,6 +85,39 @@ class RepartoMermaPrecintosTests(unittest.TestCase):
         self.assertEqual([record.precinto for record in source.records], ["157587958924", "157587959273"])
         self.assertEqual(source.total_weight, Decimal("24.70"))
 
+    def test_lee_csv_pda_en_columnas_y_con_encabezado(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "precintos.csv"
+            path.write_text("Precinto;Articulo;Peso;Unidades\nP-001;IB4200;12,34;1\nP-002;IB4200;7.66;1\n", encoding="utf-8-sig")
+            source = read_source_file(path)
+        self.assertTrue(source.is_valid)
+        self.assertIsNotNone(source.source_format)
+        self.assertEqual(source.source_format.worksheet, "CSV")
+        self.assertEqual(source.source_format.column, "A:C")
+        self.assertTrue(source.source_format.has_message_header)
+        self.assertEqual([record.precinto for record in source.records], ["P-001", "P-002"])
+        self.assertEqual(source.total_weight, Decimal("20.00"))
+
+    def test_lee_csv_pda_con_mensaje_en_una_columna(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "mensajes.csv"
+            path.write_text('Mensaje\n"P-001;IB4200;12,34;1"\n"P-002;IB4200;7,66;1"\n', encoding="cp1252")
+            source = read_source_file(path)
+        self.assertTrue(source.is_valid)
+        self.assertEqual([record.precinto for record in source.records], ["P-001", "P-002"])
+        self.assertEqual(source.total_weight, Decimal("20.00"))
+
+    def test_lee_csv_pda_de_un_precinto_por_linea_y_reparte_a_partes_iguales(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "S310701.csv"
+            path.write_text("1951101100108\n2051101101279\n2051101110684\n", encoding="utf-8")
+            source = read_source_file(path)
+        self.assertTrue(source.is_valid)
+        self.assertEqual(source.source_format.column, "A")
+        self.assertEqual([record.precinto for record in source.records], ["1951101100108", "2051101101279", "2051101110684"])
+        result = calculate_adjustment(source, "10,00")
+        self.assertEqual([row.adjusted_weight for row in result.rows], [Decimal("3.34"), Decimal("3.33"), Decimal("3.33")])
+
     def test_calculos_normales_ausencia_merma_y_ganancia(self):
         messages = ["A;X;10,00;1,00", "B;X;20,00;1,00"]
         for final, loss, percentage, factor in (

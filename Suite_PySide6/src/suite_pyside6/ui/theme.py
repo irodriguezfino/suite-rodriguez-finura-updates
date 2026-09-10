@@ -49,42 +49,45 @@ LIGHT = {
 }
 
 DARK = {
-    "background": "#080704",
-    "surface": "#11100B",
-    "surface_muted": "#18150E",
-    "surface_elevated": "#211C12",
-    "border": "#332B1A",
-    "border_strong": "#4A3E24",
-    "text_primary": "#F8F5EC",
-    "text_secondary": "#D8CFB8",
-    "text_muted": "#A89D80",
-    "primary": "#C8B46F",
-    "primary_hover": "#D8C985",
-    "primary_active": "#F2E3A4",
-    "primary_soft": "#2E2614",
+    # The dark scheme intentionally keeps the Suite's navy/blue language.
+    # The earlier brown-and-gold values made the same product look unrelated
+    # to the light interface and were especially jarring in embedded tools.
+    "background": "#0B1220",
+    "surface": "#121C2D",
+    "surface_muted": "#17243A",
+    "surface_elevated": "#192842",
+    "border": "#293A55",
+    "border_strong": "#425A7D",
+    "text_primary": "#F2F6FC",
+    "text_secondary": "#C4D0E0",
+    "text_muted": "#94A7C0",
+    "primary": "#89A9FF",
+    "primary_hover": "#A6BEFF",
+    "primary_active": "#C7D7FF",
+    "primary_soft": "#1B3260",
     "accent_red": "#FF7772",
     "accent_red_soft": "#3C1E25",
-    "accent_gold": "#C8B46F",
-    "accent_gold_soft": "#2E2614",
-    "focus_ring": "#D8C985",
-    "sidebar_bg": "#050504",
-    "sidebar_border": "#4A3E24",
-    "drop_active_border": "#D8C985",
+    "accent_gold": "#F0C36B",
+    "accent_gold_soft": "#3A2D17",
+    "focus_ring": "#A6BEFF",
+    "sidebar_bg": "#081426",
+    "sidebar_border": "#263B5C",
+    "drop_active_border": "#A6BEFF",
     "success": "#6DD58C",
     "success_soft": "#162A18",
     "warning": "#E6B95C",
-    "warning_soft": "#342816",
+    "warning_soft": "#392B16",
     "error": "#FF7772",
     "error_soft": "#3C1E25",
-    "info": "#C8B46F",
-    "info_soft": "#2E2614",
+    "info": "#75CAF1",
+    "info_soft": "#15364D",
     "shadow": "rgba(0, 0, 0, 0.26)",
-    "bg": "#080704",
-    "surface_2": "#18150E",
-    "surface_3": "#211C12",
-    "ink": "#F8F5EC",
-    "muted": "#D8CFB8",
-    "subtle": "#A89D80",
+    "bg": "#0B1220",
+    "surface_2": "#17243A",
+    "surface_3": "#21324E",
+    "ink": "#F2F6FC",
+    "muted": "#C4D0E0",
+    "subtle": "#94A7C0",
     "brand": "#FF7772",
     "brand_soft": "#3C1E25",
     "brand_dark": "#FFB0AD",
@@ -125,9 +128,9 @@ def base_qss() -> str:
     tooltip_bg = p["surface_elevated"] if is_dark_mode() else p["text_primary"]
     tooltip_fg = p["text_primary"] if is_dark_mode() else p["surface"]
     table_alt = p["surface_2"] if is_dark_mode() else "#FBFCFE"
-    selection_fg = p["surface"] if not is_dark_mode() else "#080704"
-    primary_fg = "#080704" if is_dark_mode() else "white"
-    nav_active_fg = "#080704" if is_dark_mode() else "white"
+    selection_fg = p["surface"] if not is_dark_mode() else "#0B1220"
+    primary_fg = "#0B1220" if is_dark_mode() else "white"
+    nav_active_fg = "#0B1220" if is_dark_mode() else "white"
     sidebar_bg = p.get("sidebar_bg", p["primary"])
     sidebar_border = p.get("sidebar_border", p["primary_active"])
     drop_active_border = p.get("drop_active_border", p["primary"])
@@ -136,7 +139,6 @@ def base_qss() -> str:
         outline: 0;
     }}
     QWidget {{
-        background: {p["bg"]};
         color: {p["ink"]};
         font-family: Inter, Segoe UI, Arial, sans-serif;
         font-size: 10pt;
@@ -180,15 +182,23 @@ def base_qss() -> str:
         background: {sidebar_bg};
         border-right: 1px solid {sidebar_border};
     }}
-    QFrame#ConsoleHeader {{
+    /* Header surfaces are always read as one light (or one dark) family.
+       Only the navigation sidebar carries the brand contrast. */
+    QFrame#ConsoleHeader, QFrame#CompactContextBar, QFrame#ControlProductHero,
+    QFrame#Toolbar, QFrame#Stepper {{
         background: {p["surface"]};
+        color: {p["ink"]};
         border: 1px solid {p["border"]};
         border-radius: 8px;
     }}
-    QFrame#CompactContextBar {{
-        background: {p["surface_2"]};
+    QFrame#WorkflowControlCard {{
+        background: {p["surface"]};
         border: 1px solid {p["border"]};
-        border-radius: 8px;
+        border-radius: 10px;
+    }}
+    QFrame#WorkflowDivider {{
+        background: {p["border"]};
+        border: 0;
     }}
     QFrame#ConsoleRail, QFrame#ContextRail {{
         background: {p["surface"]};
@@ -216,22 +226,101 @@ def base_qss() -> str:
         border-color: {drop_active_border};
         background: {p["primary_soft"]};
     }}
-    QFrame#Toolbar {{
+    /* Dashboard composition: one primary entry point, then calm recovery and
+       navigation surfaces.  This intentionally avoids a wall of equal cards. */
+    QFrame#DashboardIntro, QFrame#DashboardQuickSection {{
+        background: transparent;
+        border: 0;
+    }}
+    QFrame#DashboardCommandCard {{
         background: {p["surface"]};
+        border: 1px solid {p["border"]};
+        border-radius: 12px;
+    }}
+    QFrame#DashboardDropTarget {{
+        background: {p["surface_2"]};
+        border: 1px dashed {p["border_strong"]};
+        border-radius: 9px;
+    }}
+    QFrame#DashboardDropTarget[active="true"] {{
+        background: {p["primary_soft"]};
+        border-color: {drop_active_border};
+    }}
+    QFrame#DashboardManualCard {{
+        background: {p["surface_2"]};
+        border: 1px solid transparent;
+        border-radius: 9px;
+    }}
+    QFrame#DashboardResumeCard {{
+        background: {p["surface"]};
+        border: 1px solid {p["border"]};
+        border-left: 3px solid {p["primary"]};
+        border-radius: 8px;
+    }}
+    QFrame#DashboardProcessCard {{
+        background: {p["surface"]};
+        border: 1px solid {p["border"]};
+        border-radius: 9px;
+        min-width: 0;
+    }}
+    QFrame#DashboardProcessCard:hover {{
+        background: {p["surface_elevated"]};
+        border-color: {p["border_strong"]};
+    }}
+    QLabel#DashboardProcessIcon {{
+        min-width: 34px;
+        min-height: 34px;
+        max-width: 34px;
+        max-height: 34px;
+        border-radius: 8px;
+        background: {p["primary_soft"]};
+        color: {p["primary"]};
+        font-weight: 800;
+    }}
+    QLabel#DashboardProcessShortcut {{
+        color: {p["subtle"]};
+        font-size: 8.5pt;
+        font-weight: 650;
+    }}
+    /* Dashboard: one obvious place to start, then quiet supporting context. */
+    QFrame#DashboardStartArea {{
+        background: {p["surface_2"]};
         border: 1px solid {p["border"]};
         border-radius: 8px;
     }}
-    QFrame#Stepper {{
+    QFrame#DashboardStartArea QFrame#Dropzone {{
         background: {p["surface"]};
+        border-color: {p["border_strong"]};
+    }}
+    QFrame#DashboardActionStack, QFrame#DashboardSideStack, QFrame#DashboardMetricsStrip {{
+        background: transparent;
+        border: 0;
+    }}
+    QFrame#DashboardActionStack {{
+        min-width: 172px;
+    }}
+    QLabel#DashboardFirstUseHint {{
+        color: {p["info"]};
+        background: {p["info_soft"]};
         border: 1px solid {p["border"]};
-        border-radius: 8px;
+        border-radius: 7px;
+        padding: 8px 10px;
+        font-weight: 600;
     }}
     QFrame#Stepper[plainStepper="true"] {{
         background: transparent;
         border: 0;
         border-radius: 0;
     }}
+    /* Embedded tools follow the same quiet card language as standalone
+       windows.  They must never depend on an ancestor's implicit palette. */
     QFrame#Toolbar[embeddedSurface="true"], QFrame#Stepper[embeddedSurface="true"] {{
+        background: {p["surface"]};
+        border: 1px solid {p["border"]};
+        border-radius: 8px;
+    }}
+    QFrame#WorkflowControlCard QFrame#Toolbar[innerWorkflowToolbar="true"],
+    QFrame#WorkflowControlCard QFrame#Stepper[innerWorkflowStepper="true"] {{
         background: transparent;
         border: 0;
         border-radius: 0;
@@ -251,14 +340,38 @@ def base_qss() -> str:
         background: {p["surface"]};
         border-color: {p["border"]};
     }}
+    /* The lot-control card is intentionally a quiet white reading surface.
+       Its two responsive sections must not inherit the shell background. */
+    QFrame#LotControlPrimary, QFrame#LotControlSecondary {{
+        background: {p["surface"]};
+        border: 0;
+    }}
+    QPlainTextEdit#LotControlLog {{
+        background: {p["surface"]};
+        border: 1px solid {p["border"]};
+    }}
     QFrame#ControlContentStack {{
         background: transparent;
         border: 0;
     }}
+    /* Metrics, context and status are supporting information.  Giving each
+       one a full white card produced visual noise in dense workspaces. */
     QFrame#ControlMetricStrip {{
         background: {p["surface_2"]};
-        border: 1px solid {p["border"]};
+        border: 0;
         border-radius: 8px;
+    }}
+    QFrame#DsMetric, QFrame#ContextCard {{
+        background: {p["surface_2"]};
+        border-color: transparent;
+    }}
+    QFrame#DsMetric:hover, QFrame#ContextCard:hover {{
+        border-color: {p["border_strong"]};
+        background: {p["surface_2"]};
+    }}
+    QFrame#ControlStatusRail {{
+        background: {p["surface_2"]};
+        border-color: transparent;
     }}
     QFrame#CollapsiblePanel {{
         background: transparent;
@@ -290,30 +403,28 @@ def base_qss() -> str:
         border-color: {p["border_strong"]};
         background: {p["surface_3"]};
     }}
-    QFrame#ControlProductHero {{
-        background: {p["surface"]};
-        border: 1px solid {p["border"]};
-        border-radius: 8px;
-    }}
     QFrame#ControlHeroStatus {{
-        background: {p["surface_2"]};
+        background: {p["surface"]};
         border: 1px solid {p["border"]};
         border-radius: 8px;
         min-width: 150px;
     }}
     QFrame#Toolbar[controlCommand="true"] {{
         background: {p["surface"]};
-        border: 1px solid {p["border_strong"]};
+        border: 1px solid {p["border"]};
         border-radius: 8px;
     }}
     QFrame#ControlCommandCopy {{
-        background: transparent;
-        border: 0;
-        min-width: 190px;
+        background: {p["surface_2"]};
+        border: 1px solid {p["border"]};
+        border-left: 3px solid {p["primary"]};
+        border-radius: 6px;
+        min-width: 172px;
+        padding: 7px 10px;
     }}
 
     QPushButton {{
-        min-height: 36px;
+        min-height: 34px;
         padding: 0 12px;
         border-radius: 6px;
         border: 1px solid {p["border"]};
@@ -337,6 +448,42 @@ def base_qss() -> str:
     }}
     QPushButton:disabled {{
         color: {p["subtle"]};
+        background: {p["surface_2"]};
+        border-color: {p["border"]};
+    }}
+    QCheckBox {{
+        color: {p["ink"]};
+        spacing: 7px;
+        padding: 3px 2px;
+    }}
+    QCheckBox::indicator {{
+        width: 15px;
+        height: 15px;
+        border: 1px solid {p["border_strong"]};
+        border-radius: 4px;
+        background: {p["surface"]};
+    }}
+    QCheckBox::indicator:hover {{
+        border-color: {p["primary"]};
+        background: {p["primary_soft"]};
+    }}
+    QCheckBox::indicator:checked {{
+        border-color: {p["primary"]};
+        background: {p["primary"]};
+    }}
+    QCheckBox:focus::indicator {{
+        border: 2px solid {p["focus_ring"]};
+    }}
+    /* Embedded controls in the result table keep a compact focus cue on
+       the indicator only; the label never becomes a blue-outlined box. */
+    QWidget#VaciadoCheckHolder, QCheckBox#VaciadoCheck, QCheckBox#VaciadoCheck:focus {{
+        background: transparent;
+        border: 0;
+    }}
+    QCheckBox:disabled {{
+        color: {p["subtle"]};
+    }}
+    QCheckBox::indicator:disabled {{
         background: {p["surface_2"]};
         border-color: {p["border"]};
     }}
@@ -564,8 +711,7 @@ def base_qss() -> str:
         selection-color: {p["ink"]};
     }}
     QTableWidget:focus {{
-        border-width: 2px;
-        border-color: {p["focus_ring"]};
+        border-color: {p["border_strong"]};
     }}
     QTableWidget::item {{
         min-height: 34px;
@@ -706,20 +852,45 @@ def base_qss() -> str:
         border: 1px solid {p["border"]};
         border-radius: 8px;
     }}
+    QLabel#StepperIntro {{
+        color: {p["subtle"]};
+        font-size: 8.5pt;
+        font-weight: 750;
+        text-transform: uppercase;
+        padding-right: 6px;
+    }}
+    QWidget#StepItem {{
+        background: transparent;
+        min-height: 30px;
+    }}
     QLabel#StepText {{
         color: {p["muted"]};
         font-size: 9pt;
-        font-weight: 650;
+        font-weight: 600;
+    }}
+    QLabel#StepText[stepState="active"] {{
+        color: {p["primary"]};
+        font-weight: 750;
+    }}
+    QLabel#StepText[stepState="complete"] {{
+        color: {p["ink"]};
+        font-weight: 700;
+    }}
+    QLabel#StepText[stepState="warning"] {{
+        color: {p["warning"]};
+        font-weight: 750;
     }}
     QLabel#StepConnector {{
-        color: {p["subtle"]};
+        color: {p["border_strong"]};
+        font-size: 12pt;
+        font-weight: 500;
     }}
     QLabel#StepBadge {{
-        min-width: 24px;
-        min-height: 24px;
-        max-width: 24px;
-        max-height: 24px;
-        border-radius: 12px;
+        min-width: 26px;
+        min-height: 26px;
+        max-width: 26px;
+        max-height: 26px;
+        border-radius: 13px;
         background: {p["surface_3"]};
         color: {p["muted"]};
         font-weight: 800;
@@ -758,9 +929,18 @@ def base_qss() -> str:
     QLabel#ControlDropzone {{
         color: {p["muted"]};
         background: {p["surface_2"]};
-        border: 1px dashed {p["border_strong"]};
+        border: 1px solid {p["border"]};
         border-radius: 8px;
         padding: 14px;
+    }}
+    QLabel#ControlPill {{
+        color: {p["muted"]};
+        background: {p["surface_2"]};
+        border: 1px solid {p["border"]};
+        border-radius: 999px;
+        padding: 4px 8px;
+        font-size: 8.5pt;
+        font-weight: 700;
     }}
     QProgressBar#ControlProgress {{
         min-height: 8px;
@@ -803,6 +983,13 @@ def base_qss() -> str:
         border: 0;
         background: transparent;
     }}
+    /* WindowScrollContent is created by the shared embedded-page adapter.
+       Give the content and viewport a real canvas so transparent spacing can
+       never fall back to Qt's unpainted (often black) viewport. */
+    QScrollArea#WindowScroll, QScrollArea#WindowScroll::viewport,
+    QWidget#WindowScrollContent {{
+        background: {p["bg"]};
+    }}
     QScrollArea#InlineSectionScroll {{
         border: 1px solid {p["border"]};
         border-radius: 8px;
@@ -816,6 +1003,11 @@ def base_qss() -> str:
     QFrame#NavigationSkeleton {{
         background: {p["surface_2"]};
         border-radius: 6px;
+    }}
+    QFrame#EmptyState {{
+        background: {p["surface_2"]};
+        border: 1px solid {p["border"]};
+        border-radius: 8px;
     }}
     QScrollBar:vertical {{
         background: transparent;

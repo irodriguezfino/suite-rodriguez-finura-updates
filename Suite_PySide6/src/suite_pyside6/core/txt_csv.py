@@ -5,6 +5,8 @@ import io
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .atomic_io import write_text_atomically
+
 
 @dataclass
 class TxtCsvResult:
@@ -88,7 +90,5 @@ def process_txt_files(paths: list[Path]) -> TxtCsvResult:
 
 
 def write_txt_csv(path: Path, lines: list[str]) -> None:
-    with path.open("w", encoding="utf-8", newline="") as handle:
-        for line in lines:
-            handle.write(line + "\n")
+    write_text_atomically(path, "".join(line + "\n" for line in lines), encoding="utf-8")
 

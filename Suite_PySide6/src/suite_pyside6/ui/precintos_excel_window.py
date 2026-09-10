@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 
 from suite_pyside6.core.paths import resource_path
 from suite_pyside6.core.precintos_excel import ProcessResult, process_files, write_precintos_csv
+from suite_pyside6.ui.background import run_background
 from suite_pyside6.ui.components import control_metric_pair, control_pill, control_rail_label, section_label, step_bar
 from suite_pyside6.ui.file_dialogs import open_files, save_file
 from suite_pyside6.ui.polish import confirm_discard_work, show_inline_message, polish_window, sync_recommended_action
@@ -272,11 +273,23 @@ class PrecintosExcelWindow(QMainWindow):
         if not self.paths:
             show_inline_message(self, "warning", "Carga primero uno o varios archivos.")
             return
-        self.result = process_files(self.paths)
-        if self.result.precintos:
-            self.status.setText(f"Proceso finalizado: {len(self.result.precintos)} precintos listos para guardar.")
-        else:
-            self.status.setText("No se extrajeron precintos. Revisa que exista la columna Identificación.")
+        paths = list(self.paths)
+        self.status.setText("Procesando Excel en segundo plano…")
+        self._refresh()
+        def completed(result: ProcessResult) -> None:
+            self.result = result
+            if self.result.precintos:
+                self.status.setText(f"Proceso finalizado: {len(self.result.precintos)} precintos listos para guardar.")
+            else:
+                self.status.setText("No se extrajeron precintos. Revisa que exista la columna Identificación.")
+            self._refresh()
+        def failed(message: str) -> None:
+            self.status.setText(f"No se pudieron procesar los Excel: {message}")
+            show_inline_message(self, "error", message)
+            self._refresh()
+        if not run_background(self, lambda: process_files(paths), completed, failed):
+            show_inline_message(self, "warning", "Ya hay una operación en curso.")
+            return
         self._refresh()
 
     def save_csv_dialog(self) -> None:
@@ -294,13 +307,21 @@ class PrecintosExcelWindow(QMainWindow):
             self.save_csv_path(file)
 
     def save_csv_path(self, path: Path) -> None:
-        write_precintos_csv(path, self.result.precintos)
+        try:
+            write_precintos_csv(path, self.result.precintos)
+        except Exception as exc:
+            self.status.setText(f"No se pudo guardar el CSV: {exc}")
+            if self.show_dialogs:
+                show_inline_message(self, "error", str(exc))
+            return
         self.status.setText(f"CSV guardado: {path.name}")
         show_inline_message(self, "success", f"CSV guardado: {path.name}")
         self._refresh_pilot_state()
         self._sync_recommended_action()
 
     def clear(self) -> None:
+        if self.property("operationActive"):
+            return
         if not confirm_discard_work(self, "Limpiar selección"):
             return
         self.paths = []
@@ -332,9 +353,10 @@ class PrecintosExcelWindow(QMainWindow):
             )
             self._fill_preview_table()
 
-        self.process_button.setEnabled(bool(self.paths))
-        self.save_button.setEnabled(bool(self.result.precintos))
-        self.clear_button.setEnabled(bool(self.paths or self.result.precintos or self.result.errors))
+        busy = bool(self.property("operationActive"))
+        self.process_button.setEnabled(bool(self.paths) and not busy)
+        self.save_button.setEnabled(bool(self.result.precintos) and not busy)
+        self.clear_button.setEnabled(bool(self.paths or self.result.precintos or self.result.errors) and not busy)
         self._refresh_pilot_state()
         self._sync_recommended_action()
 

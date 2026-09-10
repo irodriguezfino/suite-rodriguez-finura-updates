@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
-from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from importlib import import_module
 from threading import Lock
@@ -35,12 +34,11 @@ _WINDOW_SPECS: dict[str, WindowSpec] = {
         "RepartoMermaPrecintosWindow",
     ),
     "file_compare": WindowSpec("suite_pyside6.ui.file_compare_window", "FileCompareWindow"),
+    "numerador_etiquetas": WindowSpec("suite_pyside6.ui.numerador_etiquetas_window", "NumeradorEtiquetasWindow"),
 }
 
 _WINDOW_CACHE: dict[str, type[QMainWindow]] = {}
-_PRELOAD_FUTURES: dict[str, Future[type[QMainWindow] | None]] = {}
 _PRELOAD_LOCK = Lock()
-_PRELOAD_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="suite-window-preload")
 
 
 def _load_window_class(key: str) -> type[QMainWindow] | None:
@@ -59,39 +57,29 @@ def _load_window_class(key: str) -> type[QMainWindow] | None:
 
 
 def get_window_class(key: str) -> type[QMainWindow] | None:
-    key = resolve_app_key(key)
-    with _PRELOAD_LOCK:
-        future = _PRELOAD_FUTURES.get(key)
-    if future is not None and not future.done():
-        return future.result()
     return _load_window_class(key)
 
 
 def preload_window_class(key: str) -> bool:
-    """Empieza a importar una ventana sin crear widgets ni ejecutar su lógica."""
+    """Indica si una ventana ya está disponible sin importar módulos desde otro hilo.
+
+    Importar módulos que dependen de Qt desde un ``ThreadPoolExecutor`` no es
+    una operación garantizada por Qt y podía dejar la navegación esperando para
+    siempre. La importación real se hace al completar la navegación, en el hilo
+    principal, una sola vez y con manejo de error visible.
+    """
     key = resolve_app_key(key)
     if key not in _WINDOW_SPECS:
         return False
     with _PRELOAD_LOCK:
         if key in _WINDOW_CACHE:
             return True
-        future = _PRELOAD_FUTURES.get(key)
-        if future is None:
-            _PRELOAD_FUTURES[key] = _PRELOAD_EXECUTOR.submit(_load_window_class, key)
     return False
 
 
 def preloaded_window_class(key: str) -> type[QMainWindow] | None:
-    """Devuelve la clase solo cuando la precarga ha terminado; nunca bloquea la UI."""
-    key = resolve_app_key(key)
-    with _PRELOAD_LOCK:
-        cached = _WINDOW_CACHE.get(key)
-        future = _PRELOAD_FUTURES.get(key)
-    if cached is not None:
-        return cached
-    if future is None or not future.done():
-        return None
-    return future.result()
+    """Carga la clase de forma determinista en el hilo de interfaz."""
+    return _load_window_class(key)
 
 
 class WindowClassRegistry(Mapping[str, type[QMainWindow]]):

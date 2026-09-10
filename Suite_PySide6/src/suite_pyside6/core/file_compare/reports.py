@@ -4,6 +4,7 @@ import html
 import json
 from pathlib import Path
 
+from suite_pyside6.core.atomic_io import write_text_atomically
 from .models import ComparisonResult
 
 
@@ -45,5 +46,5 @@ def as_html(result: ComparisonResult) -> str:
 def write_report(result: ComparisonResult, path: str | Path, output_format: str) -> Path:
     target = Path(path)
     content = {"text": as_text, "json": as_json, "html": as_html}[output_format](result)
-    target.write_text(content, encoding="utf-8")
+    write_text_atomically(target, content, encoding="utf-8")
     return target

@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 
 from suite_pyside6.core.mermas import MermasResult, process_mermas, save_mermas_excel
 from suite_pyside6.core.paths import resource_path
+from suite_pyside6.ui.background import run_background
 from suite_pyside6.ui.components import ModernSelect, control_metric_pair, control_pill, control_rail_label, labeled_field, section_label, step_bar
 from suite_pyside6.ui.file_dialogs import open_file, open_files, save_file
 from suite_pyside6.ui.polish import confirm_discard_work, show_inline_message, polish_window, sync_recommended_action
@@ -299,16 +300,24 @@ class MermasWindow(QMainWindow):
             if self.show_dialogs:
                 show_inline_message(self, "warning", "Carga primero el archivo de origen.")
             return
-        try:
-            self.result = process_mermas(self.final_files, self.origin_file, self.filter_combo.currentText())  # type: ignore[arg-type]
-        except Exception as exc:
-            self.status.setText(f"Error: {exc}")
+        final_files, origin_file, filter_name = list(self.final_files), self.origin_file, self.filter_combo.currentText()
+        self.status.setText("Cruzando archivos en segundo plano…")
+        self._refresh_pilot_state()
+        self._sync_recommended_action()
+        def completed(result: MermasResult) -> None:
+            self.result = result
+            self.status.setText(f"Cruce completado: {len(self.result.dataframe)} registros.")
+            self._refresh()
+        def failed(message: str) -> None:
+            self.status.setText(f"Error: {message}")
             self._refresh_pilot_state()
             self._sync_recommended_action()
             if self.show_dialogs:
-                show_inline_message(self, "error", str(exc))
+                show_inline_message(self, "error", message)
+        if not run_background(self, lambda: process_mermas(final_files, origin_file, filter_name), completed, failed):  # type: ignore[arg-type]
+            if self.show_dialogs:
+                show_inline_message(self, "warning", "Ya hay una operación en curso.")
             return
-        self.status.setText(f"Cruce completado: {len(self.result.dataframe)} registros.")
         self._refresh()
 
     def save_dialog(self) -> None:
@@ -327,13 +336,21 @@ class MermasWindow(QMainWindow):
             self.save_path(file)
 
     def save_path(self, path: Path) -> None:
-        save_mermas_excel(path, self.result)
+        try:
+            save_mermas_excel(path, self.result)
+        except Exception as exc:
+            self.status.setText(f"No se pudo guardar el Excel: {exc}")
+            if self.show_dialogs:
+                show_inline_message(self, "error", str(exc))
+            return
         self.status.setText(f"Excel guardado: {path}")
         show_inline_message(self, "success", f"Excel guardado: {path.name}")
         self._refresh_pilot_state()
         self._sync_recommended_action()
 
     def clear(self) -> None:
+        if self.property("operationActive"):
+            return
         if not confirm_discard_work(self, "Limpiar selección"):
             return
         self.final_files = []
@@ -360,9 +377,10 @@ class MermasWindow(QMainWindow):
             )
             self.preview.setPlainText(self.result.preview_text() if not self.result.dataframe.empty else "Selecciona los CSV finales y el archivo de origen para empezar.")
             self._fill_result_table()
-        self.process_button.setEnabled(bool(self.final_files and self.origin_file))
-        self.save_button.setEnabled(not self.result.dataframe.empty)
-        self.clear_button.setEnabled(bool(self.final_files or self.origin_file or not self.result.dataframe.empty))
+        busy = bool(self.property("operationActive"))
+        self.process_button.setEnabled(bool(self.final_files and self.origin_file) and not busy)
+        self.save_button.setEnabled(not self.result.dataframe.empty and not busy)
+        self.clear_button.setEnabled(bool(self.final_files or self.origin_file or not self.result.dataframe.empty) and not busy)
         self._refresh_pilot_state()
         self._sync_recommended_action()
 

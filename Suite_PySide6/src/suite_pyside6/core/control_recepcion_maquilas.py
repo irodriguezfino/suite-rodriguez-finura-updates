@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from email.message import EmailMessage
 from pathlib import Path
+
+from .atomic_io import write_text_atomically
 import csv
 import os
 import re
@@ -341,7 +343,7 @@ def save_txt_ax(path: Path, result: ControlRecepcionResult) -> Path:
     if result.invalidos:
         raise ValueError("Corrige las incidencias antes de guardar el TXT AX.")
     text = "\r\n".join(registro.to_line() for registro in result.validos)
-    path.write_text(text + ("\r\n" if text else ""), encoding="cp1252", newline="")
+    write_text_atomically(path, text + ("\r\n" if text else ""), encoding="cp1252")
     result.txt_ax = path
     result.txt_modified = False
     return path
@@ -377,7 +379,7 @@ def save_pdf_rangos(path: Path, result: ControlRecepcionResult, metadata: dict[s
 
 
 def write_detail_txt(path: Path, result: ControlRecepcionResult) -> Path:
-    path.write_text(detalle_diferencias_text(result), encoding="utf-8", newline="")
+    write_text_atomically(path, detalle_diferencias_text(result), encoding="utf-8")
     return path
 
 

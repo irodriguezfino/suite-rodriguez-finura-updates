@@ -286,7 +286,7 @@ class PrecintosTxtAxWindow(QMainWindow):
         QApplication.processEvents()
         try:
             self.result = process_txt_file(path)
-        except (OSError, UnicodeError):
+        except (OSError, UnicodeError, ValueError):
             LOGGER.exception("No se pudo procesar el TXT de precintos: %s", path)
             self.result = PrecintosTxtAxResult(source_path=path)
             self.status.setText("No se ha podido leer o procesar el archivo seleccionado.")
@@ -415,6 +415,11 @@ class PrecintosTxtAxWindow(QMainWindow):
             self.ignored_table.setItem(row, 0, line_number)
             self.ignored_table.setItem(row, 1, original_content)
             self.ignored_table.setItem(row, 2, reason)
+        if self.result.skipped_lines > len(ignored_lines):
+            self.summary.setText(
+                f"Se muestran las primeras {len(ignored_lines):,} incidencias de {self.result.skipped_lines:,}; "
+                "el CSV y el resumen conservan el conteo completo."
+            )
 
     def _state_text(self) -> tuple[str, str]:
         if "generado correctamente" in self.status.text().lower():

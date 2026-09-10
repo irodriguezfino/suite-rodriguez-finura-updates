@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.7.13"
+VERSION = "1.7.14"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
@@ -292,14 +292,9 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
     full_digest = sha256(full_package)
     installer_digest = sha256(installer_bat)
     notes = (
-        "- Nueva herramienta Comparador de archivos para comparar archivos y carpetas de forma exacta.\n"
-        "- Incluye diferencias para texto, JSON, XML, CSV/TSV y ZIP, además de informes en texto, JSON y HTML.\n"
-        "- La comparación estricta usa SHA-256 y lectura por bloques para manejar archivos grandes de forma segura."
-    )
-    notes = (
-        "- El Comparador de archivos muestra el contenido completo de ambos textos en paralelo.\n"
-        "- Solo los caracteres distintos quedan resaltados: rojo para el archivo A y verde para el archivo B.\n"
-        "- El acceso directo ya no depende de Windows Script Host (VBS)."
+        "- Mejora integral de estabilidad: las operaciones pesadas se ejecutan en segundo plano y no bloquean la consola.\n"
+        "- Cierre seguro de herramientas activas, guardado atómico y recuperación clara ante archivos bloqueados o errores de red.\n"
+        "- Comparador reforzado con cancelación real, límites de seguridad y vistas previas acotadas."
     )
     manifest = {
         "schema": "suite-rodriguez-finura-update-v1",

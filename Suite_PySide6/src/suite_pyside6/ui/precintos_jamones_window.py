@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from suite_pyside6.core.paths import resource_path
+from suite_pyside6.ui.background import run_background
 from suite_pyside6.core.precintos_jamones import (
     PrecintosJamonesResult,
     correction_text,
@@ -356,16 +357,24 @@ class PrecintosJamonesWindow(QMainWindow):
     def process_files(self) -> None:
         if not self.paths:
             return
-        try:
-            self.result = process_precintos_jamones(self.paths, official_excel=self.official_excel)
-        except Exception as exc:
-            self.status.setText(f"Error: {exc}")
+        paths, official_excel = list(self.paths), self.official_excel
+        self.status.setText("Validando registros en segundo plano…")
+        self._refresh_buttons_only()
+        def completed(result: PrecintosJamonesResult) -> None:
+            self.result = result
+            self.weight_filter_pending = False
+            self.status.setText(f"Validación completada: {len(self.result.validos)} registros válidos.")
+            self._refresh()
+        def failed(message: str) -> None:
+            self.status.setText(f"Error: {message}")
             if self.show_dialogs:
-                show_inline_message(self, "error", str(exc))
+                show_inline_message(self, "error", message)
+            self._refresh_buttons_only()
+        if not run_background(self, lambda: process_precintos_jamones(paths, official_excel=official_excel), completed, failed):
+            if self.show_dialogs:
+                show_inline_message(self, "warning", "Ya hay una operación en curso.")
             return
-        self.weight_filter_pending = False
-        self.status.setText(f"Validación completada: {len(self.result.validos)} registros válidos.")
-        self._refresh()
+        self._refresh_buttons_only()
 
     def revalidate(self) -> None:
         if not (self.result.invalidos or self.weight_filter_pending):
@@ -436,6 +445,8 @@ class PrecintosJamonesWindow(QMainWindow):
         return self.last_attachments
 
     def clear(self) -> None:
+        if self.property("operationActive"):
+            return
         if not confirm_discard_work(self, "Limpiar selección"):
             return
         self.paths = []

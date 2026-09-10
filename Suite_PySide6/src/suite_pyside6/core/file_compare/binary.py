@@ -2,15 +2,24 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
+from collections.abc import Callable
 
 from .models import ComparisonOptions, ComparisonResult, Difference
 
 
-def sha256_and_size(path: Path, block_size: int) -> tuple[str, int]:
+class ComparisonCancelled(Exception):
+    """Raised internally when the caller asks a long comparison to stop."""
+
+
+def sha256_and_size(
+    path: Path, block_size: int, cancelled: Callable[[], bool] | None = None,
+) -> tuple[str, int]:
     digest = hashlib.sha256()
     total = 0
     with path.open("rb") as stream:
         while chunk := stream.read(block_size):
+            if cancelled and cancelled():
+                raise ComparisonCancelled()
             digest.update(chunk)
             total += len(chunk)
     return digest.hexdigest(), total
@@ -22,7 +31,13 @@ def _window(data: bytes, index: int, width: int = 12) -> str:
     return data[start:end].hex(" ")
 
 
-def compare_binary(left: Path, right: Path, options: ComparisonOptions, result: ComparisonResult) -> None:
+def compare_binary(
+    left: Path,
+    right: Path,
+    options: ComparisonOptions,
+    result: ComparisonResult,
+    cancelled: Callable[[], bool] | None = None,
+) -> None:
     """Comparacion exacta por bloques; nunca carga el archivo completo."""
     offset = 0
     changed_ranges: list[tuple[int, int]] = []
@@ -30,17 +45,24 @@ def compare_binary(left: Path, right: Path, options: ComparisonOptions, result: 
     previous_changed = -2
     with left.open("rb") as left_stream, right.open("rb") as right_stream:
         while True:
+            if cancelled and cancelled():
+                raise ComparisonCancelled()
             left_chunk = left_stream.read(options.block_size)
             right_chunk = right_stream.read(options.block_size)
             if not left_chunk and not right_chunk:
                 break
             length = max(len(left_chunk), len(right_chunk))
             for index in range(length):
+                # Checking once per block is normally enough, but a very large custom
+                # block size must not make the Cancel button appear ineffective.
+                if index % 8192 == 0 and cancelled and cancelled():
+                    raise ComparisonCancelled()
                 a = left_chunk[index] if index < len(left_chunk) else None
                 b = right_chunk[index] if index < len(right_chunk) else None
                 if a == b:
                     if active_start is not None:
-                        changed_ranges.append((active_start, offset + index - 1))
+                        if len(changed_ranges) < options.max_differences:
+                            changed_ranges.append((active_start, offset + index - 1))
                         active_start = None
                     continue
                 position = offset + index
@@ -58,7 +80,8 @@ def compare_binary(left: Path, right: Path, options: ComparisonOptions, result: 
                     options.max_differences,
                 )
             if active_start is not None:
-                changed_ranges.append((active_start, offset + length - 1))
+                if len(changed_ranges) < options.max_differences:
+                    changed_ranges.append((active_start, offset + length - 1))
                 active_start = None
             offset += length
     result.metadata["changed_ranges"] = [f"{start}-{end}" for start, end in changed_ranges[:options.max_differences]]

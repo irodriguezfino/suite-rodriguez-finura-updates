@@ -114,6 +114,15 @@ APP_REGISTRY: tuple[AppDefinition, ...] = (
         shortcut="Alt+C",
         migration_status="ported",
     ),
+    AppDefinition(
+        key="numerador_etiquetas",
+        title="Numerador de Etiquetas",
+        description="Diseña etiquetas reutilizables, imprime códigos consecutivos y registra el último confirmado.",
+        short_description="Impresión secuencial con diseños guardados.",
+        category="Etiquetas",
+        shortcut="Alt+E",
+        migration_status="ported",
+    ),
 )
 
 

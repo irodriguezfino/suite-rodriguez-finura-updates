@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from pathlib import Path
 
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QFrame,
@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from suite_pyside6.core.paths import resource_path
+from suite_pyside6.ui.background import run_background
 from suite_pyside6.core.reparto_merma_precintos import (
     AdjustmentResult,
     DomainValidationError,
@@ -41,6 +42,7 @@ from suite_pyside6.core.reparto_merma_precintos import (
 from suite_pyside6.ui.components import control_metric_pair, control_pill, control_rail_label, labeled_field, section_label, step_bar
 from suite_pyside6.ui.file_dialogs import open_file, open_files, save_file
 from suite_pyside6.ui.polish import confirm_discard_work, polish_window, show_inline_message, sync_recommended_action
+from suite_pyside6.ui.responsive import register_adaptive_layout
 from suite_pyside6.ui.table_utils import bulk_table_update, update_count_label
 from suite_pyside6.ui.theme import base_qss
 
@@ -121,7 +123,7 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         copy.setSpacing(3)
         title = QLabel("PDA · Precintos Deshuesado")
         title.setObjectName("WindowTitle")
-        subtitle = QLabel("Distribuye el peso final proporcionalmente y prepara un CSV AX con orden de trabajo, precinto y peso.")
+        subtitle = QLabel("Distribuye el peso final entre los precintos y prepara un CSV AX con orden de trabajo, precinto y peso.")
         subtitle.setObjectName("WindowSubtitle")
         subtitle.setWordWrap(True)
         copy.addWidget(title)
@@ -174,7 +176,7 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         actions_layout.addWidget(command, 1)
         self.load_button = QPushButton("Cargar fichero")
         self.load_button.setProperty("primary", True)
-        self.load_button.setAccessibleDescription("Selecciona un Excel de mensajes con precinto en el primer campo y peso en el tercero.")
+        self.load_button.setAccessibleDescription("Selecciona un CSV con un precinto por línea o un fichero PDA compatible.")
         self.load_button.clicked.connect(self.select_file)
         self.clear_button = QPushButton("Reiniciar")
         self.clear_button.clicked.connect(self.clear)
@@ -205,26 +207,12 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         preview_header.addWidget(self.preview_count)
         preview_layout.addLayout(preview_header)
 
-        self.metrics_strip = QFrame()
-        self.metrics_strip.setObjectName("ControlMetricStrip")
-        metrics_layout = QGridLayout(self.metrics_strip)
-        metrics_layout.setContentsMargins(8, 7, 8, 7)
-        metrics_layout.setHorizontalSpacing(8)
-        metrics_layout.setVerticalSpacing(4)
-        self.metric_total = control_metric_pair(metrics_layout, 0, "Registros", "0")
-        self.metric_weight = control_metric_pair(metrics_layout, 1, "Peso origen", "-")
-        self.metric_final = control_metric_pair(metrics_layout, 2, "Peso final", "-")
-        self.metric_loss = control_metric_pair(metrics_layout, 3, "Merma", "-")
-        preview_layout.addWidget(self.metrics_strip)
-
-        self.preview_table = QTableWidget(0, 4)
-        self.preview_table.setAccessibleName("Vista previa de pesos ajustados por precinto")
-        self.preview_table.setAccessibleDescription("Tabla de revisión de los pesos ajustados por fila.")
-        self.preview_table.setHorizontalHeaderLabels(["Precinto", "Peso original", "Merma aplicada", "Peso ajustado"])
+        self.preview_table = QTableWidget(0, 2)
+        self.preview_table.setAccessibleName("Vista previa de pesos asignados por precinto")
+        self.preview_table.setAccessibleDescription("Tabla de revisión del peso asignado a cada precinto.")
+        self.preview_table.setHorizontalHeaderLabels(["Precinto", "Peso asignado"])
         self.preview_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.preview_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        self.preview_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        self.preview_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
         self.preview_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         preview_layout.addWidget(self.preview_table, 1)
 
@@ -236,12 +224,12 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         rail_layout.setSpacing(9)
         rail_layout.addWidget(section_label("Control del reparto"))
         self.rail_state = control_rail_label("Inicial", role="state")
-        self.rail_detail = control_rail_label("Carga un Excel de mensajes para analizar sus precintos y pesos.")
+        self.rail_detail = control_rail_label("Carga una lista de precintos para repartir el peso final.")
         self.rail_progress = QProgressBar()
         self.rail_progress.setObjectName("ControlProgress")
         self.rail_progress.setRange(0, 100)
         self.rail_progress.setTextVisible(True)
-        self.rail_progress.setAccessibleName("Progreso del reparto de merma")
+        self.rail_progress.setAccessibleName("Progreso del reparto de peso")
         rail_layout.addWidget(self.rail_state)
         rail_layout.addWidget(self.rail_detail)
         rail_layout.addWidget(self.rail_progress)
@@ -260,7 +248,7 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         self.file_detail = control_rail_label("Sin fichero seleccionado")
         rail_layout.addWidget(self.file_detail)
         rail_layout.addWidget(section_label("Formato admitido"))
-        rail_layout.addWidget(control_rail_label("Excel .xlsx; cada mensaje en la columna A; precinto en el campo 1 y peso en el campo 3."))
+        rail_layout.addWidget(control_rail_label("CSV: un precinto por línea. También se admite el formato PDA anterior."))
 
         self.export_button = QPushButton("Guardar CSV AX")
         self.export_button.clicked.connect(self.save_csv_dialog)
@@ -283,8 +271,8 @@ class RepartoMermaPrecintosWindow(QMainWindow):
     def _build_selection_page(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(42, 34, 42, 34)
-        layout.setSpacing(18)
+        layout.setContentsMargins(28, 24, 28, 24)
+        layout.setSpacing(14)
         title = QLabel("Precintos Deshuesado")
         title.setObjectName("WindowTitle")
         subtitle = QLabel("Elige el origen de los datos para preparar el CSV compatible con AX.")
@@ -294,10 +282,10 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         layout.addWidget(title, 0, Qt.AlignHCenter)
         layout.addWidget(subtitle, 0, Qt.AlignHCenter)
         cards = QHBoxLayout()
-        cards.setSpacing(18)
+        cards.setSpacing(14)
         self.pda_mode_button = self._mode_card(
             "PDA",
-            "Procesar ficheros procedentes de PDA y realizar el reparto proporcional del peso final.",
+            "Cargar una lista de precintos y repartir el peso final.",
             self.show_pda,
         )
         self.fac_mode_button = self._mode_card(
@@ -308,6 +296,7 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         cards.addWidget(self.pda_mode_button)
         cards.addWidget(self.fac_mode_button)
         layout.addLayout(cards)
+        register_adaptive_layout(self, cards, breakpoint_width=720)
         layout.addStretch(2)
         return page
 
@@ -316,7 +305,8 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         button = QPushButton(f"{title}\n\n{description}")
         button.setObjectName("PrimaryButton")
         button.setProperty("primary", True)
-        button.setMinimumSize(300, 180)
+        button.setMinimumSize(240, 128)
+        button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         button.setAccessibleName(f"Abrir modo {title}")
         button.setAccessibleDescription(description)
         button.setToolTip(f"Abrir modo {title}")
@@ -735,7 +725,7 @@ class RepartoMermaPrecintosWindow(QMainWindow):
             self,
             "reparto_merma_precintos/input",
             "Selecciona fichero de pesos",
-            "Excel (*.xlsx);;Todos (*.*)",
+            "Ficheros PDA (*.xlsx *.csv);;Excel (*.xlsx);;CSV (*.csv);;Todos (*.*)",
         )
         if path is not None:
             self.queue_load_path(path)
@@ -755,7 +745,19 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         self.state = "Cargando"
         self.status.setText(f"Cargando fichero: {path.name}")
         self._refresh()
-        QTimer.singleShot(0, lambda selected_path=path: self.load_path(selected_path))
+        def completed(result: SourceReadResult) -> None:
+            self.source_path = path
+            self.source_result = result
+            self._recalculate()
+        def failed(message: str) -> None:
+            self.source_path = path
+            self.source_result = None
+            self.state = "Con errores"
+            self.status.setText(f"No se pudo analizar el fichero: {message}")
+            show_inline_message(self, "error", message)
+            self._refresh()
+        if not run_background(self, lambda: read_source_file(path), completed, failed):
+            show_inline_message(self, "warning", "Ya hay una operación en curso.")
 
     def load_path(self, path: Path) -> None:
         self.source_path = path
@@ -867,23 +869,6 @@ class RepartoMermaPrecintosWindow(QMainWindow):
 
     def _refresh(self) -> None:
         result = self.source_result
-        total_records = len(result.records) if result is not None else 0
-        total_weight = result.total_weight if result is not None else None
-        final_weight = self.adjustment.final_weight if self.adjustment is not None else None
-        loss_text = "-"
-        if self.adjustment is not None:
-            loss_text = f"{self._format_weight(self.adjustment.absolute_loss)} ({self._format_percentage(self.adjustment.loss_percentage)})"
-        self.metric_total.setText(str(total_records))
-        self.metric_weight.setText(self._format_weight(total_weight) if total_weight is not None else "-")
-        self.metric_final.setText(self._format_weight(final_weight))
-        self.metric_loss.setText(loss_text)
-        for label, value in (
-            (self.metric_total, total_records),
-            (self.metric_weight, self._format_weight(total_weight) if total_weight is not None else "-"),
-            (self.metric_final, self._format_weight(final_weight)),
-            (self.metric_loss, loss_text),
-        ):
-            label.setAccessibleDescription(f"{label.accessibleName()}: {value}")
         self.file_detail.setText(self._file_text())
         self.summary.setText(self._summary_text())
         self._populate_preview_table()
@@ -898,17 +883,14 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         self._sync_recommended_action()
 
     def _populate_preview_table(self) -> None:
-        rows: list[tuple[str, str, str, str]] = []
+        rows: list[tuple[str, str]] = []
         if self.source_result is not None:
             preview = build_preview(self.adjustment) if self.adjustment is not None else None
             adjusted = {row.line_number: row for row in preview.rows} if preview is not None else {}
-            percentage = self.adjustment.loss_percentage if self.adjustment is not None else None
             for record in self.source_result.records[:PREVIEW_LIMIT]:
                 row = adjusted.get(record.line_number)
                 rows.append((
                     record.precinto,
-                    self._format_weight(record.peso_original),
-                    self._format_percentage(percentage) if percentage is not None else "-",
                     self._format_weight(row.peso_ajustado) if row is not None else "-",
                 ))
         with bulk_table_update(self.preview_table):
@@ -938,12 +920,12 @@ class RepartoMermaPrecintosWindow(QMainWindow):
             "Error de exportación": (self._technical_error_text("No se pudo generar el CSV."), 85),
             "Generando archivo": ("Generando y validando los bytes del CSV AX.", 90),
             "Con errores": (self._technical_error_text("Corrige el fichero o el peso final antes de exportar."), 45),
-            "Listo para exportar": ("La suma ajustada coincide exactamente con el peso final.", 85),
+            "Listo para exportar": ("El peso se ha repartido y suma exactamente el peso final.", 85),
             "Orden de trabajo pendiente": ("Introduce la orden de trabajo para activar el guardado del CSV AX.", 75),
             "Fichero analizado": ("Introduce el peso final para calcular el reparto.", 55),
             "Analizando": ("Leyendo formato, registros y validaciones.", 20),
             "Cargando": ("Preparando el fichero para su análisis.", 10),
-            "Inicial": ("Carga un Excel de mensajes para analizar sus precintos y pesos.", 0),
+            "Inicial": ("Carga un CSV con un precinto por línea para repartir el peso final.", 0),
         }
         detail, progress = states.get(self.state, states["Inicial"])
         return self.state, detail, progress

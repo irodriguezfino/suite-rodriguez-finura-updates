@@ -23,7 +23,8 @@ from suite_pyside6.core.update import (
     local_version,
     start_update,
 )
-from suite_pyside6.ui.polish import brand_logo_pixmap
+from suite_pyside6.ui.background import run_background
+from suite_pyside6.ui.polish import brand_logo_pixmap, polish_window
 from suite_pyside6.ui.theme import base_qss
 
 
@@ -37,6 +38,7 @@ class AboutDialog(QDialog):
         self.setMinimumSize(560, 430)
         self.setStyleSheet(base_qss())
         self._build_ui()
+        polish_window(self, body_scroll=False)
         self._refresh()
 
     def _build_ui(self) -> None:
@@ -127,8 +129,16 @@ class AboutDialog(QDialog):
     def check_updates(self) -> None:
         self.check_button.setEnabled(False)
         self.status.setText("Consultando GitHub...")
-        QApplication.processEvents()
-        self.result = check_for_updates()
+        if not run_background(self, check_for_updates, self._update_check_completed, self._update_check_failed):
+            return
+
+    def _update_check_failed(self, message: str) -> None:
+        self.check_button.setEnabled(True)
+        self.status.setText(f"No se pudo comprobar la actualización: {message}")
+        QMessageBox.warning(self, "Actualizaciones", self.status.text())
+
+    def _update_check_completed(self, result: UpdateCheckResult) -> None:
+        self.result = result
         self._refresh()
         self.check_button.setEnabled(True)
         if not self.result.ok:

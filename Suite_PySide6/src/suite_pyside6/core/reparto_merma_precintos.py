@@ -364,14 +364,17 @@ def _read_message_workbook(workbook: Workbook) -> SourceReadResult:
 
 
 def read_source_file(path: Path) -> SourceReadResult:
-    """Lee el Excel PDA con precinto primero y peso tercero del mensaje."""
+    """Lee la fuente PDA Excel o CSV con precinto primero y peso tercero."""
 
-    if path.suffix.lower() != ".xlsx":
+    suffix = path.suffix.lower()
+    if suffix == ".csv":
+        return _read_pda_csv(path)
+    if suffix != ".xlsx":
         return SourceReadResult(
             None,
             (),
             (),
-            (ValidationIssue("UNSUPPORTED_FORMAT", "Solo se admiten libros Excel .xlsx."),),
+            (ValidationIssue("UNSUPPORTED_FORMAT", "Solo se admiten ficheros Excel .xlsx o CSV."),),
         )
     try:
         workbook = load_workbook(path, read_only=True, data_only=True, keep_links=False)
@@ -381,6 +384,89 @@ def read_source_file(path: Path) -> SourceReadResult:
         return _read_message_workbook(workbook)
     finally:
         workbook.close()
+
+
+def _is_pda_csv_header(fields: list[str]) -> bool:
+    normalized = [field.strip().casefold() for field in fields]
+    return any(_is_message_header(field) for field in normalized) or (
+        bool(normalized) and normalized[0] in {"precinto", "sello"}
+    )
+
+
+def _read_pda_csv(path: Path) -> SourceReadResult:
+    """Lee un CSV PDA, tanto en columnas como con el mensaje en una celda.
+
+    El CSV puede contener directamente ``precinto;...;peso``, una columna
+    ``Mensaje`` con la cadena PDA tradicional o una sola columna de precintos.
+    En el último caso se asigna una unidad a cada precinto y el peso final se
+    reparte a partes iguales.
+    """
+
+    try:
+        text = _read_fac_text(path)
+    except (OSError, UnicodeError) as exc:
+        return SourceReadResult(None, (), (), (ValidationIssue("READ_ERROR", f"No se pudo leer el fichero: {exc}"),))
+
+    records: list[SourceRecord] = []
+    ignored: list[IgnoredRow] = []
+    issues: list[ValidationIssue] = []
+    has_message_header = False
+    reader = csv.reader(io.StringIO(text), delimiter=";", quotechar='"', strict=True)
+    try:
+        for fields in reader:
+            line_number = reader.line_num
+            if not any(field.strip() for field in fields):
+                ignored.append(IgnoredRow(line_number, "fila vacia"))
+                continue
+            if _is_pda_csv_header(fields):
+                has_message_header = True
+                ignored.append(IgnoredRow(line_number, "encabezado de mensaje"))
+                continue
+
+            if len(fields) == 1 and fields[0].count(";") < 2:
+                records.append(SourceRecord(line_number, len(records), fields[0].strip(), Decimal("1")))
+                continue
+
+            message = next((field for field in fields if field.count(";") >= 2), None)
+            if message is not None:
+                try:
+                    values = next(csv.reader([message], delimiter=";", quotechar='"', strict=True))
+                except csv.Error as exc:
+                    issues.append(ValidationIssue("INVALID_MESSAGE_ROW", f"Mensaje invalido: {exc}", line_number=line_number))
+                    continue
+            else:
+                values = fields
+
+            if len(values) < 3:
+                issues.append(ValidationIssue("TOO_FEW_FIELDS", "El mensaje tiene menos de tres campos.", line_number=line_number))
+                continue
+            precinto = values[0].strip()
+            if not precinto:
+                issues.append(ValidationIssue("EMPTY_SEAL", "El precinto esta vacio.", line_number=line_number))
+                continue
+            raw_weight = values[2].strip()
+            if not raw_weight:
+                issues.append(ValidationIssue("EMPTY_WEIGHT", "El peso esta vacio.", line_number=line_number))
+                continue
+            try:
+                weight = _parse_decimal(raw_weight, "El peso", line_number)
+            except ValueError as exc:
+                issues.append(ValidationIssue("INVALID_WEIGHT", str(exc), line_number=line_number))
+                continue
+            if weight < 0:
+                issues.append(ValidationIssue("NEGATIVE_WEIGHT", "El peso no puede ser negativo.", line_number=line_number))
+                continue
+            records.append(SourceRecord(line_number, len(records), precinto, weight))
+    except csv.Error as exc:
+        issues.append(ValidationIssue("READ_ERROR", f"No se pudo leer el CSV: {exc}", line_number=reader.line_num or None))
+
+    total = sum((record.peso_original for record in records), Decimal("0"))
+    if records and total == 0:
+        issues.append(ValidationIssue("ZERO_SOURCE_TOTAL", "El peso total de origen es cero."))
+    if not records and not issues:
+        issues.append(ValidationIssue("NO_VALID_RECORDS", "No hay registros validos."))
+    column = "A" if all(record.peso_original == Decimal("1") for record in records) else "A:C"
+    return SourceReadResult(SourceFormat("CSV", column, has_message_header), tuple(records), tuple(ignored), tuple(issues))
 
 
 def _read_fac_text(path: Path) -> str:

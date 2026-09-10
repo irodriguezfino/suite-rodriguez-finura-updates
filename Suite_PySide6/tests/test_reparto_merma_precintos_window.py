@@ -175,12 +175,23 @@ class RepartoMermaPrecintosWindowTests(unittest.TestCase):
             window.work_order.setText("OT-0001")
             self.assertEqual(window.state, "Listo para exportar")
             self.assertTrue(window.export_button.isEnabled())
-            self.assertEqual(window.preview_table.columnCount(), 4)
+            self.assertEqual(window.preview_table.columnCount(), 2)
             output = Path(directory) / "ax.csv"
             window.save_path(output, "OT-0001")
             self.assertEqual(window.state, "Exportación completada")
             self.assertEqual(output.read_text(encoding="cp1252"), "OT-0001;A;9,00\nOT-0001;B;18,00\n")
             self.assertTrue(all(len(row.split(";")) == 3 for row in output.read_text(encoding="cp1252").splitlines()))
+            window.close()
+
+    def test_pda_admite_csv_como_origen(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "precintos.csv"
+            source.write_text("A\nB\n", encoding="utf-8")
+            window = RepartoMermaPrecintosWindow()
+            window.load_path(source)
+            self.assertEqual(window.state, "Fichero analizado")
+            self.assertEqual([record.precinto for record in window.source_result.records], ["A", "B"])
+            self.assertEqual(window.preview_table.columnCount(), 2)
             window.close()
 
     def test_duplicados_no_bloquean_ni_muestran_avisos(self):

@@ -3,7 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from time import perf_counter
 
-from .binary import compare_binary, sha256_and_size
+from collections.abc import Callable
+
+from .binary import ComparisonCancelled, compare_binary, sha256_and_size
 from .detectors import detect_type
 from .folders import compare_folders
 from .models import CompareMode, ComparisonOptions, ComparisonResult
@@ -11,9 +13,16 @@ from .structured import compare_json, compare_tabular, compare_xml, compare_zip
 from .text import compare_text
 
 MAX_STRUCTURED_ANALYSIS_SIZE = 50 * 1024 * 1024
+MAX_BINARY_COMPARISON_SIZE = 512 * 1024 * 1024
 
 
-def compare_paths(left_path: str | Path, right_path: str | Path, options: ComparisonOptions | None = None) -> ComparisonResult:
+def compare_paths(
+    left_path: str | Path,
+    right_path: str | Path,
+    options: ComparisonOptions | None = None,
+    *,
+    cancelled: Callable[[], bool] | None = None,
+) -> ComparisonResult:
     options = options or ComparisonOptions()
     left, right = Path(left_path), Path(right_path)
     started = perf_counter()
@@ -28,7 +37,15 @@ def compare_paths(left_path: str | Path, right_path: str | Path, options: Compar
         result.elapsed_seconds = perf_counter() - started
         return result
     if left.is_dir() and right.is_dir():
-        result = compare_folders(left, right, options, compare_paths)
+        try:
+            result = compare_folders(left, right, options, compare_paths, cancelled)
+        except ComparisonCancelled:
+            result = ComparisonResult(str(left), str(right), detected_type="directory")
+            result.warnings.append("Comparación cancelada por el usuario.")
+            result.metadata["cancelled"] = True
+        except (OSError, PermissionError, ValueError) as error:
+            result = ComparisonResult(str(left), str(right), detected_type="directory")
+            result.errors.append(f"No se pudo comparar la carpeta: {error}")
         result.elapsed_seconds = perf_counter() - started
         return result
     if left.is_dir() != right.is_dir():
@@ -38,11 +55,20 @@ def compare_paths(left_path: str | Path, right_path: str | Path, options: Compar
         return result
     result = ComparisonResult(str(left), str(right))
     try:
-        result.left_sha256, result.left_size = sha256_and_size(left, options.block_size)
-        result.right_sha256, result.right_size = sha256_and_size(right, options.block_size)
+        # Refuse inputs that cannot be compared safely in a desktop UI.  This
+        # protects memory, long network reads and accidental whole-drive scans.
+        if max(left.stat().st_size, right.stat().st_size) > MAX_BINARY_COMPARISON_SIZE:
+            result.errors.append(
+                "Comparación omitida: un archivo supera el límite seguro de 512 MiB. "
+                "Use una herramienta de línea de comandos o compare una copia reducida."
+            )
+            result.elapsed_seconds = perf_counter() - started
+            return result
+        result.left_sha256, result.left_size = sha256_and_size(left, options.block_size, cancelled)
+        result.right_sha256, result.right_size = sha256_and_size(right, options.block_size, cancelled)
         result.detected_type = detect_type(left)
         # El hash acelera la respuesta, pero toda igualdad se confirma por lectura binaria.
-        compare_binary(left, right, options, result)
+        compare_binary(left, right, options, result, cancelled)
         strict_differences = result.total_differences
         if result.detected_type == "text":
             # Conserva la igualdad binaria y sustituye el detalle por un diff legible.
@@ -51,7 +77,7 @@ def compare_paths(left_path: str | Path, right_path: str | Path, options: Compar
             result.differences.clear()
             result.total_differences = 0
             result.truncated = False
-            compare_text(left, right, options, result)
+            compare_text(left, right, options, result, cancelled)
             result.metadata["strict_difference_count"] = strict_differences
             result.strict_equal = strict_equal
         elif options.mode != CompareMode.STRICT and result.detected_type in {"json", "xml", "csv", "tsv", "zip"} and max(result.left_size, result.right_size) <= MAX_STRUCTURED_ANALYSIS_SIZE:
@@ -59,7 +85,7 @@ def compare_paths(left_path: str | Path, right_path: str | Path, options: Compar
             result.total_differences = 0
             result.truncated = False
             if result.detected_type == "text":
-                compare_text(left, right, options, result)
+                compare_text(left, right, options, result, cancelled)
             elif result.detected_type == "json":
                 compare_json(left, right, options, result)
             elif result.detected_type == "xml":
@@ -74,7 +100,10 @@ def compare_paths(left_path: str | Path, right_path: str | Path, options: Compar
             result.semantic_equal = None
         else:
             result.semantic_equal = result.strict_equal
-    except (OSError, PermissionError) as error:
+    except ComparisonCancelled:
+        result.warnings.append("Comparación cancelada por el usuario.")
+        result.metadata["cancelled"] = True
+    except (OSError, PermissionError, ValueError) as error:
         result.errors.append(f"No se pudo leer el archivo: {error}")
     result.elapsed_seconds = perf_counter() - started
     return result
