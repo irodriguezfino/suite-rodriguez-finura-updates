@@ -1,0 +1,5 @@
+Suite Rodriguez Finura v1.7.15
+
+- Pesos: Vaciado Normal y Completo calculan pesoBruto y pesoNeto de forma independiente.
+- Los pesos ajustados se guardan con dos decimales y punto literal, por ejemplo 142.10.
+- Corrección de la ruta XLS mediante Excel para conservar el mismo resultado que XLSX/XLSM.

@@ -44,14 +44,14 @@ def _write_lote(path: Path, sheets: int = 1) -> None:
 
 class PesosCoreTests(unittest.TestCase):
     def test_calculo_normal_completo_y_redondeo_excel(self) -> None:
-        self.assertEqual(calcular_peso_vaciado("143.70", "normal"), "142.1")
-        self.assertEqual(calcular_peso_vaciado("141.50", "normal"), "139.9")
-        self.assertEqual(calcular_peso_vaciado("143.70", "completo"), "139.2")
-        self.assertEqual(calcular_peso_vaciado("141.50", "completo"), "137.0")
-        self.assertEqual(calcular_peso_vaciado("141.30", "completo"), "136.8")
-        self.assertEqual(calcular_peso_vaciado("1.0", "normal"), "1.0")
+        self.assertEqual(calcular_peso_vaciado("143.70", "normal"), "142.10")
+        self.assertEqual(calcular_peso_vaciado("141.50", "normal"), "139.90")
+        self.assertEqual(calcular_peso_vaciado("143.70", "completo"), "139.20")
+        self.assertEqual(calcular_peso_vaciado("141.50", "completo"), "137.00")
+        self.assertEqual(calcular_peso_vaciado("141.30", "completo"), "136.80")
+        self.assertEqual(calcular_peso_vaciado("1.0", "normal"), "1.00")
         # 1.15 - 1.15 * 0.011 = 1.13735; Excel ROUND(..., 1) is 1.1.
-        self.assertEqual(calcular_peso_vaciado("1.15", "normal"), "1.1")
+        self.assertEqual(calcular_peso_vaciado("1.15", "normal"), "1.10")
 
     def test_lectura_decimal_conserva_todos_los_decimales_hasta_el_redondeo_de_negocio(self) -> None:
         self.assertEqual(_as_decimal("12,345"), Decimal("12.345"))
@@ -62,16 +62,16 @@ class PesosCoreTests(unittest.TestCase):
 
     def test_calculo_decimal_con_entradas_de_alta_precision(self) -> None:
         expected_normal = {
-            "12.345": "12.2",
-            "0.125": "0.1",
-            "99.9999": "98.9",
-            "1.01": "1.0",
+            "12.345": "12.20",
+            "0.125": "0.10",
+            "99.9999": "98.90",
+            "1.01": "1.00",
         }
         expected_completo = {
-            "12.345": "9.3",
-            "0.125": "-2.8",
-            "99.9999": "96.0",
-            "1.01": "-1.9",
+            "12.345": "9.30",
+            "0.125": "-2.80",
+            "99.9999": "96.00",
+            "1.01": "-1.90",
         }
         for value, expected in expected_normal.items():
             self.assertEqual(calcular_peso_vaciado(value, "normal"), expected)
@@ -85,20 +85,44 @@ class PesosCoreTests(unittest.TestCase):
             sheet = book.active
             sheet.append(HEADERS)
             for index, weight in enumerate((12.345, 0.125, 99.9999, 1.01), start=1):
-                sheet.append(["2026-07-31", "L", "M", index, "10:00", weight, 2, 3, 1, "S", "OK", "NO", ""])
+                sheet.append(["2026-07-31", "L", "M", index, "10:00", weight, 2, 3, weight, "S", "OK", "NO", ""])
             book.save(path)
             book.close()
 
             result = process_pesos_files([path], {path: "normal"})
             self.assertEqual(result.error_count, 0)
             reloaded = load_workbook(path, data_only=False)
-            weights = [reloaded.active.cell(row, 6).value for row in range(2, 6)]
-            formats = [reloaded.active.cell(row, 6).number_format for row in range(2, 6)]
+            bruto_weights = [reloaded.active.cell(row, 6).value for row in range(2, 6)]
+            neto_weights = [reloaded.active.cell(row, 9).value for row in range(2, 6)]
+            bruto_formats = [reloaded.active.cell(row, 6).number_format for row in range(2, 6)]
+            neto_formats = [reloaded.active.cell(row, 9).number_format for row in range(2, 6)]
             reloaded.close()
-            self.assertEqual(weights, [12.2, 0.1, 98.9, 1.0])
-            self.assertEqual(formats, ["0.0", "0.0", "0.0", "0.0"])
+            self.assertEqual(bruto_weights, ["12.20", "0.10", "98.90", "1.00"])
+            self.assertEqual(neto_weights, ["12.20", "0.10", "98.90", "1.00"])
+            self.assertEqual(bruto_formats, ["@", "@", "@", "@"])
+            self.assertEqual(neto_formats, ["@", "@", "@", "@"])
 
-    def test_completo_modifica_solo_peso_bruto_y_todas_las_hojas_con_encabezado(self) -> None:
+    def test_normal_calcula_ambas_columnas_de_forma_independiente(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bruto_neto.xlsx"
+            book = Workbook()
+            sheet = book.active
+            sheet.append(HEADERS)
+            sheet.append(["2026-07-31", "L", "M", 1, "10:00", 141.50, 2, 3, 143.70, "S", "OK", "NO", ""])
+            book.save(path)
+            book.close()
+
+            result = process_pesos_files([path], {path: "normal"})
+            self.assertEqual(result.error_count, 0)
+            self.assertEqual(result.results[0].adjusted_weights, 2)
+            reloaded = load_workbook(path, data_only=False)
+            self.assertEqual(reloaded.active.cell(2, 6).value, "139.90")
+            self.assertEqual(reloaded.active.cell(2, 9).value, "142.10")
+            self.assertEqual(reloaded.active.cell(2, 6).number_format, "@")
+            self.assertEqual(reloaded.active.cell(2, 9).number_format, "@")
+            reloaded.close()
+
+    def test_completo_modifica_peso_bruto_y_neto_y_todas_las_hojas_con_encabezado(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "lote.xlsx"
             _write_lote(path, sheets=2)
@@ -113,17 +137,21 @@ class PesosCoreTests(unittest.TestCase):
             result = process_pesos_files([path], {path: "completo"}, updates.append)
 
             self.assertEqual(result.error_count, 0)
-            self.assertEqual(result.results[0].adjusted_weights, 6)
+            self.assertEqual(result.results[0].adjusted_weights, 12)
             self.assertEqual(updates[-1].completed, updates[-1].total)
             book = load_workbook(path, data_only=False)
             for sheet_index, sheet in enumerate(book.worksheets):
-                self.assertEqual(sheet.cell(2, 6).value, 139.2)
-                self.assertEqual(sheet.cell(3, 6).value, 137.0)
-                self.assertEqual(sheet.cell(4, 6).value, 136.8)
-                self.assertEqual(sheet.cell(3, 6).number_format, "0.0")
+                self.assertEqual(sheet.cell(2, 6).value, "139.20")
+                self.assertEqual(sheet.cell(3, 6).value, "137.00")
+                self.assertEqual(sheet.cell(4, 6).value, "136.80")
+                self.assertEqual(sheet.cell(2, 9).value, "133.60")
+                self.assertEqual(sheet.cell(3, 9).value, "131.60")
+                self.assertEqual(sheet.cell(4, 9).value, "130.60")
+                self.assertEqual(sheet.cell(3, 6).number_format, "@")
+                self.assertEqual(sheet.cell(3, 9).number_format, "@")
                 for row_index, row in enumerate(sheet.iter_rows(), start=1):
                     for column_index, cell in enumerate(row, start=1):
-                        if row_index > 1 and column_index == 6:
+                        if row_index > 1 and column_index in (6, 9):
                             continue
                         self.assertEqual(cell.value, before_values[sheet_index][row_index - 1][column_index - 1])
             self.assertEqual(book.worksheets[0].title, "Hoja1")
@@ -152,7 +180,7 @@ class PesosCoreTests(unittest.TestCase):
             updates = []
             result = process_pesos_files([path], {path: "normal"}, updates.append)
             self.assertEqual(result.error_count, 1)
-            self.assertIn("pesoBruto", result.results[0].message)
+            self.assertIn("pesoBruto y pesoNeto", result.results[0].message)
             self.assertEqual(path.read_bytes(), original)
             self.assertLess(updates[-1].completed, updates[-1].total)
 
@@ -169,6 +197,19 @@ class PesosCoreTests(unittest.TestCase):
             self.assertIn("fila 3", result.results[0].message)
             self.assertIn("pesoBruto", result.results[0].message)
 
+    def test_error_por_peso_neto_no_numerico_indica_columna(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "neto_invalido.xlsx"
+            _write_lote(path)
+            book = load_workbook(path)
+            book.active.cell(3, 9).value = "no valido"
+            book.save(path)
+            book.close()
+            result = process_pesos_files([path], {path: "normal"})
+            self.assertEqual(result.error_count, 1)
+            self.assertIn("fila 3", result.results[0].message)
+            self.assertIn("pesoNeto", result.results[0].message)
+
     @unittest.skipUnless(
         os.environ.get("PESOS_REFERENCE_DIR") and open_workbook is not None,
         "Defina PESOS_REFERENCE_DIR e instale xlrd para ejecutar la regresión XLS real.",
@@ -184,17 +225,32 @@ class PesosCoreTests(unittest.TestCase):
             shutil.copy2(initial, working)
             result = process_pesos_files([working], {working: "completo"})
             self.assertEqual(result.error_count, 0)
-            self.assertEqual(result.results[0].adjusted_weights, 59)
+            self.assertEqual(result.results[0].adjusted_weights, 118)
+            initial_sheet = open_workbook(initial).sheet_by_index(0)
             actual_sheet = open_workbook(working).sheet_by_index(0)
             expected_sheet = open_workbook(expected).sheet_by_index(0)
+            initial_header = [str(value).strip().casefold() for value in initial_sheet.row_values(0)]
             actual_header = [str(value).strip().casefold() for value in actual_sheet.row_values(0)]
             expected_header = [str(value).strip().casefold() for value in expected_sheet.row_values(0)]
-            actual_column = actual_header.index("pesobruto")
-            expected_column = expected_header.index("pesobruto")
             self.assertEqual(actual_sheet.nrows - 1, 59)
+            for header in ("pesobruto", "pesoneto"):
+                initial_column = initial_header.index(header)
+                actual_column = actual_header.index(header)
+                self.assertEqual(
+                    [actual_sheet.cell_value(row, actual_column) for row in range(1, actual_sheet.nrows)],
+                    [
+                        calcular_peso_vaciado(initial_sheet.cell_value(row, initial_column), "completo")
+                        for row in range(1, initial_sheet.nrows)
+                    ],
+                )
+            actual_bruto_column = actual_header.index("pesobruto")
+            expected_bruto_column = expected_header.index("pesobruto")
             self.assertEqual(
-                [actual_sheet.cell_value(row, actual_column) for row in range(1, actual_sheet.nrows)],
-                [expected_sheet.cell_value(row, expected_column) for row in range(1, expected_sheet.nrows)],
+                [actual_sheet.cell_value(row, actual_bruto_column) for row in range(1, actual_sheet.nrows)],
+                [
+                    format(Decimal(str(expected_sheet.cell_value(row, expected_bruto_column))).quantize(Decimal("0.01")), ".2f")
+                    for row in range(1, expected_sheet.nrows)
+                ],
             )
 
 

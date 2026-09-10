@@ -59,11 +59,20 @@ class PesosProgress:
 
 
 @dataclass(frozen=True)
+class _WeightColumnPlan:
+    label: str
+    column: int
+    rows: tuple[int, ...]
+
+
+@dataclass(frozen=True)
 class _WeightSheetPlan:
     title: str
-    header_row: int
-    weight_column: int
-    rows: tuple[int, ...]
+    columns: tuple[_WeightColumnPlan, ...]
+
+    @property
+    def weight_count(self) -> int:
+        return sum(len(column.rows) for column in self.columns)
 
 
 @dataclass(frozen=True)
@@ -75,7 +84,7 @@ class _FilePlan:
 
     @property
     def weight_count(self) -> int:
-        return self.legacy_weight_count if self.legacy_weight_count is not None else sum(len(sheet.rows) for sheet in self.weight_sheets)
+        return self.legacy_weight_count if self.legacy_weight_count is not None else sum(sheet.weight_count for sheet in self.weight_sheets)
 
 
 @dataclass
@@ -115,7 +124,7 @@ class PesosResult:
         lines = ["Resultado del proceso:"]
         for item in self.results:
             adjustment = (
-                f" Vaciado {item.vaciado}: {item.adjusted_weights} peso(s) en {item.adjusted_sheets} hoja(s)."
+                f" Vaciado {item.vaciado}: {item.adjusted_weights} valores de peso en {item.adjusted_sheets} hoja(s)."
                 if item.vaciado != "ninguno" and item.success
                 else ""
             )
@@ -135,28 +144,30 @@ class PesosResult:
         return "\n".join(lines)
 
 
-def calcular_peso_vaciado(peso_bruto: object, tipo_vaciado: VaciadoType) -> str:
-    """Apply the business rule and return the Excel representation (one decimal).
+def calcular_peso_vaciado(peso: object, tipo_vaciado: VaciadoType) -> str:
+    """Apply the business rule and return the Excel representation (two decimals).
 
     Decimal plus ROUND_HALF_UP is intentional: Python's default rounding is
     banker's rounding and differs from Excel's ROUND for values ending in 5.
+    The business result is rounded once to one decimal; the trailing zero is a
+    display precision requirement, so ``142.1`` is represented as ``142.10``.
     """
-    value = _calcular_peso_vaciado_decimal(peso_bruto, tipo_vaciado)
+    value = _calcular_peso_vaciado_decimal(peso, tipo_vaciado)
     return _format_decimal(value)
 
 
-def _calcular_peso_vaciado_decimal(peso_bruto: object, tipo_vaciado: VaciadoType) -> Decimal:
+def _calcular_peso_vaciado_decimal(peso: object, tipo_vaciado: VaciadoType) -> Decimal:
     """Return the numeric result without passing through a binary float."""
     if tipo_vaciado not in VALID_VACIADO_TYPES:
         raise ValueError(f"tipo de vaciado no valido: {tipo_vaciado}")
-    value = _as_decimal(peso_bruto)
+    value = _as_decimal(peso)
     if tipo_vaciado == "ninguno":
         return value
     adjusted = value - (value * Decimal("0.011"))
     if tipo_vaciado == "completo":
         adjusted -= Decimal("2.9")
     # One decimal is an explicit rule of Vaciado, not an intermediate rounding.
-    return adjusted.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+    return adjusted.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP).quantize(Decimal("0.01"))
 
 
 def process_pesos_files(
@@ -251,7 +262,7 @@ def _as_decimal(value: object) -> Decimal:
 
 
 def _format_decimal(value: Decimal) -> str:
-    return format(value.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP), ".1f")
+    return format(value.quantize(Decimal("0.01")), ".2f")
 
 
 def _normalise_header(value: object) -> str:
@@ -268,7 +279,7 @@ def _build_file_plan(path: Path, vaciado: VaciadoType) -> _FilePlan:
     try:
         plans = tuple(_weight_sheet_plan(sheet) for sheet in workbook.worksheets if _sheet_has_weight_header(sheet))
         if not plans:
-            raise ValueError(f"{path.name}: no se encontro el encabezado pesoBruto en ninguna hoja")
+            raise ValueError(f"{path.name}: no se encontraron los encabezados pesoBruto y pesoNeto en ninguna hoja")
         return _FilePlan(path=path, vaciado=vaciado, weight_sheets=plans)
     finally:
         workbook.close()
@@ -276,35 +287,44 @@ def _build_file_plan(path: Path, vaciado: VaciadoType) -> _FilePlan:
 
 def _sheet_has_weight_header(sheet: object) -> bool:
     return any(
-        _normalise_header(cell.value) == "pesobruto"
+        _normalise_header(cell.value) in {"pesobruto", "pesoneto"}
         for row in sheet.iter_rows()  # type: ignore[attr-defined]
         for cell in row
     )
 
 
 def _weight_sheet_plan(sheet: object) -> _WeightSheetPlan:
-    matches: list[tuple[int, int]] = []
+    matches: dict[str, list[tuple[int, int]]] = {"pesoBruto": [], "pesoNeto": []}
     for row in sheet.iter_rows():  # type: ignore[attr-defined]
         for cell in row:
-            if _normalise_header(cell.value) == "pesobruto":
-                matches.append((cell.row, cell.column))
-    if len(matches) != 1:
-        raise ValueError(f"hoja {sheet.title}: encabezado pesoBruto ambiguo")
-    header_row, weight_column = matches[0]
-    rows: list[int] = []
-    for row_index in range(header_row + 1, sheet.max_row + 1):
-        values = [sheet.cell(row_index, column).value for column in range(1, sheet.max_column + 1)]
-        if not any(value not in (None, "") for value in values):
-            continue
-        weight = sheet.cell(row_index, weight_column).value
-        if weight in (None, ""):
-            continue
-        try:
-            _as_decimal(weight)
-        except ValueError as exc:
-            raise ValueError(f"hoja {sheet.title}, fila {row_index}, pesoBruto: {exc}") from exc
-        rows.append(row_index)
-    return _WeightSheetPlan(sheet.title, header_row, weight_column, tuple(rows))
+            key = _normalise_header(cell.value)
+            if key == "pesobruto":
+                matches["pesoBruto"].append((cell.row, cell.column))
+            elif key == "pesoneto":
+                matches["pesoNeto"].append((cell.row, cell.column))
+
+    plans: list[_WeightColumnPlan] = []
+    for label, header_matches in matches.items():
+        if not header_matches:
+            raise ValueError(f"hoja {sheet.title}: falta el encabezado {label}")
+        if len(header_matches) != 1:
+            raise ValueError(f"hoja {sheet.title}: encabezado {label} ambiguo")
+        header_row, weight_column = header_matches[0]
+        rows: list[int] = []
+        for row_index in range(header_row + 1, sheet.max_row + 1):
+            values = [sheet.cell(row_index, column).value for column in range(1, sheet.max_column + 1)]
+            if not any(value not in (None, "") for value in values):
+                continue
+            weight = sheet.cell(row_index, weight_column).value
+            if weight in (None, ""):
+                continue
+            try:
+                _as_decimal(weight)
+            except ValueError as exc:
+                raise ValueError(f"hoja {sheet.title}, fila {row_index}, {label}: {exc}") from exc
+            rows.append(row_index)
+        plans.append(_WeightColumnPlan(label, weight_column, tuple(rows)))
+    return _WeightSheetPlan(sheet.title, tuple(plans))
 
 
 def _process_file_plan(
@@ -344,17 +364,21 @@ def _process_ooxml(
             for sheet_plan in plan.weight_sheets:
                 sheet = workbook[sheet_plan.title]
                 adjusted_sheets += 1
-                for position, row in enumerate(sheet_plan.rows, start=1):
-                    cell = sheet.cell(row, sheet_plan.weight_column)
-                    cell.value = _calcular_peso_vaciado_decimal(cell.value, plan.vaciado)
-                    cell.number_format = "0.0"
-                    adjusted_weights += 1
-                    _emit_progress(
-                        progress,
-                        completed + 1 + adjusted_weights,
-                        total,
-                        f"Procesando peso {position} de {len(sheet_plan.rows)} en {plan.path.name}…",
-                    )
+                for column_plan in sheet_plan.columns:
+                    for row in column_plan.rows:
+                        cell = sheet.cell(row, column_plan.column)
+                        # Excel localizes numeric decimal separators.  These fields are
+                        # deliberately written as text so their interchange value is
+                        # always e.g. "142.10", independently of the Windows locale.
+                        cell.number_format = "@"
+                        cell.value = _format_decimal(_calcular_peso_vaciado_decimal(cell.value, plan.vaciado))
+                        adjusted_weights += 1
+                        _emit_progress(
+                            progress,
+                            completed + 1 + adjusted_weights,
+                            total,
+                            f"Procesando valor de peso {adjusted_weights} de {plan.weight_count} en {plan.path.name}…",
+                        )
         if changed:
             target_sheet.title = TARGET_SHEET_NAME
         temp_path = _temporary_path_for(plan.path)
@@ -608,37 +632,45 @@ try {
     if ($Vaciado -ne 'ninguno') {
         foreach ($sheet in @($workbook.Worksheets)) {
             $used = $sheet.UsedRange
-            $headerHits = @()
+            $headerHits = @{ pesobruto = @(); pesoneto = @() }
             for ($r = 1; $r -le $used.Rows.Count; $r++) {
                 for ($c = 1; $c -le $used.Columns.Count; $c++) {
                     $cell = $used.Cells.Item($r, $c)
-                    if ((Header-Key $cell.Value2) -eq 'pesobruto') {
-                        $headerHits += ,@($cell.Row, $cell.Column)
+                    $headerKey = Header-Key $cell.Value2
+                    if ($headerKey -eq 'pesobruto' -or $headerKey -eq 'pesoneto') {
+                        $headerHits[$headerKey] += ,@($cell.Row, $cell.Column)
                     }
                 }
             }
-            if ($headerHits.Count -eq 0) { continue }
-            if ($headerHits.Count -ne 1) { throw "hoja $($sheet.Name): encabezado pesoBruto ambiguo" }
-            $header = $headerHits[0]
-            $headerRow = [int]$header[0]
-            $weightColumn = [int]$header[1]
+            if ($headerHits['pesobruto'].Count -eq 0 -and $headerHits['pesoneto'].Count -eq 0) { continue }
+            foreach ($headerKey in @('pesobruto', 'pesoneto')) {
+                $headerLabel = if ($headerKey -eq 'pesobruto') { 'pesoBruto' } else { 'pesoNeto' }
+                if ($headerHits[$headerKey].Count -eq 0) { throw "hoja $($sheet.Name): falta el encabezado $headerLabel" }
+                if ($headerHits[$headerKey].Count -ne 1) { throw "hoja $($sheet.Name): encabezado $headerLabel ambiguo" }
+            }
             $adjustedSheets++
             $lastRow = $used.Row + $used.Rows.Count - 1
-            for ($r = $headerRow + 1; $r -le $lastRow; $r++) {
-                $hasData = $false
-                for ($c = $used.Column; $c -lt ($used.Column + $used.Columns.Count); $c++) {
-                    $candidate = $sheet.Cells.Item($r, $c).Value2
-                    if ($null -ne $candidate -and [string]$candidate -ne '') { $hasData = $true; break }
+            foreach ($headerKey in @('pesobruto', 'pesoneto')) {
+                $header = $headerHits[$headerKey][0]
+                $headerRow = [int]$header[0]
+                $weightColumn = [int]$header[1]
+                $headerLabel = if ($headerKey -eq 'pesobruto') { 'pesoBruto' } else { 'pesoNeto' }
+                for ($r = $headerRow + 1; $r -le $lastRow; $r++) {
+                    $hasData = $false
+                    for ($c = $used.Column; $c -lt ($used.Column + $used.Columns.Count); $c++) {
+                        $candidate = $sheet.Cells.Item($r, $c).Value2
+                        if ($null -ne $candidate -and [string]$candidate -ne '') { $hasData = $true; break }
+                    }
+                    if (-not $hasData) { continue }
+                    $weightCell = $sheet.Cells.Item($r, $weightColumn)
+                    if ($null -eq $weightCell.Value2 -or [string]$weightCell.Value2 -eq '') { continue }
+                    try { $weight = Decimal-Value $weightCell.Value2 }
+                    catch { throw "hoja $($sheet.Name), fila $r, ${headerLabel}: $($_.Exception.Message)" }
+                    $weightCells += [pscustomobject]@{Cell=$weightCell; Weight=$weight; Label=$headerLabel}
                 }
-                if (-not $hasData) { continue }
-                $weightCell = $sheet.Cells.Item($r, $weightColumn)
-                if ($null -eq $weightCell.Value2 -or [string]$weightCell.Value2 -eq '') { continue }
-                try { $weight = Decimal-Value $weightCell.Value2 }
-                catch { throw "hoja $($sheet.Name), fila $r, pesoBruto: $($_.Exception.Message)" }
-                $weightCells += [pscustomobject]@{Cell=$weightCell; Weight=$weight}
             }
         }
-        if ($adjustedSheets -eq 0) { throw "no se encontro el encabezado pesoBruto en ninguna hoja" }
+        if ($adjustedSheets -eq 0) { throw "no se encontraron los encabezados pesoBruto y pesoNeto en ninguna hoja" }
     }
     $plannedWeights = $weightCells.Count
     if (-not $isPreview) {
@@ -646,8 +678,11 @@ try {
             $adjusted = $entry.Weight - ($entry.Weight * [decimal]0.011)
             if ($Vaciado -eq 'completo') { $adjusted -= [decimal]2.9 }
             $adjusted = [Math]::Round($adjusted, 1, [MidpointRounding]::AwayFromZero)
-            $entry.Cell.Value2 = $adjusted
-            $entry.Cell.NumberFormat = '0.0'
+            # A numeric Excel cell is rendered with the operator's regional
+            # separator (comma in Spanish Excel).  Store the external format
+            # as text to guarantee the literal point requested by the workflow.
+            $entry.Cell.NumberFormat = '@'
+            $entry.Cell.Value2 = $adjusted.ToString('0.00', [Globalization.CultureInfo]::InvariantCulture)
             $adjustedWeights++
             Write-Output "PROGRESS|$adjustedWeights|$plannedWeights"
         }

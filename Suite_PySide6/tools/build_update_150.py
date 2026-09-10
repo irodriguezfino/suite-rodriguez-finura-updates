@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.7.14"
+VERSION = "1.7.15"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
@@ -292,9 +292,9 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
     full_digest = sha256(full_package)
     installer_digest = sha256(installer_bat)
     notes = (
-        "- Mejora integral de estabilidad: las operaciones pesadas se ejecutan en segundo plano y no bloquean la consola.\n"
-        "- Cierre seguro de herramientas activas, guardado atómico y recuperación clara ante archivos bloqueados o errores de red.\n"
-        "- Comparador reforzado con cancelación real, límites de seguridad y vistas previas acotadas."
+        "- Pesos: Vaciado Normal y Completo calculan pesoBruto y pesoNeto de forma independiente.\n"
+        "- Los pesos ajustados se guardan con dos decimales y punto literal, por ejemplo 142.10.\n"
+        "- Corrección de la ruta XLS mediante Excel para conservar el mismo resultado que XLSX/XLSM."
     )
     manifest = {
         "schema": "suite-rodriguez-finura-update-v1",

@@ -103,7 +103,7 @@ class PesosWindow(QMainWindow):
         hero_copy.setSpacing(3)
         title = QLabel("Pesos")
         title.setObjectName("WindowTitle")
-        subtitle = QLabel("Renombra la primera hoja visible a Hoja1 y permite ajustar el peso bruto por lote.")
+        subtitle = QLabel("Renombra la primera hoja visible a Hoja1 y permite ajustar los pesos bruto y neto por lote.")
         subtitle.setObjectName("WindowSubtitle")
         subtitle.setWordWrap(True)
         hero_copy.addWidget(title)
