@@ -1,0 +1,5 @@
+Suite Rodriguez Finura v1.7.16
+
+- Nueva ayuda contextual en las 12 aplicaciones: objetivo, preparación, pasos, resultado y consejos de uso.
+- Acceso directo a la ayuda desde cada aplicación con el botón Ayuda o la tecla F1.
+- Corregido el fondo de la guía para que se vea de forma uniforme y legible en Windows y en todos los temas.

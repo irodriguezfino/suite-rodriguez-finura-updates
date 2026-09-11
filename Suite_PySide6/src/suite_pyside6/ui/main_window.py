@@ -31,6 +31,7 @@ from suite_pyside6.core.app_organization import CategoryDefinition
 from suite_pyside6.core.apps import APP_REGISTRY, AppDefinition, app_by_key, categories
 from suite_pyside6.core.paths import resource_path
 from suite_pyside6.ui.about_dialog import AboutDialog
+from suite_pyside6.ui.app_help import AppHelpDialog
 from suite_pyside6.ui.app_windows import preloaded_window_class, preload_window_class
 from suite_pyside6.ui.components import (
     ActionMenuButton,
@@ -121,6 +122,7 @@ class MainWindow(QMainWindow):
             ("Ctrl+Return", self._trigger_next),
             ("Ctrl+Enter", self._trigger_next),
             ("Ctrl+W", self._close_current_work),
+            ("F1", self.show_current_app_help),
         )
         for sequence, callback in shortcuts:
             action = QAction(self)
@@ -294,6 +296,15 @@ class MainWindow(QMainWindow):
         actions_layout.setContentsMargins(0, 0, 0, 0)
         actions_layout.setSpacing(8)
         self.workspace_description.move_actions_to(actions_layout)
+
+        self.help_button = QPushButton("Ayuda")
+        configure_header_action(self.help_button)
+        self.help_button.setToolTip("Abrir la guía rápida de la aplicación actual (F1)")
+        self.help_button.setAccessibleName("Ayuda de la aplicación actual")
+        self.help_button.setAccessibleDescription("Abre una guía con el objetivo, los pasos y la salida de la aplicación actual. Atajo: F1.")
+        self.help_button.clicked.connect(self.show_current_app_help)
+        self.help_button.setVisible(False)
+        actions_layout.addWidget(self.help_button)
 
         self.about_button = QPushButton(f"v{__version__}")
         configure_header_action(self.about_button)
@@ -1137,6 +1148,7 @@ class MainWindow(QMainWindow):
         self._set_workspace_description(subtitle)
         self.search.setVisible(view in {"bandeja", "procesos"})
         self.home_button.setVisible(view != "bandeja")
+        self.help_button.setVisible(False)
         self.context_rail.setVisible(False)
         self.compact_context_bar.setVisible(False)
         self._refresh_all()
@@ -1157,6 +1169,7 @@ class MainWindow(QMainWindow):
             self._set_workspace_description(app.description, header_description_key(app.key))
             self.search.setVisible(False)
             self.home_button.setVisible(True)
+            self.help_button.setVisible(True)
             self.context_rail.setVisible(False)
             self.compact_context_bar.setVisible(False)
             self._update_nav_state()
@@ -1177,6 +1190,7 @@ class MainWindow(QMainWindow):
         self._set_workspace_description(app.description, header_description_key(app.key))
         self.search.setVisible(False)
         self.home_button.setVisible(True)
+        self.help_button.setVisible(True)
         self.context_rail.setVisible(False)
         self.compact_context_bar.setVisible(False)
         self._update_nav_state()
@@ -1230,6 +1244,7 @@ class MainWindow(QMainWindow):
         self._set_workspace_description(app.description, header_description_key(app.key))
         self.search.setVisible(False)
         self.home_button.setVisible(True)
+        self.help_button.setVisible(True)
         self.context_rail.setVisible(True)
         window.setFocus(Qt.ActiveWindowFocusReason)
         self._refresh_all()
@@ -1240,6 +1255,16 @@ class MainWindow(QMainWindow):
         dialog = AboutDialog(self)
         dialog.exec()
         self._refresh_all()
+
+    def show_current_app_help(self) -> None:
+        """Show contextual help only while an application is the active view."""
+        if not self._current_app_key:
+            return
+        try:
+            app = app_by_key(self._current_app_key)
+        except KeyError:
+            return
+        AppHelpDialog(app, self).exec()
 
     def _update_context(self) -> None:
         if self._closing:

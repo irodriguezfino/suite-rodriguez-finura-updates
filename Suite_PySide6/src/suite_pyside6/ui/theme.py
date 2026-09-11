@@ -196,6 +196,68 @@ def base_qss() -> str:
         border: 1px solid {p["border"]};
         border-radius: 10px;
     }}
+    QDialog#AppHelpDialog {{
+        background: {p["bg"]};
+    }}
+    /* Never leave the guide's canvas transparent: on Windows/Qt an
+       unpainted scroll viewport falls back to a native (often black) colour. */
+    QScrollArea#AppHelpScroll, QScrollArea#AppHelpScroll::viewport,
+    QWidget#AppHelpContent {{
+        border: 0;
+        background: {p["bg"]};
+    }}
+    QFrame#HelpHero {{
+        background: {p["primary"]};
+        border: 0;
+        border-radius: 12px;
+    }}
+    QLabel#HelpOverline {{
+        color: rgba(255, 255, 255, 0.76);
+        font-size: 8.5pt;
+        font-weight: 750;
+    }}
+    QLabel#HelpTitle {{
+        color: white;
+        font-size: 18pt;
+        font-weight: 750;
+    }}
+    QLabel#HelpLead {{
+        color: white;
+        font-size: 10.5pt;
+    }}
+    QLabel#HelpSectionTitle {{
+        color: {p["ink"]};
+        font-size: 12pt;
+        font-weight: 700;
+        padding: 2px 0;
+    }}
+    QFrame#HelpBenefitCard, QFrame#HelpInputCard, QFrame#HelpOutputCard, QFrame#HelpTipCard, QFrame#HelpStepCard {{
+        background: {p["surface"]};
+        border: 1px solid {p["border"]};
+        border-radius: 9px;
+    }}
+    QFrame#HelpBenefitCard {{ border-left: 4px solid {p["primary"]}; }}
+    QFrame#HelpInputCard {{ border-left: 4px solid {p["warning"]}; }}
+    QFrame#HelpOutputCard {{ border-left: 4px solid {p["success"]}; }}
+    QFrame#HelpTipCard {{ background: {p["surface_2"]}; }}
+    QLabel#HelpCardTitle {{
+        color: {p["ink"]};
+        font-size: 10pt;
+        font-weight: 700;
+    }}
+    QLabel#HelpCardBody, QLabel#HelpStepText {{
+        color: {p["muted"]};
+        font-size: 9.5pt;
+    }}
+    QLabel#HelpStepNumber {{
+        background: {p["primary_soft"]};
+        color: {p["primary"]};
+        border-radius: 14px;
+        font-weight: 750;
+    }}
+    QPushButton#HelpCloseButton {{
+        min-width: 120px;
+    }}
     QFrame#WorkflowDivider {{
         background: {p["border"]};
         border: 0;
