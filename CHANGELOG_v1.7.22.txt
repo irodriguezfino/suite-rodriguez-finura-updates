@@ -1,0 +1,9 @@
+Suite Rodriguez Finura v1.7.22
+
+- Tarjetas de Procesos: acciones alineadas y estables en ambas densidades, con adaptación a anchos reducidos.
+- Cabeceras compactas, personalización en menú y menos paneles, sombras e indicaciones duplicadas.
+- Casillas con marca explícita, controles numéricos y desplegables coherentes e iconos vectoriales compartidos.
+- Bandeja simplificada, estados vacíos útiles, elección PDA/FAC mediante tarjetas y trabajos abiertos con desplazamiento.
+- Motores, cálculos, guardado y medidas de protección de datos sin cambios respecto a v1.7.21.
+- Pruebas de regresión y renderizados Qt en temas claro/oscuro y escalas 100/125/150/200 %.
+- Detalle de cambios y límites de validación: outputs/audit_1.7.22/IMPLEMENTACION.md.

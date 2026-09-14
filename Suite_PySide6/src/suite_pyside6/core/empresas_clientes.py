@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import logging
-import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from PySide6.QtCore import QStandardPaths
-
 from suite_pyside6.core.paths import resource_path
+from suite_pyside6.infrastructure.user_paths import application_config_root
 
 
 LOGGER = logging.getLogger(__name__)
@@ -26,12 +24,7 @@ class EmpresasClientesLoadResult:
 def empresas_clientes_config_path() -> Path:
     """Ruta persistente editable, independiente de la carpeta de instalacion."""
 
-    app_data = os.environ.get("APPDATA")
-    if app_data:
-        config_dir = Path(app_data) / "RodriguezFinura" / "SuitePySide6"
-    else:
-        standard_path = QStandardPaths.writableLocation(QStandardPaths.AppConfigLocation)
-        config_dir = Path(standard_path or Path.home() / ".config") / "RodriguezFinura" / "SuitePySide6"
+    config_dir = application_config_root("RodriguezFinura", "SuitePySide6")
     return config_dir / "control_recepcion_precintos" / EMPRESAS_CLIENTES_FILENAME
 
 

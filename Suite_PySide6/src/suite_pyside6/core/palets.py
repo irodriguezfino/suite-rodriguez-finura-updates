@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .jobs import checkpoint, checked, report_progress, begin_commit
+
 import csv
 import io
 import re
@@ -7,7 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Sequence
 
-from .atomic_io import write_bytes_atomically
+from .atomic_io import write_bytes_atomically, atomic_text_writer
 
 
 VALID_PREFIXES = ("00",)
@@ -79,6 +81,7 @@ class PaletsResult:
             "",
         ]
         for issue in self.issues:
+            checkpoint()
             lines.append(f"# Archivo: {issue.file} | Linea: {issue.line}")
             lines.append(f"# Original: {issue.original}")
             lines.append(issue.cleaned)
@@ -97,7 +100,8 @@ def is_valid_code(code: str, prefixes: Sequence[str] = VALID_PREFIXES) -> bool:
 def validate_txt_lines(paths: Iterable[Path], prefixes: Sequence[str] = VALID_PREFIXES) -> tuple[list[str], list[CodeIssue]]:
     valid: list[str] = []
     issues: list[CodeIssue] = []
-    for path in paths:
+    for path in checked(paths, phase="Leyendo archivos", total=len(paths), unit="archivos"):
+        checkpoint()
         with path.open("r", encoding="utf-8-sig", errors="replace") as handle:
             for line_number, line in enumerate(handle, start=1):
                 original = line.strip()
@@ -115,11 +119,13 @@ def validate_corrected_codes(text: str, prefixes: Sequence[str] = VALID_PREFIXES
     valid: list[str] = []
     invalid: list[str] = []
     for line in text.splitlines():
+        checkpoint()
         original = line.strip()
         if not original or original.startswith("#"):
             continue
         cleaned = normalize_line(original)
         if len(cleaned) < 10:
+            invalid.append(original)
             continue
         if is_valid_code(cleaned, prefixes):
             valid.append(cleaned)
@@ -132,11 +138,13 @@ def validate_final_palets_text(text: str, prefixes: Sequence[str] = VALID_PREFIX
     palets: list[str] = []
     invalid: list[str] = []
     for line in text.splitlines():
+        checkpoint()
         original = line.strip()
         if not original or original.startswith("#"):
             continue
         cleaned = normalize_line(original)
         if len(cleaned) < 10:
+            invalid.append(original)
             continue
         if len(cleaned) == 18 and cleaned.isdigit():
             palets.append(cleaned)
@@ -155,6 +163,7 @@ def dedupe_final_palets(palets: Iterable[str]) -> list[str]:
     reversed_result: list[str] = []
     seen_keys: set[str] = set()
     for pallet in reversed(list(palets)):
+        checkpoint()
         key = pallet[-10:]
         if key in seen_keys:
             continue
@@ -186,9 +195,7 @@ def integrate_corrections(base_valid: list[str], issues: list[CodeIssue], correc
 
 
 def write_palets_csv(path: Path, palets: Iterable[str]) -> None:
-    output = io.StringIO(newline="")
-    writer = csv.writer(output, lineterminator="\r\n")
-    for pallet in palets:
-        writer.writerow([pallet])
-    write_bytes_atomically(path, output.getvalue().encode("utf-8-sig"))
+    with atomic_text_writer(path, encoding="utf-8-sig") as stream:
+        writer = csv.writer(stream, lineterminator="\r\n")
+        writer.writerows((pallet,) for pallet in palets)
 

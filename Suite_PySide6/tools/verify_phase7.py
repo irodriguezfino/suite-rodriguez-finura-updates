@@ -22,6 +22,7 @@ from suite_pyside6.core.precintos_expedicion import (
 )
 from suite_pyside6.ui.main_window import MainWindow
 from suite_pyside6.ui.precintos_expedicion_window import PrecintosExpedicionWindow
+from verify_helpers import wait_for
 
 
 def write_entrada(path: Path) -> None:
@@ -101,10 +102,10 @@ def main() -> int:
         window = PrecintosExpedicionWindow()
         window.show_dialogs = False
         window.set_files([entrada, salida])
-        app.processEvents()
+        wait_for(app, lambda: window.selected_pallets == {"PALLET-A"})
         assert window.selected_pallets == {"PALLET-A"}
         window.process_files()
-        app.processEvents()
+        wait_for(app, lambda: window.result is not None)
         assert window.result is not None
         assert window.result.precintos_usados == 2
         saved_from_window = window.save_to_directory(tmp_path / "window_txt")

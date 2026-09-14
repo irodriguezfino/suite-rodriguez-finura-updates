@@ -90,7 +90,7 @@ APP_REGISTRY: tuple[AppDefinition, ...] = (
     AppDefinition(
         key="pesos",
         title="Pesos",
-        description="Renombra la primera hoja visible de varios Excel a Hoja1 sin cambiar datos.",
+        description="Prepara la hoja Hoja1 y aplica vaciados al peso bruto; el peso neto se conserva.",
         short_description="Excel de pesos con hoja Hoja1.",
         category="Pesos",
         shortcut="Alt+9",

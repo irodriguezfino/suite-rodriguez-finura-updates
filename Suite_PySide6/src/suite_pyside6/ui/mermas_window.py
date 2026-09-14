@@ -21,9 +21,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from suite_pyside6.core.mermas import MermasResult, process_mermas, save_mermas_excel
+from suite_pyside6.core.mermas import MermasResult, MermasSummary, process_mermas, save_mermas_excel
 from suite_pyside6.core.paths import resource_path
-from suite_pyside6.ui.background import run_background
+from suite_pyside6.ui.background import run_background, run_export
 from suite_pyside6.ui.components import ModernSelect, control_metric_pair, control_pill, control_rail_label, labeled_field, section_label, step_bar
 from suite_pyside6.ui.file_dialogs import open_file, open_files, save_file
 from suite_pyside6.ui.polish import confirm_discard_work, show_inline_message, polish_window, sync_recommended_action
@@ -36,7 +36,7 @@ class MermasWindow(QMainWindow):
         super().__init__()
         self.final_files: list[Path] = []
         self.origin_file: Path | None = None
-        self.result = MermasResult()
+        self.result = None
         self.show_dialogs = True
         self.setWindowTitle("Merma Jamones FAC")
         self.resize(1120, 720)
@@ -48,6 +48,10 @@ class MermasWindow(QMainWindow):
         self._build_ui()
         polish_window(self)
         self._refresh()
+
+    @property
+    def _has_result(self) -> bool:
+        return self.result is not None and not self.result.dataframe.empty
 
     def flow_steps(self) -> tuple[str, ...]:
         return ("Cargar finales", "Cargar origen", "Procesar", "Guardar Excel")
@@ -135,7 +139,10 @@ class MermasWindow(QMainWindow):
         self.filter_combo.add_option("SI", description="Mostrar sólo los registros que cumplen")
         self.filter_combo.add_option("NO", description="Mostrar sólo los registros que no cumplen")
         self.filter_combo.add_option("TODOS", description="Mostrar todos los registros")
-        self.filter_combo.currentTextChanged.connect(lambda _text: self._refresh())
+        # El núcleo usa ``SI`` como filtro predeterminado; reflejarlo en la UI
+        # evita que un selector vacío produzca una salida distinta al contrato.
+        self.filter_combo.setCurrentIndex(0)
+        self.filter_combo.currentTextChanged.connect(self._filter_changed)
 
         proceso_label = QLabel("PROCESO")
         proceso_label.setObjectName("GroupLabel")
@@ -281,12 +288,23 @@ class MermasWindow(QMainWindow):
         if file:
             self.set_origin_file(file)
 
+    def _filter_changed(self, _text: str) -> None:
+        if not self.property("operationActive"):
+            self.result = None
+            self._refresh()
+
     def set_final_files(self, paths: list[Path]) -> None:
+        if self.property("operationActive"):
+            return
+        self.result = None
         self.final_files = list(paths)
         self.status.setText(f"{len(self.final_files)} archivos finales cargados.")
         self._refresh(selected_only=True)
 
     def set_origin_file(self, path: Path) -> None:
+        if self.property("operationActive"):
+            return
+        self.result = None
         self.origin_file = path
         self.status.setText(f"Origen cargado: {path.name}")
         self._refresh(selected_only=True)
@@ -321,7 +339,7 @@ class MermasWindow(QMainWindow):
         self._refresh()
 
     def save_dialog(self) -> None:
-        if self.result.dataframe.empty:
+        if not self._has_result:
             if self.show_dialogs:
                 show_inline_message(self, "warning", "No hay resultados para guardar.")
             return
@@ -336,17 +354,13 @@ class MermasWindow(QMainWindow):
             self.save_path(file)
 
     def save_path(self, path: Path) -> None:
-        try:
-            save_mermas_excel(path, self.result)
-        except Exception as exc:
-            self.status.setText(f"No se pudo guardar el Excel: {exc}")
-            if self.show_dialogs:
-                show_inline_message(self, "error", str(exc))
+        if not self._has_result:
             return
-        self.status.setText(f"Excel guardado: {path}")
-        show_inline_message(self, "success", f"Excel guardado: {path.name}")
-        self._refresh_pilot_state()
-        self._sync_recommended_action()
+        result = self.result
+        def completed(_value):
+            self.status.setText(f"Excel guardado: {path}")
+            show_inline_message(self, "success", f"Excel guardado: {path.name}")
+        run_export(self, lambda: save_mermas_excel(path, result), completed)
 
     def clear(self) -> None:
         if self.property("operationActive"):
@@ -355,7 +369,7 @@ class MermasWindow(QMainWindow):
             return
         self.final_files = []
         self.origin_file = None
-        self.result = MermasResult()
+        self.result = None
         self.status.setText("Sin archivos cargados")
         self._refresh()
 
@@ -372,15 +386,15 @@ class MermasWindow(QMainWindow):
         else:
             self.summary.setText(
                 " | ".join(self.result.summary.lines()[:4])
-                if not self.result.dataframe.empty
+                if self._has_result
                 else "Sin archivos cargados"
             )
-            self.preview.setPlainText(self.result.preview_text() if not self.result.dataframe.empty else "Selecciona los CSV finales y el archivo de origen para empezar.")
+            self.preview.setPlainText(self.result.preview_text() if self._has_result else "Selecciona los CSV finales y el archivo de origen para empezar.")
             self._fill_result_table()
         busy = bool(self.property("operationActive"))
         self.process_button.setEnabled(bool(self.final_files and self.origin_file) and not busy)
-        self.save_button.setEnabled(not self.result.dataframe.empty and not busy)
-        self.clear_button.setEnabled(bool(self.final_files or self.origin_file or not self.result.dataframe.empty) and not busy)
+        self.save_button.setEnabled(self._has_result and not busy)
+        self.clear_button.setEnabled(bool(self.final_files or self.origin_file or self._has_result) and not busy)
         self._refresh_pilot_state()
         self._sync_recommended_action()
 
@@ -389,7 +403,7 @@ class MermasWindow(QMainWindow):
             self.result_table.clear()
             self.result_table.setRowCount(0)
             self.result_table.setColumnCount(0)
-            if empty or self.result.dataframe.empty:
+            if empty or not self._has_result:
                 return
             frame = self.result.dataframe.head(100)
             columns = [str(column) for column in frame.columns]
@@ -408,8 +422,8 @@ class MermasWindow(QMainWindow):
                 header.setSectionResizeMode(len(columns) - 1, QHeaderView.Stretch)
 
     def _refresh_pilot_state(self) -> None:
-        summary = self.result.summary
-        result_rows = 0 if self.result.dataframe.empty else len(self.result.dataframe)
+        summary = self.result.summary if self.result is not None else MermasSummary()
+        result_rows = 0 if not self._has_result else len(self.result.dataframe)
         self.metric_final_files.setText(str(len(self.final_files)))
         self.metric_rows.setText(str(summary.filas_leidas if summary.filas_leidas else "-"))
         self.metric_result.setText(str(result_rows))
@@ -441,7 +455,7 @@ class MermasWindow(QMainWindow):
             return "Excel guardado", "El resultado de merma se ha exportado correctamente.", 100
         if "error" in status:
             return "Revisión necesaria", self.status.text(), 65
-        if not self.result.dataframe.empty:
+        if self._has_result:
             return "Cruce completado", "Revisa la tabla y guarda el Excel de resultado.", 85
         if self.final_files and self.origin_file:
             return "Listo para procesar", "Los finales y el origen están cargados. Ejecuta el cruce.", 55
@@ -456,7 +470,7 @@ class MermasWindow(QMainWindow):
             return "Cargar CSVs finales"
         if self.origin_file is None:
             return "Cargar origen"
-        if self.result.dataframe.empty:
+        if not self._has_result:
             return "Procesar cruce"
         return "Guardar Excel"
 
@@ -480,7 +494,7 @@ class MermasWindow(QMainWindow):
             return 4, False, True
         if "error" in status:
             return 3, True, False
-        if not self.result.dataframe.empty:
+        if self._has_result:
             return 4, False, False
         if self.final_files and self.origin_file:
             return 3, False, False

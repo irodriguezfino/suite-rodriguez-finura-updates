@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 
 from suite_pyside6.core.paths import resource_path
 from suite_pyside6.core.txt_csv import TxtCsvResult, process_txt_files, write_txt_csv
-from suite_pyside6.ui.background import run_background
+from suite_pyside6.ui.background import run_background, run_export
 from suite_pyside6.ui.components import control_metric_pair, control_pill, control_rail_label, section_label, step_bar
 from suite_pyside6.ui.file_dialogs import open_files, save_file
 from suite_pyside6.ui.polish import confirm_discard_work, show_inline_message, polish_window, sync_recommended_action
@@ -297,17 +297,11 @@ class TxtCsvWindow(QMainWindow):
             self.save_csv_path(file)
 
     def save_csv_path(self, path: Path) -> None:
-        try:
-            write_txt_csv(path, self.result.processed_lines)
-        except Exception as exc:
-            self.status.setText(f"No se pudo guardar el CSV: {exc}")
-            if self.show_dialogs:
-                show_inline_message(self, "error", str(exc))
-            return
-        self.status.setText(f"CSV guardado: {path}")
-        show_inline_message(self, "success", f"CSV guardado: {path.name}")
-        self._refresh_pilot_state()
-        self._sync_recommended_action()
+        values = list(self.result.processed_lines)
+        def completed(_value):
+            self.status.setText(f"CSV guardado: {path}")
+            show_inline_message(self, "success", f"CSV guardado: {path.name}")
+        run_export(self, lambda: write_txt_csv(path, values), completed)
 
     def clear(self) -> None:
         if self.property("operationActive"):

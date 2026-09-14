@@ -9,7 +9,7 @@ from .models import ComparisonResult
 
 
 def as_text(result: ComparisonResult) -> str:
-    state = "IGUALES" if result.strict_equal else "DIFERENTES"
+    state = result.status_text()
     lines = [
         f"Resultado: {state}",
         f"Archivos: {result.left_path} <> {result.right_path}",
@@ -29,7 +29,7 @@ def as_json(result: ComparisonResult) -> str:
 
 
 def as_html(result: ComparisonResult) -> str:
-    title = "Iguales" if result.strict_equal else "Diferentes"
+    title = result.status_text()
     rows = "".join(
         "<tr>" + "".join(f"<td>{html.escape(str(value))}</td>" for value in (item.kind, item.location, item.left, item.right, item.detail)) + "</tr>"
         for item in result.differences

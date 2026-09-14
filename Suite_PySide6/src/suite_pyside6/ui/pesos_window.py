@@ -1,30 +1,30 @@
 from __future__ import annotations
 
+from .record_table import RecordTable
+
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QThread, Signal, Qt
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QBoxLayout,
-    QAbstractItemView,
     QFrame,
-    QCheckBox,
     QGridLayout,
     QHeaderView,
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMessageBox,
     QProgressBar,
     QPushButton,
     QPlainTextEdit,
     QSizePolicy,
-    QTableWidget,
-    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
 from suite_pyside6.core.paths import resource_path
+from suite_pyside6.core.batch_recovery import pending_recoveries, RecoverableBatch
 from suite_pyside6.core.pesos import (
     OLD_EXCEL_EXTENSIONS,
     SUPPORTED_EXTENSIONS,
@@ -35,31 +35,13 @@ from suite_pyside6.core.pesos import (
     process_pesos_files,
 )
 from suite_pyside6.ui.components import control_metric_pair, control_pill, control_rail_label, section_label, step_bar
+from suite_pyside6.ui.background import run_background
+from suite_pyside6.core.jobs import report_progress
 from suite_pyside6.ui.file_dialogs import open_files
 from suite_pyside6.ui.polish import confirm_discard_work, show_inline_message, polish_window, sync_recommended_action
 from suite_pyside6.ui.responsive import register_adaptive_layout
 from suite_pyside6.ui.table_utils import bulk_table_update, update_count_label
 from suite_pyside6.ui.theme import base_qss
-
-
-class _PesosWorker(QObject):
-    progress = Signal(object)
-    finished = Signal(object)
-
-    def __init__(self, paths: list[Path], vaciados: dict[Path, VaciadoType]) -> None:
-        super().__init__()
-        self.paths = paths
-        self.vaciados = vaciados
-
-    def run(self) -> None:
-        try:
-            result = process_pesos_files(self.paths, self.vaciados, self.progress.emit)
-        except Exception as exc:  # final safeguard: the UI must always recover
-            result = PesosResult(
-                selected_files=self.paths,
-                results=[SheetRename(path=self.paths[0], success=False, message=str(exc))] if self.paths else [],
-            )
-        self.finished.emit(result)
 
 
 class PesosWindow(QMainWindow):
@@ -68,8 +50,6 @@ class PesosWindow(QMainWindow):
         self.paths: list[Path] = []
         self.vaciados: dict[Path, VaciadoType] = {}
         self.result = PesosResult()
-        self._thread: QThread | None = None
-        self._worker: _PesosWorker | None = None
         self._processing = False
         self._progress_value = 0
         self._progress_message = ""
@@ -83,6 +63,39 @@ class PesosWindow(QMainWindow):
         self._build_ui()
         polish_window(self)
         self._refresh()
+
+    def recover_interrupted_batch(self) -> None:
+        if self.property("operationActive") or self._processing:
+            return
+        manifests = pending_recoveries()
+        if not manifests:
+            show_inline_message(self, "info", "No hay lotes pendientes de recuperación.")
+            return
+        answer = QMessageBox.warning(self, "Recuperar lote interrumpido",
+            f"Hay {len(manifests)} lote(s) pendientes. ¿Restaurar los originales?\n"
+            "Solo se restaurarán archivos que coincidan con la salida registrada. "
+            "Los cambios externos no se sobrescribirán y las copias con conflictos se conservarán.",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if answer != QMessageBox.Yes:
+            return
+        def operation():
+            from suite_pyside6.core.pesos import _commit_temporary
+            problems = []
+            for manifest in manifests:
+                try:
+                    batch = RecoverableBatch.load(manifest)
+                    errors = batch.rollback(_commit_temporary)
+                    if errors:
+                        problems.extend(errors)
+                    else:
+                        batch.cleanup()
+                except Exception as exc:
+                    problems.append(f"{manifest.parent.name}: {exc}")
+            return problems
+        def completed(problems):
+            show_inline_message(self, "warning" if problems else "success",
+                "Recuperación pendiente: " + "; ".join(problems) if problems else "Originales restaurados y verificados.")
+        run_background(self, operation, completed, lambda message: show_inline_message(self, "error", message))
 
     def flow_steps(self) -> tuple[str, ...]:
         return ("Cargar Excel", "Elegir vaciado y procesar", "Revisar resultado")
@@ -103,7 +116,7 @@ class PesosWindow(QMainWindow):
         hero_copy.setSpacing(3)
         title = QLabel("Pesos")
         title.setObjectName("WindowTitle")
-        subtitle = QLabel("Renombra la primera hoja visible a Hoja1 y permite ajustar los pesos bruto y neto por lote.")
+        subtitle = QLabel("Renombra la primera hoja visible a Hoja1 y ajusta solo el peso bruto por lote; el peso neto se conserva.")
         subtitle.setObjectName("WindowSubtitle")
         subtitle.setWordWrap(True)
         hero_copy.addWidget(title)
@@ -213,10 +226,11 @@ class PesosWindow(QMainWindow):
         self.metric_renamed = control_metric_pair(metrics_layout, 2, "Renombrados", "0")
         self.metric_issues = control_metric_pair(metrics_layout, 3, "Avisos", "0")
 
-        self.result_table = QTableWidget(0, 6)
+        self.result_table = RecordTable(["Archivo", "Vaciado Normal", "Vaciado Completo", "Estado", "Hoja anterior", "Detalle"], self)
         self.result_table.setAccessibleName("Lotes de pesos y selección de vaciado")
+        self.result_table.setProperty('emptyText', 'Carga archivos Excel con el botón «Cargar Excel».\nDespués podrás elegir el vaciado de cada archivo y procesar el lote.')
+        self.result_table.setMinimumHeight(180)
         self.result_table.setAccessibleDescription("Lista de archivos de pesos, selección de vaciado y resultado del proceso.")
-        self.result_table.setHorizontalHeaderLabels(["Archivo", "Vaciado Normal", "Vaciado Completo", "Estado", "Hoja anterior", "Detalle"])
         header = self.result_table.horizontalHeader()
         header.setMinimumSectionSize(96)
         header.setDefaultAlignment(Qt.AlignCenter)
@@ -227,18 +241,16 @@ class PesosWindow(QMainWindow):
         header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(5, QHeaderView.Stretch)
         # Checkbox text, indicator and cell margins all fit without clipping.
-        normal_width = max(164, header.fontMetrics().horizontalAdvance("Vaciado Normal") + 52)
-        complete_width = max(180, header.fontMetrics().horizontalAdvance("Vaciado Completo") + 52)
+        normal_width = max(120, header.fontMetrics().horizontalAdvance("Vaciado Normal") + 24)
+        complete_width = max(136, header.fontMetrics().horizontalAdvance("Vaciado Completo") + 24)
         self.result_table.setColumnWidth(1, normal_width)
         self.result_table.setColumnWidth(2, complete_width)
-        self.result_table.verticalHeader().setDefaultSectionSize(42)
-        self.result_table.verticalHeader().setMinimumSectionSize(42)
+        self.result_table.setProperty("rowHeight", 42)
         # The table is a status/selection surface: the controls inside it own
         # keyboard focus.  Disabling item selection avoids the native blue
         # focus rectangle around the embedded check boxes.
-        self.result_table.setProperty("disableTableSelection", True)
-        self.result_table.setSelectionMode(QAbstractItemView.NoSelection)
-        self.result_table.setFocusPolicy(Qt.NoFocus)
+        self.result_table.setProperty("disableTableSelection", False)
+        self.result_table.setFocusPolicy(Qt.StrongFocus)
         self.result_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         self.preview = QPlainTextEdit()
@@ -286,10 +298,15 @@ class PesosWindow(QMainWindow):
         self.log.setMinimumHeight(110)
 
         rail_layout.addWidget(rail_title)
+        self.recovery_button = QPushButton("Recuperar lote interrumpido…")
+        self.recovery_button.setToolTip("Revisa y restaura un lote detenido; nunca sobrescribe una edición externa distinta de la salida registrada.")
+        self.recovery_button.clicked.connect(self.recover_interrupted_batch)
+        rail_layout.addWidget(self.recovery_button)
         self.rail_sections = QBoxLayout(QBoxLayout.TopToBottom)
         self.rail_sections.setSpacing(12)
 
         rail_primary = QFrame()
+        self.rail_primary = rail_primary
         rail_primary.setObjectName("LotControlPrimary")
         rail_primary_layout = QVBoxLayout(rail_primary)
         rail_primary_layout.setContentsMargins(0, 0, 0, 0)
@@ -302,6 +319,7 @@ class PesosWindow(QMainWindow):
         rail_primary_layout.addWidget(self.rail_next)
 
         rail_secondary = QFrame()
+        self.rail_secondary = rail_secondary
         rail_secondary.setObjectName("LotControlSecondary")
         rail_secondary_layout = QVBoxLayout(rail_secondary)
         rail_secondary_layout.setContentsMargins(0, 0, 0, 0)
@@ -368,21 +386,26 @@ class PesosWindow(QMainWindow):
         self.rail_progress_text.setText("Validando archivos… — 0 %")
         self.status.setText(self._progress_message)
         self._set_processing_controls(False)
-        self.setProperty("operationActive", True)
-        self._thread = QThread(self)
-        self._worker = _PesosWorker(list(self.paths), dict(self.vaciados))
-        self._worker.moveToThread(self._thread)
-        self._thread.started.connect(self._worker.run)
-        self._worker.progress.connect(self._on_progress)
-        self._worker.finished.connect(self._on_processing_finished)
-        self._worker.finished.connect(self._thread.quit)
-        self._thread.finished.connect(self._worker.deleteLater)
-        self._thread.finished.connect(self._thread.deleteLater)
-        self._thread.finished.connect(self._thread_finished)
-        self._thread.start()
+        paths, vaciados = list(self.paths), dict(self.vaciados)
+        def failed(message):
+            self._processing = False
+            self.status.setText(message)
+            self.rail_progress_text.setText("Proceso detenido antes del guardado")
+            self._set_processing_controls(True)
+            self._refresh()
+        run_background(self, lambda: process_pesos_files(paths, vaciados,
+            lambda value: report_progress(value.message, value.completed, value.total, "unidades", overall=True)),
+            self._on_processing_finished, failed)
+
+
+    def _update_job_progress(self, value):
+        if value.overall and value.total:
+            self._on_progress(PesosProgress(value.completed, value.total, value.phase))
 
     def _on_progress(self, update: PesosProgress) -> None:
-        self._progress_value = min(100, int((update.completed * 100) / max(1, update.total)))
+        self.rail_progress.setRange(0, 100)
+        # The last percent includes displaying results and releasing controls.
+        self._progress_value = min(99, int((update.completed * 100) / max(1, update.total)))
         self._progress_message = update.message
         self.rail_progress.setValue(self._progress_value)
         self.rail_detail.setText(update.message)
@@ -392,6 +415,7 @@ class PesosWindow(QMainWindow):
     def _on_processing_finished(self, result: PesosResult) -> None:
         self.result = result
         self._processing = False
+        self.rail_progress.setRange(0, 100)
         if self.result.error_count:
             self.status.setText(
                 f"Proceso detenido con {self.result.error_count} avisos. No se ha marcado como completado."
@@ -406,11 +430,6 @@ class PesosWindow(QMainWindow):
             show_inline_message(self, "success", "Hojas renombradas a Hoja1 correctamente.")
         self._set_processing_controls(True)
         self._refresh()
-
-    def _thread_finished(self) -> None:
-        self.setProperty("operationActive", False)
-        self._thread = None
-        self._worker = None
 
     def _set_processing_controls(self, enabled: bool) -> None:
         self.select_button.setEnabled(enabled)
@@ -458,74 +477,43 @@ class PesosWindow(QMainWindow):
         self._sync_recommended_action()
 
     def _fill_result_table(self, *, selected_only: bool = False) -> None:
-        with bulk_table_update(self.result_table):
-            self.result_table.setRowCount(0)
-            rows: list[tuple[Path, str, str, str, str]] = []
-            if selected_only:
-                for path in self.paths:
-                    suffix = path.suffix.lower()
-                    if suffix in SUPPORTED_EXTENSIONS:
-                        rows.append((path, "Pendiente", "-", "Se renombrará la primera hoja visible.", ""))
-                    elif suffix in OLD_EXCEL_EXTENSIONS:
-                        rows.append((path, "Ignorado", "-", "Formato Excel antiguo o no soportado.", ""))
-                    else:
-                        rows.append((path, "Ignorado", "-", "No es un Excel XLSX/XLSM/XLS.", ""))
-            else:
-                for item in self.result.results:
-                    if item.success and item.changed:
-                        detail = f"Ahora se llama {item.after}."
-                        if item.adjusted_weights:
-                            detail += f" Ajustados {item.adjusted_weights} pesos en {item.adjusted_sheets} hoja(s)."
-                        rows.append((item.path, "Renombrado", item.before or "-", detail, item.vaciado))
-                    elif item.success:
-                        detail = "Ya estaba en Hoja1."
-                        if item.adjusted_weights:
-                            detail += f" Ajustados {item.adjusted_weights} pesos en {item.adjusted_sheets} hoja(s)."
-                        rows.append((item.path, "Correcto", item.before or item.after, detail, item.vaciado))
-                    else:
-                        rows.append((item.path, "Error", item.before or "-", item.message or "No se pudo procesar.", item.vaciado))
-                for path in self.result.ignored_files:
-                    suffix = path.suffix.lower()
-                    detail = "Formato Excel antiguo o no soportado." if suffix in OLD_EXCEL_EXTENSIONS else "No es un Excel XLSX/XLSM/XLS."
-                    rows.append((path, "Ignorado", "-", detail, "ninguno"))
+        rows: list[tuple[Path, str, str, str, str]] = []
+        if selected_only:
+            for path in self.paths:
+                suffix = path.suffix.lower()
+                if suffix in SUPPORTED_EXTENSIONS:
+                    rows.append((path, "Pendiente", "-", "Se renombrará la primera hoja visible.", ""))
+                elif suffix in OLD_EXCEL_EXTENSIONS:
+                    rows.append((path, "Ignorado", "-", "Formato Excel antiguo o no soportado.", ""))
+                else:
+                    rows.append((path, "Ignorado", "-", "No es un Excel XLSX/XLSM/XLS.", ""))
+        else:
+            for item in self.result.results:
+                if item.success and item.changed:
+                    detail = f"Ahora se llama {item.after}."
+                    if item.adjusted_weights:
+                        detail += f" Ajustados {item.adjusted_weights} pesos en {item.adjusted_sheets} hoja(s)."
+                    rows.append((item.path, "Renombrado", item.before or "-", detail, item.vaciado))
+                elif item.success:
+                    detail = "Ya estaba en Hoja1."
+                    if item.adjusted_weights:
+                        detail += f" Ajustados {item.adjusted_weights} pesos en {item.adjusted_sheets} hoja(s)."
+                    rows.append((item.path, "Correcto", item.before or item.after, detail, item.vaciado))
+                else:
+                    rows.append((item.path, "Error", item.before or "-", item.message or "No se pudo procesar.", item.vaciado))
+            for path in self.result.ignored_files:
+                suffix = path.suffix.lower()
+                detail = "Formato Excel antiguo o no soportado." if suffix in OLD_EXCEL_EXTENSIONS else "No es un Excel XLSX/XLSM/XLS."
+                rows.append((path, "Ignorado", "-", detail, "ninguno"))
 
-            self.result_table.setRowCount(len(rows))
-            for row_index, (path, state, before, detail, saved_vaciado) in enumerate(rows):
-                active_vaciado = self.vaciados.get(path, saved_vaciado or "ninguno")
-                normal = self._vaciado_checkbox(path, "normal", active_vaciado == "normal", selected_only)
-                complete = self._vaciado_checkbox(path, "completo", active_vaciado == "completo", selected_only)
-                self.result_table.setCellWidget(row_index, 1, normal)
-                self.result_table.setCellWidget(row_index, 2, complete)
-                for column, holder in ((1, normal), (2, complete)):
-                    if self.result_table.columnWidth(column) < holder.sizeHint().width():
-                        self.result_table.setColumnWidth(column, holder.sizeHint().width())
-                for column, value in enumerate((path.name, state, before, detail)):
-                    target_column = (0, 3, 4, 5)[column]
-                    item = QTableWidgetItem(value)
-                    item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-                    self.result_table.setItem(row_index, target_column, item)
 
-    def _vaciado_checkbox(self, path: Path, mode: VaciadoType, checked: bool, editable: bool) -> QWidget:
-        label = "Vaciado Normal" if mode == "normal" else "Vaciado Completo"
-        checkbox = QCheckBox(label)
-        checkbox.setObjectName("VaciadoCheck")
-        checkbox.setChecked(checked)
-        checkbox.setEnabled(editable and path.suffix.lower() in SUPPORTED_EXTENSIONS and not self._processing)
-        checkbox.setAccessibleName(f"{label} para {path.name}")
-        checkbox.setToolTip(label)
-        checkbox.setMinimumWidth(checkbox.fontMetrics().horizontalAdvance(label) + 30)
-        checkbox.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
-        checkbox.toggled.connect(lambda selected, p=path, m=mode: self._set_vaciado(p, m, selected))
-        holder = QWidget()
-        holder.setObjectName("VaciadoCheckHolder")
-        holder.setAccessibleName(checkbox.accessibleName())
-        holder.setToolTip(label)
-        layout = QHBoxLayout(holder)
-        layout.setContentsMargins(9, 3, 9, 3)
-        layout.setSpacing(0)
-        layout.setAlignment(Qt.AlignCenter)
-        layout.addWidget(checkbox)
-        return holder
+        model = self.result_table.records
+        model.editable = lambda path: selected_only and path.suffix.lower() in SUPPORTED_EXTENSIONS and not self._processing
+        model.checks = {column: (lambda path, m=mode: self.vaciados.get(path, "ninguno") == m,
+                                 lambda path, selected, m=mode: self._set_vaciado(path, m, selected))
+                        for column, mode in ((1, "normal"), (2, "completo"))}
+        self.result_table.set_records([row[0] for row in rows],
+            [(path.name, "Normal", "Completo", state, before, detail) for path, state, before, detail, saved in rows])
 
     def _set_vaciado(self, path: Path, mode: VaciadoType, selected: bool) -> None:
         if self._processing:
@@ -537,12 +525,14 @@ class PesosWindow(QMainWindow):
             self.vaciados[path] = "ninguno"
         else:
             return
-        # Rebuilding the row makes the other check box reflect mutual exclusion
-        # immediately, while still allowing the active option to be cleared.
-        self._fill_result_table(selected_only=not bool(self.result.results or self.result.ignored_files))
+        # Delegate check states are read from vaciados; no widgets or row reset.
 
     def _refresh_pilot_state(self) -> None:
         selected_files = self.result.selected_files or self.paths
+        has_data = bool(selected_files or self.result.results or self.result.ignored_files)
+        for control in (self.metrics_strip, self.preview_count, self.summary,
+                        self.rail_primary, self.rail_secondary):
+            control.setVisible(has_data)
         excel_count = sum(1 for path in selected_files if path.suffix.lower() in SUPPORTED_EXTENSIONS)
         issue_count = self.result.error_count if self.result.selected_files else max(0, len(selected_files) - excel_count)
         self.metric_files.setText(str(len(selected_files)))
@@ -565,8 +555,8 @@ class PesosWindow(QMainWindow):
         self.rail_state.setAccessibleDescription(f"Estado actual: {state}. {detail}")
         self.rail_detail.setText(detail)
         self.rail_progress.setValue(progress)
-        self.rail_progress.setAccessibleName("Progreso del renombrado de hojas")
-        self.rail_progress.setAccessibleDescription(f"Progreso estimado del proceso: {progress} por ciento.")
+        self.rail_progress.setAccessibleName("Progreso total del lote de pesos")
+        self.rail_progress.setAccessibleDescription(f"Trabajo completado del lote: {progress} por ciento.")
         self.rail_next.setText(self._next_action_text())
         self.rail_next.setAccessibleDescription(f"Siguiente acción recomendada: {self.rail_next.text()}")
         if selected_files:

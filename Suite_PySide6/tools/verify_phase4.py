@@ -14,6 +14,7 @@ from suite_pyside6.core.apps import app_by_key
 from suite_pyside6.core.txt_csv import format_decimal_2, process_line, process_txt_files
 from suite_pyside6.ui.main_window import MainWindow
 from suite_pyside6.ui.txt_csv_window import TxtCsvWindow
+from verify_helpers import wait_for
 
 
 def main() -> int:
@@ -37,7 +38,7 @@ def main() -> int:
         window = TxtCsvWindow()
         window.set_files([txt])
         window.process_selected_files()
-        app.processEvents()
+        wait_for(app, lambda: window.result.processed_lines == result.processed_lines)
         assert window.result.processed_lines == result.processed_lines
         assert "2 linea" in window.status.text()
         window.save_csv_path(csv_path)

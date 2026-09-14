@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 
@@ -33,6 +34,18 @@ def write_official(path: Path) -> None:
     ws.append(["123456789012"])
     ws.append(["222222222222"])
     wb.save(path)
+
+
+def wait_for(app: QApplication, condition, *, timeout_seconds: float = 5.0) -> None:
+    """Espera el trabajo en segundo plano sin convertirlo en un flujo síncrono."""
+
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        app.processEvents()
+        if condition():
+            return
+        time.sleep(0.01)
+    raise AssertionError("La operación en segundo plano no terminó a tiempo")
 
 
 def main() -> int:
@@ -96,10 +109,9 @@ def main() -> int:
 
         window = PrecintosJamonesWindow()
         window.show_dialogs = False
-        window.type_combo.setCurrentText("Iberico")
         window.official_excel = official
         window.set_files([txt])
-        app.processEvents()
+        wait_for(app, lambda: len(window.result.validos) == 2)
         assert len(window.result.validos) == 2
         window.weight_min.setText("10,55")
         window.apply_weight_filter()
@@ -114,9 +126,8 @@ def main() -> int:
 
         correction_window = PrecintosJamonesWindow()
         correction_window.show_dialogs = False
-        correction_window.type_combo.setCurrentText("Iberico")
         correction_window.set_files([bad_txt])
-        app.processEvents()
+        wait_for(app, lambda: bool(correction_window.result.invalidos))
         assert correction_window.result.invalidos
         correction_window.preview.setPlainText(correction_text(correction_window.result).replace("ABC;", "123456;"))
         correction_window.revalidate()

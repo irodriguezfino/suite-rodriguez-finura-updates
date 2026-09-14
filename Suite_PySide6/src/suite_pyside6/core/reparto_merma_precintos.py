@@ -8,6 +8,8 @@ peso usan :class:`decimal.Decimal` de extremo a extremo.
 
 from __future__ import annotations
 
+from .jobs import checkpoint, checked, report_progress, begin_commit
+
 import csv
 import io
 import os
@@ -15,15 +17,14 @@ import re
 import tempfile
 import unicodedata
 from dataclasses import dataclass
+from functools import cached_property
 from decimal import Decimal, InvalidOperation, ROUND_FLOOR, ROUND_HALF_UP, localcontext
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
 from zipfile import BadZipFile
 
-from openpyxl import load_workbook
-from openpyxl.utils import get_column_letter
-from openpyxl.utils.exceptions import InvalidFileException
-from openpyxl.workbook.workbook import Workbook
+if TYPE_CHECKING:
+    from openpyxl.workbook.workbook import Workbook
 
 
 Severity = Literal["error"]
@@ -35,6 +36,7 @@ class ValidationIssue:
     message: str
     severity: Severity = "error"
     line_number: int | None = None
+    source_path: str | None = None
 
 
 @dataclass(frozen=True)
@@ -96,7 +98,7 @@ class FACReadResult:
     def errors(self) -> tuple[ValidationIssue, ...]:
         return self.issues
 
-    @property
+    @cached_property
     def total_weight(self) -> Decimal:
         return sum((record.peso_deshuesado for record in self.records), Decimal("0"))
 
@@ -277,8 +279,10 @@ def _message_column_index(rows: list[tuple[object, ...]]) -> int:
 
     scores: dict[int, int] = {}
     headers: list[int] = []
-    for row in rows:
+    for row in checked(rows, phase='Detectando columna PDA'):
+        checkpoint()
         for index, value in enumerate(row):
+            checkpoint()
             text = "" if value is None else str(value).strip()
             if _is_message_header(text):
                 headers.append(index)
@@ -292,19 +296,17 @@ def _message_column_index(rows: list[tuple[object, ...]]) -> int:
 
 
 def _read_message_workbook(workbook: Workbook) -> SourceReadResult:
+    from openpyxl.utils import get_column_letter
     records: list[SourceRecord] = []
     ignored: list[IgnoredRow] = []
     issues: list[ValidationIssue] = []
     worksheet = workbook.active
-    rows = list(worksheet.iter_rows(values_only=True))
-    message_column = _message_column_index(rows)
-    has_message_header = any(
-        _is_message_header("" if value is None else str(value))
-        for row in rows
-        for value in row
-    )
+    message_column = _message_column_index(worksheet.iter_rows(values_only=True))
+    has_message_header = False
 
-    for line_number, row in enumerate(rows, start=1):
+    for line_number, row in enumerate(checked(worksheet.iter_rows(values_only=True), phase='Leyendo PDA'), start=1):
+        checkpoint()
+        has_message_header |= any(_is_message_header('' if value is None else str(value)) for value in row)
         value = row[message_column] if message_column < len(row) else None
         if value is None or not str(value).strip():
             ignored.append(IgnoredRow(line_number, "fila vacia"))
@@ -376,6 +378,8 @@ def read_source_file(path: Path) -> SourceReadResult:
             (),
             (ValidationIssue("UNSUPPORTED_FORMAT", "Solo se admiten ficheros Excel .xlsx o CSV."),),
         )
+    from openpyxl import load_workbook
+    from openpyxl.utils.exceptions import InvalidFileException
     try:
         workbook = load_workbook(path, read_only=True, data_only=True, keep_links=False)
     except (OSError, InvalidFileException, BadZipFile, KeyError, ValueError) as exc:
@@ -414,6 +418,7 @@ def _read_pda_csv(path: Path) -> SourceReadResult:
     reader = csv.reader(io.StringIO(text), delimiter=";", quotechar='"', strict=True)
     try:
         for fields in reader:
+            checkpoint()
             line_number = reader.line_num
             if not any(field.strip() for field in fields):
                 ignored.append(IgnoredRow(line_number, "fila vacia"))
@@ -474,6 +479,7 @@ def _read_fac_text(path: Path) -> str:
 
     raw = path.read_bytes()
     for encoding in ("utf-8-sig", "utf-8", "cp1252", "latin-1"):
+        checkpoint()
         try:
             return raw.decode(encoding)
         except UnicodeDecodeError:
@@ -504,13 +510,15 @@ def read_fac_files(paths: list[Path] | tuple[Path, ...]) -> FACReadResult:
     issues: list[ValidationIssue] = []
     ignored_empty_rows = 0
     excluded_no_rows = 0
-    for path in paths:
+    for path in checked(paths, phase="Leyendo archivos", total=len(paths), unit="archivos"):
+        checkpoint()
         try:
             text = _read_fac_text(path)
         except (OSError, UnicodeError) as exc:
             issues.append(ValidationIssue("FAC_READ_ERROR", f"{path.name}: no se pudo leer el fichero ({exc})."))
             continue
         for line_number, raw_line in enumerate(text.splitlines(), start=1):
+            checkpoint()
             if not raw_line.strip():
                 ignored_empty_rows += 1
                 continue
@@ -628,6 +636,7 @@ def _reconcile_units(
         raise ValueError("No hay filas aptas para conciliar el redondeo.")
     step = 1 if residual > 0 else -1
     for offset in range(abs(residual)):
+        checkpoint()
         index = order[offset % len(order)]
         if rounded[index] + step < 0:
             raise ValueError("La conciliacion produciria un peso negativo.")
@@ -705,6 +714,7 @@ def _format_decimal(value: Decimal, export_format: AXCsvFormat) -> str:
 def _export_issues(result: AdjustmentResult) -> tuple[ValidationIssue, ...]:
     issues: list[ValidationIssue] = []
     for row in result.rows:
+        checkpoint()
         if row.source.precinto.lstrip().startswith(("=", "+", "-", "@")):
             issues.append(
                 ValidationIssue(
@@ -720,7 +730,8 @@ def _export_issues(result: AdjustmentResult) -> tuple[ValidationIssue, ...]:
 
 def _export_record_issues(records: tuple[AXExportRecord, ...]) -> tuple[ValidationIssue, ...]:
     issues: list[ValidationIssue] = []
-    for record in records:
+    for record in checked(records):
+        checkpoint()
         if record.precinto.lstrip().startswith(("=", "+", "-", "@")):
             location = f"{record.source_name}, línea {record.line_number}: " if record.source_name else ""
             issues.append(ValidationIssue("CSV_INJECTION_RISK", f"{location}el precinto podría interpretarse como fórmula CSV; no se altera para preservar AX.", line_number=record.line_number))
@@ -746,6 +757,7 @@ def render_ax_csv_records(
     if export_format.include_header:
         writer.writerow(export_format.headers)
     for record in normalized_records:
+        checkpoint()
         writer.writerow((work_order_validation.value, record.precinto, _format_decimal(record.peso_final, export_format)))
     content = export_format.bom + output.getvalue().encode(export_format.encoding, errors="strict")
     validate_ax_csv_records_content(content, normalized_records, work_order_validation.value, export_format)
@@ -807,6 +819,7 @@ def _write_bytes_atomically(path: Path, content: bytes) -> None:
             temporary_file.write(content)
             temporary_file.flush()
             os.fsync(temporary_file.fileno())
+        begin_commit()
         os.replace(temporary_path, path)
         temporary_path = None
     finally:
@@ -869,31 +882,32 @@ def validate_ax_csv_records_content(
 ) -> None:
     """Verifica los bytes comunes sin depender del cálculo proporcional PDA."""
 
-    normalized_records = tuple(records)
     payload = content
     if export_format.bom:
         if not content.startswith(export_format.bom):
             raise ValueError("El BOM de exportación no coincide con el formato.")
-        payload = content[len(export_format.bom) :]
+        payload = content[len(export_format.bom):]
     elif content.startswith(b"\xef\xbb\xbf"):
         raise ValueError("El CSV AX no debe incluir BOM UTF-8.")
-    text = payload.decode(export_format.encoding, errors="strict")
-    if not text.endswith(export_format.line_ending):
+    if not payload.endswith(export_format.line_ending.encode(export_format.encoding)):
         raise ValueError("El CSV AX debe terminar en CRLF.")
-    parsed = list(csv.reader(io.StringIO(text, newline=""), delimiter=export_format.delimiter, quotechar='"', strict=True))
-    expected_count = len(normalized_records) + (1 if export_format.include_header else 0)
-    if len(parsed) != expected_count or any(not row for row in parsed):
-        raise ValueError("El CSV AX contiene líneas adicionales o inesperadas.")
-    if export_format.include_header and tuple(parsed.pop(0)) != export_format.headers:
+    stream = io.TextIOWrapper(io.BytesIO(payload), encoding=export_format.encoding, newline="")
+    parsed = csv.reader(stream, delimiter=export_format.delimiter, quotechar='"', strict=True)
+    if export_format.include_header and tuple(next(parsed, ())) != export_format.headers:
         raise ValueError("Las cabeceras del CSV AX no coinciden.")
     normalized_work_order = validate_work_order(work_order).require_valid()
-    if any(len(row) != 3 for row in parsed):
-        raise ValueError("Cada fila del CSV AX debe tener exactamente tres columnas.")
-    if [row[0] for row in parsed] != [normalized_work_order] * len(parsed):
-        raise ValueError("La orden de trabajo exportada no coincide con la indicada.")
-    if [row[1] for row in parsed] != [record.precinto for record in normalized_records]:
-        raise ValueError("Los precintos exportados no coinciden con los registros válidos.")
-    exported_weights = [_parse_decimal(row[2], "El peso ajustado") for row in parsed]
-    expected_weights = [record.peso_final.quantize(Decimal(1).scaleb(-export_format.precision)) for record in normalized_records]
-    if exported_weights != expected_weights:
-        raise ValueError("Los pesos exportados no coinciden con los registros válidos.")
+    precision = Decimal(1).scaleb(-export_format.precision)
+    for record in checked(records, phase="Verificando CSV AX"):
+        row = next(parsed, None)
+        if not row:
+            raise ValueError("El CSV AX contiene líneas adicionales o inesperadas.")
+        if len(row) != 3:
+            raise ValueError("Cada fila del CSV AX debe tener exactamente tres columnas.")
+        if row[0] != normalized_work_order:
+            raise ValueError("La orden de trabajo exportada no coincide con la indicada.")
+        if row[1] != record.precinto:
+            raise ValueError("Los precintos exportados no coinciden con los registros válidos.")
+        if _parse_decimal(row[2], "El peso ajustado") != record.peso_final.quantize(precision):
+            raise ValueError("Los pesos exportados no coinciden con los registros válidos.")
+    if next(parsed, None) is not None:
+        raise ValueError("El CSV AX contiene líneas adicionales o inesperadas.")

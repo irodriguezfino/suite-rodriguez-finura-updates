@@ -116,12 +116,11 @@ def assert_brand_tokens_and_assets_exist() -> None:
     assert LIGHT["primary"].lower() == "#123283", "Rodríguez debe ser el color primario del tema claro"
     assert LIGHT["accent_red"].lower() == "#c32421", "El rojo Rodríguez debe estar tokenizado"
     assert LIGHT["accent_gold"].lower() == "#7b6a42", "El oro Finura accesible debe estar tokenizado"
-    old_dark_blues = {"#123283", "#1b3891", "#0b266d", "#2f5fc7", "#3f73de", "#244fae", "#13244a", "#7dd6ea", "#112f3a"}
-    for key in ("primary", "primary_hover", "primary_active", "primary_soft", "info", "info_soft", "focus_ring", "sidebar_bg"):
-        value = DARK[key].lower()
-        assert value not in old_dark_blues, f"El modo oscuro debe usar Finura, no azul Rodriguez: DARK[{key}]={value}"
-    assert DARK["primary"].lower() == "#c8b46f", "Finura debe ser el color primario del tema oscuro"
-    assert DARK["info"].lower() == "#c8b46f", "Info en oscuro debe ser Finura, no azul/cian"
+    # El modo oscuro conserva deliberadamente el lenguaje azul de la Suite;
+    # estas expectativas son el contrato vigente, no restos de la paleta oro
+    # empleada durante una iteración anterior.
+    assert DARK["primary"].lower() == "#89a9ff", "El primario oscuro debe conservar el azul claro de la Suite"
+    assert DARK["info"].lower() == "#75caf1", "La información en oscuro debe ser claramente distinguible"
     for asset in ("RODRIGUEZ.png", "FINURA.png"):
         assert resource_path(asset).exists(), f"Falta asset de marca: {asset}"
 

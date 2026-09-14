@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from suite_pyside6.core.paths import resource_path
-from suite_pyside6.ui.background import run_background
+from suite_pyside6.ui.background import run_background, run_export
 from suite_pyside6.core.precintos_jamones import (
     PrecintosJamonesResult,
     correction_text,
@@ -352,6 +352,9 @@ class PrecintosJamonesWindow(QMainWindow):
 
     def set_files(self, paths: list[Path]) -> None:
         self.paths = list(paths)
+        self.result = PrecintosJamonesResult(selected_files=list(paths))
+        self.last_attachments = []
+        self.weight_filter_pending = False
         self.process_files()
 
     def process_files(self) -> None:
@@ -379,17 +382,22 @@ class PrecintosJamonesWindow(QMainWindow):
     def revalidate(self) -> None:
         if not (self.result.invalidos or self.weight_filter_pending):
             return
-        self.result = revalidate_corrections(self.result, self.preview.toPlainText())
-        self.last_attachments = []
-        self.weight_filter_pending = False
-        if self.result.invalidos:
-            self.status.setText(f"Quedan {len(self.result.invalidos)} líneas por corregir.")
-            if self.show_dialogs:
-                show_inline_message(self, "warning", "Aún quedan líneas por corregir.")
-        else:
-            self.status.setText("Revalidación correcta. Ya puedes guardar TXT o CSV.")
-            show_inline_message(self, "success", "Revalidación correcta. Ya puedes guardar TXT o CSV.")
-        self._refresh()
+        result, text = self.result, self.preview.toPlainText()
+        self.status.setText("Revalidando correcciones…")
+        def completed(updated):
+            self.result = updated
+            self.last_attachments = []
+            self.weight_filter_pending = False
+            if updated.invalidos:
+                message = f"Quedan {len(updated.invalidos)} líneas por corregir."
+                show_inline_message(self, "warning", message)
+            else:
+                show_inline_message(self, "success", "Revalidación correcta. Ya puedes guardar TXT o CSV.")
+            self._refresh()
+        def failed(message):
+            show_inline_message(self, "error", message)
+            self._refresh_buttons_only()
+        run_background(self, lambda: revalidate_corrections(result, text), completed, failed)
 
     def apply_weight_filter(self) -> None:
         if not self.result.validos:
@@ -430,19 +438,21 @@ class PrecintosJamonesWindow(QMainWindow):
         if file:
             self.save_csv(file)
 
-    def save_txt(self, path: Path) -> Path:
-        saved = save_precintos_txt(path, self.result)
-        self.last_attachments = [saved]
-        self.status.setText(f"TXT guardado: {saved}")
-        show_inline_message(self, "success", f"TXT guardado: {saved.name}")
-        return saved
+    def save_txt(self, path: Path) -> None:
+        result = self.result
+        def completed(saved):
+            self.last_attachments = [saved]
+            self.status.setText(f"TXT guardado: {saved}")
+            show_inline_message(self, "success", f"TXT guardado: {saved.name}")
+        run_export(self, lambda: save_precintos_txt(path, result), completed)
 
-    def save_csv(self, path: Path) -> list[Path]:
-        summary = save_precintos_csv(path, self.result)
-        self.last_attachments = [path] + ([summary] if summary is not None else [])
-        self.status.setText("CSV guardado" + (f" con resumen: {summary.name}" if summary else f": {path.name}"))
-        show_inline_message(self, "success", "CSV guardado" + (f" con resumen: {summary.name}" if summary else f": {path.name}"))
-        return self.last_attachments
+    def save_csv(self, path: Path) -> None:
+        result = self.result
+        def completed(summary):
+            self.last_attachments = [path] + ([summary] if summary is not None else [])
+            self.status.setText(f"CSV guardado: {path.name}")
+            show_inline_message(self, "success", f"CSV guardado: {path.name}")
+        run_export(self, lambda: save_precintos_csv(path, result), completed)
 
     def clear(self) -> None:
         if self.property("operationActive"):

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .jobs import checkpoint, checked, report_progress, begin_commit
+
 import csv
 import io
 from collections import Counter
@@ -14,7 +16,6 @@ import re
 import smtplib
 from difflib import SequenceMatcher
 
-import openpyxl
 
 
 TIPOS_JAMON = ("Blanco", "Iberico", "Mixto")
@@ -73,6 +74,7 @@ class RegistroJamones:
 
     def fecha_hora(self) -> datetime | None:
         for fmt in ("%d/%m/%Y %H:%M:%S", "%d/%m/%y %H:%M:%S"):
+            checkpoint()
             try:
                 return datetime.strptime(f"{self.fecha} {self.hora}", fmt)
             except ValueError:
@@ -94,9 +96,11 @@ class PrecintosJamonesResult:
     invalidos: list[tuple[RegistroJamones, str]] = field(default_factory=list)
     duplicados: list[RegistroJamones] = field(default_factory=list)
     oficiales: set[str] = field(default_factory=set)
+    grupos_internos: set[tuple[str, str]] = field(default_factory=set)
+    correction_preview: str | None = None
 
     def tipo_registro(self, registro: RegistroJamones) -> str:
-        return clasificar_precinto(registro.precinto)
+        return tipo_registro_detectado(registro, self.grupos_internos)
 
     def es_lote_mixto(self) -> bool:
         return self.tipo_jamon == "Mixto"
@@ -105,10 +109,12 @@ class PrecintosJamonesResult:
         registros = [*self.validos, *(registro for registro, _motivo in self.invalidos)]
         if not registros:
             return []
-        counts = Counter(clasificar_precinto(registro.precinto) for registro in registros)
+        counts = Counter(self.tipo_registro(registro) for registro in registros)
         messages: list[str] = []
+        if self.grupos_internos:
+            messages.append("Serie interna consecutiva detectada: las coincidencias de control GTIN no cambian el tipo blanco.")
         if counts.get("Iberico"):
-            messages.append("Se han detectado precintos de jamón ibérico mediante validación GTIN-12.")
+            messages.append("Precintos compatibles con GTIN-12, clasificados como ibéricos al no detectarse una serie interna. El control GTIN por sí solo no acredita el tipo de jamón.")
         if counts.get("Blanco"):
             messages.append("Se han detectado precintos internos correspondientes a jamón blanco.")
         invalid_check = sum(
@@ -126,7 +132,7 @@ class PrecintosJamonesResult:
 
     def differences(self) -> tuple[set[str], set[str]]:
         registros = list(self.validos) + [registro for registro, _motivo in self.invalidos]
-        leidos = {registro.precinto for registro in registros if gtin12_valido(registro.precinto)}
+        leidos = {registro.precinto for registro in registros if self.tipo_registro(registro) == "Iberico" and gtin12_valido(registro.precinto)}
         return leidos - self.oficiales, self.oficiales - leidos
 
     def summary_lines(self) -> list[str]:
@@ -200,10 +206,45 @@ def tipo_jamon_visible(tipo: str) -> str:
 
 
 def tipo_lote(registros: list[RegistroJamones]) -> str:
-    detected = {clasificar_precinto(registro.precinto) for registro in registros}
+    groups = detectar_series_internas(registros)
+    detected = {tipo_registro_detectado(registro, groups) for registro in registros}
     if len(detected) > 1:
         return "Mixto"
     return next(iter(detected), "Blanco")
+
+
+def detectar_series_internas(registros: list[RegistroJamones]) -> set[tuple[str, str]]:
+    """A checksum match alone cannot classify an internal serial as Iberico.
+
+    Four consecutive complete numbers are evidence of a serial, not a GTIN
+    sequence. Scope evidence to article and serial prefix, never the whole lot.
+    """
+    groups: dict[tuple[str, str], set[str]] = {}
+    for registro in checked(registros):
+        checkpoint()
+        code = registro.precinto
+        if re.fullmatch(r"[0-9]{12}", code):
+            groups.setdefault((registro.codigo_articulo, code[:8]), set()).add(code)
+    internal = set()
+    for key, codes in groups.items():
+        checkpoint()
+        if len(codes) < 4 or sum(gtin12_valido(code) for code in codes) * 2 >= len(codes):
+            continue
+        numbers = sorted(int(code) for code in codes)
+        run = 1
+        for previous, number in zip(numbers, numbers[1:]):
+            checkpoint()
+            run = run + 1 if number == previous + 1 else 1
+            if run >= 4:
+                internal.add(key)
+                break
+    return internal
+
+
+def tipo_registro_detectado(registro: RegistroJamones, groups) -> str:
+    if (registro.codigo_articulo, registro.precinto[:8]) in groups:
+        return "Blanco"
+    return clasificar_precinto(registro.precinto)
 
 
 def distancia_digitos(a: str, b: str) -> int:
@@ -228,10 +269,14 @@ def sugerir_precintos(codigo: str, oficiales: set[str], max_sugerencias: int = 3
     if not limpio or not oficiales:
         return []
     candidatos: list[tuple[int, float, str]] = []
-    for oficial in oficiales:
+    for oficial in checked(oficiales, phase="Buscando coincidencias"):
+        checkpoint()
         distancia = distancia_digitos(limpio, oficial)
-        ratio = SequenceMatcher(None, limpio, oficial).ratio()
         transposicion = es_transposicion_simple(limpio, oficial)
+        matcher = SequenceMatcher(None, limpio, oficial)
+        if distancia > 2 and not transposicion and matcher.quick_ratio() < 0.84:
+            continue
+        ratio = matcher.ratio()
         if distancia <= 2 or transposicion or ratio >= 0.84:
             penalizacion = 0 if transposicion else distancia
             candidatos.append((penalizacion, -ratio, oficial))
@@ -322,16 +367,12 @@ def parsear_linea(line: str, archivo: str, numero_linea: int, orden: int) -> Reg
 def leer_ficheros(paths) -> list[RegistroJamones]:
     registros: list[RegistroJamones] = []
     orden = 0
-    for path in paths:
-        for encoding in ("utf-8-sig", "cp1252", "latin-1"):
-            try:
-                lines = Path(path).read_text(encoding=encoding).splitlines()
-                break
-            except UnicodeDecodeError:
-                continue
-        else:
-            lines = Path(path).read_text(encoding="utf-8-sig", errors="replace").splitlines()
+    for path in checked(paths, phase="Leyendo archivos", total=len(paths), unit="archivos"):
+        checkpoint()
+        from .text_stream import iter_text_lines
+        lines = iter_text_lines(path)
         for numero, line in enumerate(lines, start=1):
+            checkpoint()
             orden += 1
             registro = parsear_linea(line, Path(path).name, numero, orden)
             if registro is not None:
@@ -354,7 +395,8 @@ def es_mas_reciente(nuevo: RegistroJamones, actual: RegistroJamones) -> bool:
 def deduplicar(registros: list[RegistroJamones]) -> tuple[list[RegistroJamones], list[RegistroJamones]]:
     por_precinto: dict[str, RegistroJamones] = {}
     eliminados: list[RegistroJamones] = []
-    for registro in registros:
+    for registro in checked(registros):
+        checkpoint()
         anterior = por_precinto.get(registro.precinto)
         if anterior is None:
             por_precinto[registro.precinto] = registro
@@ -368,10 +410,12 @@ def deduplicar(registros: list[RegistroJamones]) -> tuple[list[RegistroJamones],
 
 
 def leer_precintos_excel_oficial(path: Path) -> list[str]:
+    import openpyxl
     wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
     try:
         for ws in wb.worksheets:
-            rows = list(ws.iter_rows(values_only=True))
+            checkpoint()
+            rows = checked(ws.iter_rows(values_only=True), phase='Leyendo Excel')
             header_row = -1
             column = -1
             for row_index, row in enumerate(rows):
@@ -387,7 +431,7 @@ def leer_precintos_excel_oficial(path: Path) -> list[str]:
                 continue
             precintos: list[str] = []
             seen: set[str] = set()
-            for row in rows[header_row + 1:]:
+            for row in rows:
                 value = normalizar_precinto(str(row[column] if column < len(row) else ""))
                 if re.fullmatch(r"\d{12}", value) and value not in seen:
                     seen.add(value)
@@ -405,10 +449,12 @@ def process_precintos_jamones(
 ) -> PrecintosJamonesResult:
     registros = leer_ficheros(paths)
     partida, lote = sugerir_partida_lote(registros)
+    internal_groups = detectar_series_internas(registros)
     validos_pre: list[RegistroJamones] = []
     invalidos: list[tuple[RegistroJamones, str]] = []
-    for registro in registros:
-        motivos = validar_registro_completo(registro, clasificar_precinto(registro.precinto), partida, lote)
+    for registro in checked(registros):
+        checkpoint()
+        motivos = validar_registro_completo(registro, tipo_registro_detectado(registro, internal_groups), partida, lote)
         if motivos:
             invalidos.append((registro, "; ".join(motivos)))
         else:
@@ -416,16 +462,24 @@ def process_precintos_jamones(
     validos, duplicados = deduplicar(validos_pre)
     oficiales = set(leer_precintos_excel_oficial(official_excel)) if official_excel is not None else set()
     lote_tipo = tipo_lote(registros)
-    return PrecintosJamonesResult(list(paths), lote_tipo, validos, invalidos, duplicados, oficiales)
+    result = PrecintosJamonesResult(list(paths), lote_tipo, validos, invalidos, duplicados, oficiales, internal_groups)
+    result.correction_preview = correction_text(result)
+    return result
 
 
 def correction_text(result: PrecintosJamonesResult) -> str:
+    if result.correction_preview is not None:
+        return result.correction_preview
     if not result.invalidos:
         return "# Sin incidencias pendientes.\n"
     blocks = ["# Corrige las lineas de datos. Las lineas que empiezan por # se ignoran al revalidar."]
+    suggestions = {}
     for registro, motivo in result.invalidos:
+        checkpoint()
         blocks.append(f"# Archivo: {registro.archivo} | linea: {registro.linea} | motivo: {motivo}")
-        sugerencias = sugerir_precintos(registro.precinto, result.oficiales)
+        if registro.precinto not in suggestions:
+            suggestions[registro.precinto] = sugerir_precintos(registro.precinto, result.oficiales)
+        sugerencias = suggestions[registro.precinto]
         if sugerencias:
             blocks.append("# Sugerencias oficiales cercanas: " + ", ".join(sugerencias))
         blocks.append(registro.a_linea())
@@ -437,27 +491,32 @@ def revalidate_corrections(result: PrecintosJamonesResult, text: str) -> Precint
     errors: list[tuple[RegistroJamones, str]] = []
     base_order = max((registro.orden for registro in result.validos), default=0) + 100000
     partida, lote = sugerir_partida_lote(result.validos)
+    internal_groups = result.grupos_internos
     for index, line in enumerate(text.splitlines(), start=1):
+        checkpoint()
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
             continue
         registro = parsear_linea(stripped, "CORRECCION_MANUAL", index, base_order + index)
         if registro is None:
             continue
-        motivos = validar_registro_completo(registro, clasificar_precinto(registro.precinto), partida, lote)
+        motivos = validar_registro_completo(registro, tipo_registro_detectado(registro, internal_groups), partida, lote)
         if motivos:
             errors.append((registro, "; ".join(motivos)))
         else:
             corrected.append(registro)
     validos, duplicados = deduplicar(result.validos + corrected)
-    return PrecintosJamonesResult(
+    updated = PrecintosJamonesResult(
         selected_files=list(result.selected_files),
         tipo_jamon=tipo_lote([*result.validos, *corrected, *(registro for registro, _motivo in errors)]),
         validos=validos,
         invalidos=errors,
         duplicados=list(result.duplicados) + duplicados,
         oficiales=set(result.oficiales),
+        grupos_internos=set(internal_groups),
     )
+    updated.correction_preview = correction_text(updated)
+    return updated
 
 
 def weight_filter_text(
@@ -481,6 +540,7 @@ def weight_filter_text(
     fuera: list[tuple[RegistroJamones, str]] = []
     pesos_no_validos: list[RegistroJamones] = []
     for registro in result.validos:
+        checkpoint()
         peso = parsear_peso(registro.peso)
         if peso is None:
             pesos_no_validos.append(registro)
@@ -499,9 +559,11 @@ def weight_filter_text(
             "# Las lineas que empiezan por # se ignoran al revalidar.",
         ]
         for registro, motivo in fuera:
+            checkpoint()
             blocks = [f"# Archivo: {registro.archivo} | linea: {registro.linea} | motivo: {motivo}", registro.a_linea()]
             bloques.extend(blocks)
         for registro in pesos_no_validos:
+            checkpoint()
             bloques.extend(
                 [
                     f"# Archivo: {registro.archivo} | linea: {registro.linea} | motivo: peso no numerico o vacio",
@@ -551,6 +613,7 @@ def save_precintos_csv(path: Path, result: PrecintosJamonesResult) -> Path | Non
         output = io.StringIO(newline="")
         writer = csv.writer(output, delimiter=";", lineterminator="\r\n")
         for registro in result.validos:
+            checkpoint()
             writer.writerow([registro.precinto])
         write_text_atomically(path, output.getvalue(), encoding="utf-8-sig")
         summary = ruta_resumen_para_csv(path)
@@ -559,6 +622,7 @@ def save_precintos_csv(path: Path, result: PrecintosJamonesResult) -> Path | Non
     output = io.StringIO(newline="")
     writer = csv.writer(output, delimiter=";", lineterminator="\r\n")
     for registro in result.validos:
+        checkpoint()
         campos = list(registro.campos[:CAMPOS_ESPERADOS])
         while len(campos) < CAMPOS_ESPERADOS:
             campos.append("")
@@ -595,6 +659,7 @@ def send_precintos_email(
         )
     )
     for path in attachments:
+        checkpoint()
         subtype = "csv" if path.suffix.lower() == ".csv" else "plain"
         message.add_attachment(path.read_bytes(), maintype="text", subtype=subtype, filename=path.name)
     try:
@@ -605,6 +670,7 @@ def send_precintos_email(
                 smtp.ehlo()
             if smtp_user and smtp_password:
                 smtp.login(smtp_user, smtp_password)
+            begin_commit()
             smtp.send_message(message)
     except smtplib.SMTPException as exc:
         raise RuntimeError("No se pudo enviar el correo con el servidor corporativo. Revisa la conexion o las credenciales SMTP.") from exc

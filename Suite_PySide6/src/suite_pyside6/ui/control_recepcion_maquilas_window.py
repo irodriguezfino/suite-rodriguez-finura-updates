@@ -40,7 +40,7 @@ from suite_pyside6.core.control_recepcion_maquilas import (
 )
 from suite_pyside6.core.empresas_clientes import EmpresasClientesLoadResult, load_empresas_clientes
 from suite_pyside6.core.paths import resource_path
-from suite_pyside6.ui.background import run_background
+from suite_pyside6.ui.background import run_background, run_export
 from suite_pyside6.ui.components import ActionMenuButton, ModernSelect, control_metric_pair, control_pill, labeled_field, section_label, step_bar
 from suite_pyside6.ui.file_dialogs import open_file, open_files, save_file
 from suite_pyside6.ui.polish import collapsible_section, confirm_discard_work, show_inline_message, polish_window, sync_recommended_action
@@ -480,6 +480,7 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
 
     def set_txt_files(self, paths: list[Path]) -> None:
         self.paths = list(paths)
+        self.result = ControlRecepcionResult()
         selected_paths, config_file = list(self.paths), self.config_file
         self.status.setText("Validando TXT en segundo plano…")
         self._refresh()
@@ -522,11 +523,9 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
             self.save_txt_ax(file)
 
     def save_txt_ax(self, path: Path) -> Path:
-        saved = save_txt_ax(path, self.result)
-        self.status.setText(f"TXT AX guardado: {saved}")
-        show_inline_message(self, "success", f"TXT AX guardado: {saved.name}")
-        self._refresh()
-        return saved
+        result = self.result
+        run_export(self, lambda: save_txt_ax(path, result))
+        return path
 
     def select_seals(self) -> None:
         file = open_file(self, "control_recepcion_maquilas/seals", "Selecciona SealsReport", "Excel (*.xlsx *.xlsm);;Todos (*.*)")
@@ -583,11 +582,9 @@ class ControlRecepcionPrecintosWindow(QMainWindow):
     def save_pdf(self, path: Path) -> Path:
         if not self._validate_empresa_cliente():
             raise ValueError(self._empresa_cliente_validation_message())
-        saved = save_pdf_rangos(path, self.result, self._metadata())
-        self.status.setText(f"PDF guardado: {saved}")
-        show_inline_message(self, "success", f"PDF guardado: {saved.name}")
-        self._refresh()
-        return saved
+        result, metadata = self.result, self._metadata()
+        run_export(self, lambda: save_pdf_rangos(path, result, metadata))
+        return path
 
     def send_email(self) -> None:
         if not self._validate_empresa_cliente():

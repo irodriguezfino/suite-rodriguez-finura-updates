@@ -86,9 +86,9 @@ APP_HELP: dict[str, AppHelp] = {
         "Las líneas sin flecha o sin valor se muestran como ignoradas para que puedas comprobarlas.",
     ),
     "pesos": AppHelp(
-        "Prepara Excel de pesos: renombra la primera hoja visible a Hoja1 y, si eliges vaciado, ajusta pesoBruto y pesoNeto.",
+        "Prepara Excel de pesos: renombra la primera hoja visible a Hoja1 y, si eliges vaciado, ajusta solo pesoBruto. pesoNeto se conserva sin modificar.",
         "Sirve para dejar los libros listos para el flujo posterior sin modificar otros datos o formatos.",
-        "Carga archivos XLSX, XLSM o XLS. Para vaciado, deben existir las columnas pesoBruto y pesoNeto.",
+        "Carga archivos XLSX, XLSM o XLS. Para vaciado, debe existir la columna pesoBruto; pesoNeto no se modifica ni se valida como peso.",
         ("Carga los Excel.", "Marca Vaciado normal o completo solo en los lotes que lo necesiten.", "Pulsa Procesar lote.", "Revisa el resultado por archivo antes de cerrar."),
         "Los mismos Excel actualizados, con la hoja Hoja1 y los pesos ajustados cuando se haya indicado.",
         "El vaciado normal descuenta el 1,1 %; el completo añade además 2,9 kg de descuento.",

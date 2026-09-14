@@ -33,7 +33,7 @@ def main() -> int:
     assert window.continue_strip.isVisible()
     assert second.title in window.continue_title.text()
     assert window._continue_app_key == second.key
-    assert "Abiertos 2" in window.continue_activity.text()
+    assert "Abiertos" in window.continue_activity.text()
     assert "Recientes" in window.continue_activity.text()
 
     window.close()

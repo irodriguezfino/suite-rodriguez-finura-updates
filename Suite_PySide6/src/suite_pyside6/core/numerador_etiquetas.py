@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from email.message import EmailMessage
 import re
+import math
 import smtplib
 
 from suite_pyside6.core.control_recepcion_maquilas import SMTP_HOST, SMTP_PASSWORD, SMTP_PORT, SMTP_SECURE, SMTP_USER
@@ -39,6 +40,16 @@ class LabelLayout:
     bold: bool = True
 
     def normalized(self) -> "LabelLayout":
+        for value in (self.width_mm, self.height_mm, self.x_mm, self.y_mm,
+                      self.zone_width_mm, self.zone_height_mm, self.font_size_pt):
+            if isinstance(value, bool) or not math.isfinite(float(value)):
+                raise ValueError("Las medidas del diseño deben ser números finitos.")
+        if not isinstance(self.font_family, str) or not isinstance(self.bold, bool):
+            raise ValueError("La fuente y el estilo del diseño no son válidos.")
+        if not isinstance(self.alignment, str):
+            raise ValueError("La alineación del diseño no es válida.")
+        if max(float(self.width_mm), float(self.height_mm)) > 2000:
+            raise ValueError("Las medidas del diseño superan el límite de 2000 mm.")
         width = max(10.0, float(self.width_mm))
         height = max(10.0, float(self.height_mm))
         zone_width = min(max(2.0, float(self.zone_width_mm)), width)

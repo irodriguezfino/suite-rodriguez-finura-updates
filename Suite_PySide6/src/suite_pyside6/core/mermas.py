@@ -1,14 +1,22 @@
 from __future__ import annotations
 
+from .jobs import checkpoint, checked, report_progress, begin_commit
+
 import csv
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 import os
 import tempfile
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
 
-import pandas as pd
+if TYPE_CHECKING:
+    import pandas as pd
+
+
+def _empty_dataframe():
+    import pandas as pd
+    return pd.DataFrame()
 
 
 FilterMode = Literal["SI", "NO", "TODOS"]
@@ -57,7 +65,7 @@ class MermasResult:
     final_files: list[Path] = field(default_factory=list)
     origin_file: Path | None = None
     filter_mode: FilterMode = "SI"
-    dataframe: pd.DataFrame = field(default_factory=pd.DataFrame)
+    dataframe: pd.DataFrame = field(default_factory=_empty_dataframe)
     summary: MermasSummary = field(default_factory=MermasSummary)
 
     def preview_text(self, limit: int = 100) -> str:
@@ -70,6 +78,7 @@ def clean_valid_lines(path: Path) -> list[str]:
     lines: list[str] = []
     with path.open("r", encoding="utf-8-sig", errors="replace") as handle:
         for line in handle:
+            checkpoint()
             text = line.strip()
             if not text:
                 continue
@@ -99,6 +108,7 @@ def normalize_date(value: str) -> str:
     if not text:
         return ""
     for fmt in ("%d/%m/%Y", "%d/%m/%y", "%Y-%m-%d", "%d-%m-%Y", "%d-%m-%y"):
+        checkpoint()
         try:
             return datetime.strptime(text, fmt).strftime("%d/%m/%Y")
         except ValueError:
@@ -107,9 +117,12 @@ def normalize_date(value: str) -> str:
 
 
 def _read_final_files(paths: list[Path]) -> pd.DataFrame:
+    import pandas as pd
     rows: list[list[str]] = []
-    for path in paths:
+    for path in checked(paths, phase="Leyendo archivos", total=len(paths), unit="archivos"):
+        checkpoint()
         for line in clean_valid_lines(path):
+            checkpoint()
             try:
                 columns = next(csv.reader([line], delimiter=";", quotechar='"'))
             except csv.Error:
@@ -134,6 +147,7 @@ def _read_final_files(paths: list[Path]) -> pd.DataFrame:
 
 
 def _read_origin(path: Path) -> pd.DataFrame:
+    import pandas as pd
     if path.suffix.lower() == ".csv":
         return pd.read_csv(path, sep=";", header=None, dtype=str, encoding="utf-8", engine="python")
     return pd.read_excel(path, header=None, dtype=str)
@@ -141,19 +155,18 @@ def _read_origin(path: Path) -> pd.DataFrame:
 
 def process_mermas(final_files: list[Path], origin_file: Path, filter_mode: FilterMode = "SI") -> MermasResult:
     df_final = _read_final_files(final_files)
-    df_base = df_final.copy()
+    # Statistics only need the seal column, not a second normalized dataframe.
+    df_base = df_final[["Precinto"]].copy()
     filas_leidas = len(df_final)
 
     if "Fecha" in df_final.columns:
         df_final["Fecha"] = df_final["Fecha"].apply(normalize_date)
-        df_base["Fecha"] = df_base["Fecha"].apply(normalize_date)
     if "Hora" in df_final.columns:
         df_final["Hora"] = df_final["Hora"].apply(normalize_time)
-        df_base["Hora"] = df_base["Hora"].apply(normalize_time)
     for column in ["Peso Origen", "Peso Final", "Merma"]:
+        checkpoint()
         if column in df_final.columns:
             df_final[column] = df_final[column].astype(str).str.replace(".", ",", regex=False)
-            df_base[column] = df_base[column].astype(str).str.replace(".", ",", regex=False)
 
     if "Precinto" not in df_final.columns:
         raise ValueError("No se ha encontrado la columna 'Precinto' en los ficheros finales.")
@@ -206,6 +219,7 @@ def process_mermas(final_files: list[Path], origin_file: Path, filter_mode: Filt
 
 
 def save_mermas_excel(path: Path, result: MermasResult) -> None:
+    import pandas as pd
     df_export = result.dataframe.copy()
     temporary_path: Path | None = None
     try:
@@ -229,6 +243,7 @@ def save_mermas_excel(path: Path, result: MermasResult) -> None:
                 label, _, value = line.partition(": ")
                 ws.cell(row=offset, column=start_column, value=label)
                 ws.cell(row=offset, column=start_column + 1, value=value)
+        begin_commit()
         os.replace(temporary_path, path)
         temporary_path = None
     finally:

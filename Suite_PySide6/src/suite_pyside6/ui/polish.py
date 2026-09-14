@@ -1,5 +1,25 @@
 from __future__ import annotations
 
+from .operation_state import (
+    _mark_work_in_progress,
+    _guard_input_changes,
+    _patch_button_work_state,
+    _patch_field_work_state,
+    _install_table_desktop_affordances,
+    _copy_table_selection,
+    _table_selection_text,
+    confirm_discard_work,
+    _install_close_guard,
+    _has_running_worker,
+    _install_desktop_shortcuts,
+    _cancel_transient_state,
+    close_risk_reason,
+    _pending_work_snapshot,
+    _result_has_work,
+    _has_editable_correction,
+    _has_pending_work,
+)
+
 from pathlib import Path
 from typing import Iterable
 
@@ -26,6 +46,7 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QStackedWidget,
     QTableWidget,
+    QTableView,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -67,12 +88,20 @@ def polish_window(
     _enable_drag_drop(widget)
     _install_close_guard(widget)
     _install_desktop_shortcuts(widget)
+    _guard_input_changes(widget)
+    from suite_pyside6.ui.job_display import install_job_display
+    install_job_display(widget)
 
     for button in widget.findChildren(QPushButton):
         original_text = _clean_text(button.text())
         text = original_text.lower()
         button.setCursor(Qt.PointingHandCursor)
-        button.setIcon(QIcon())
+        if button.text().startswith("←"):
+            from .vector_icons import vector_icon
+            button.setText(button.text().lstrip("← "))
+            button.setIcon(vector_icon("back"))
+        else:
+            button.setIcon(QIcon())
         _set_button_role(button, text)
         _set_shortcut(button, text)
         if not button.accessibleName():
@@ -83,8 +112,14 @@ def polish_window(
         _compact_toolbar_button(button, original_text)
         _patch_button_work_state(button, widget)
         _patch_button_enabled(button, widget)
+        button._operation_owner = widget
         _patch_button_busy_feedback(button)
         _refresh_style(button)
+
+    # The nearby native button already communicates the recommended command.
+    # Keep the labels for operational snapshots, but don't repeat the action.
+    for copy in widget.findChildren(QFrame, "ControlCommandCopy"):
+        copy.hide()
 
     title = widget.windowTitle() or "Suite Rodriguez Finura"
     for index, field in enumerate(widget.findChildren(QLineEdit), start=1):
@@ -118,8 +153,10 @@ def polish_window(
         table.setTextElideMode(Qt.ElideMiddle)
         table.setWordWrap(False)
         table.setShowGrid(False)
-        table.verticalHeader().setVisible(False)
-        table.verticalHeader().setDefaultSectionSize(32)
+        table.verticalHeader().setVisible(bool(table.property("showVerticalHeader")))
+        row_height = int(table.property("rowHeight") or 32)
+        table.verticalHeader().setDefaultSectionSize(row_height)
+        table.verticalHeader().setMinimumSectionSize(row_height)
         table.horizontalHeader().setMinimumSectionSize(44)
         if not table.accessibleName():
             table.setAccessibleName(f"Tabla {index} de {title}")
@@ -214,17 +251,9 @@ def apply_premium_depth(widget: QWidget) -> None:
     """Apply restrained elevation to product surfaces without changing layout."""
     names = {
         "ConsoleHeader",
-        "CompactContextBar",
         "DashboardCommandCard",
-        "WorkflowControlCard",
-        "Panel",
-        "DsPanel",
-        "ContextCard",
-        "ModuleRow",
         "ContinuePanel",
         "HeroPanel",
-        "ActivityPanel",
-        "ModulesPanel",
     }
     color = QColor(0, 0, 0, 78) if is_dark_mode() else QColor(16, 24, 40, 24)
     for frame in widget.findChildren(QFrame):
@@ -269,7 +298,7 @@ def _prepare_embedded_surfaces(widget: QWidget) -> None:
             "OutputPanel",
         }:
             frame.setProperty("embeddedSurface", True)
-            frame.setMinimumSize(0, 0)
+            frame.setMinimumSize(0, int(frame.property('contentMinimumHeight') or 0))
             frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum if name in {"Toolbar", "Stepper"} else QSizePolicy.Expanding)
             layout = frame.layout()
             if layout is not None:
@@ -296,6 +325,9 @@ def _prepare_embedded_surfaces(widget: QWidget) -> None:
 
 
 def operational_snapshot(widget: QWidget) -> dict[str, str]:
+    if widget.property("operationActive"):
+        state = {"running": "Procesando", "cancelling": "Cancelando", "committing": "Guardando y verificando"}.get(widget.property("jobState"), "Procesando")
+        return {"state": state, "next": "Espera a que termine el trabajo", "alerts": "Cancelación desactivada durante el guardado" if widget.property("jobState") == "committing" else "Trabajo en curso"}
     """Return the compact operational state used by the shell header."""
     provider = getattr(widget, "context_snapshot", None)
     if callable(provider):
@@ -832,99 +864,27 @@ def _patch_context_labels(widget: QWidget) -> None:
         label.setProperty("contextPatched", True)
 
 
-def _mark_work_in_progress(widget: QWidget) -> None:
-    revision = int(widget.property("closeWorkRevision") or 0) + 1
-    widget.setProperty("closeWorkRevision", revision)
-
-
-def _patch_button_work_state(button: QPushButton, widget: QWidget) -> None:
-    if button.property("workStatePatched"):
-        return
-    button.setProperty("workStatePatched", True)
-
-
-def _patch_field_work_state(field: QWidget, widget: QWidget) -> None:
-    if field.property("workStatePatched"):
-        return
-    if isinstance(field, QLineEdit):
-        field.textEdited.connect(lambda _text, _widget=widget: _mark_work_in_progress(_widget))
-    elif isinstance(field, QComboBox):
-        field.activated.connect(lambda _index, _widget=widget: _mark_work_in_progress(_widget))
-    elif isinstance(field, QPlainTextEdit) and not field.isReadOnly():
-        field.textChanged.connect(lambda _widget=widget: _mark_work_in_progress(_widget))
-    elif isinstance(field, QTableWidget) and field.property("allowCellEditing"):
-        field.itemChanged.connect(lambda _item, _widget=widget: _mark_work_in_progress(_widget))
-    field.setProperty("workStatePatched", True)
-
-
-def _install_table_desktop_affordances(table: QTableWidget, widget: QWidget) -> None:
-    if table.property("desktopAffordancesPatched"):
-        return
-    table.setContextMenuPolicy(Qt.CustomContextMenu)
-    table.setToolTip("Selecciona filas con Mayús o Ctrl. Copia la selección con Ctrl+C.")
-
-    copy_action = QAction("Copiar selección", table)
-    copy_action.setShortcut(QKeySequence.Copy)
-    copy_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
-    copy_action.triggered.connect(lambda _checked=False, _table=table, _widget=widget: _copy_table_selection(_table, _widget))
-    table.addAction(copy_action)
-
-    def show_menu(position, *, _table=table, _widget=widget) -> None:
-        menu = QMenu(_table)
-        action = menu.addAction("Copiar selección")
-        action.setEnabled(bool(_table.selectedIndexes()) or _table.currentRow() >= 0)
-        action.triggered.connect(lambda _checked=False: _copy_table_selection(_table, _widget))
-        menu.exec(_table.viewport().mapToGlobal(position))
-
-    table.customContextMenuRequested.connect(show_menu)
-    table.setProperty("desktopAffordancesPatched", True)
-
-
-def _copy_table_selection(table: QTableWidget, widget: QWidget) -> None:
-    text = _table_selection_text(table)
-    if not text:
-        return
-    app = QApplication.instance()
-    if app is None:
-        return
-    app.clipboard().setText(text)
-    show_inline_message(widget, "info", "Selección copiada al portapapeles.")
-
-
-def _table_selection_text(table: QTableWidget) -> str:
-    indexes = table.selectedIndexes()
-    if not indexes and table.currentRow() >= 0:
-        row = table.currentRow()
-        indexes = [table.model().index(row, column) for column in range(table.columnCount())]
-    if not indexes:
-        return ""
-    rows = sorted({index.row() for index in indexes})
-    columns = sorted({index.column() for index in indexes})
-    selected = {(index.row(), index.column()) for index in indexes}
-    lines: list[str] = []
-    for row in rows:
-        values: list[str] = []
-        for column in columns:
-            if (row, column) not in selected:
-                values.append("")
-                continue
-            item = table.item(row, column)
-            values.append("" if item is None else item.text())
-        lines.append("\t".join(values))
-    return "\n".join(lines)
-
-
 def _patch_button_enabled(button: QPushButton, widget: QWidget) -> None:
     if button.property("enabledPatched"):
         return
     original = button.setEnabled
 
     def set_enabled(enabled: bool, *, _original=original, _button=button, _widget=widget) -> None:
+        if enabled and _widget.property("operationActive") and "cancel" not in _button.text().lower():
+            enabled = False
         _original(enabled)
         _update_disabled_tooltip(_button, enabled)
-        _update_toolbar_group_visibility(_widget)
-        _update_context_panel(_widget)
-        _update_flow_indicator(_widget)
+        if not _widget.property("refreshControlsQueued"):
+            _widget.setProperty("refreshControlsQueued", True)
+            def refresh():
+                from shiboken6 import isValid
+                if not isValid(_widget):
+                    return
+                _widget.setProperty("refreshControlsQueued", False)
+                _update_toolbar_group_visibility(_widget)
+                _update_context_panel(_widget)
+                _update_flow_indicator(_widget)
+            QTimer.singleShot(0, refresh)
 
     button.setEnabled = set_enabled  # type: ignore[method-assign]
     button.setProperty("enabledPatched", True)
@@ -947,11 +907,22 @@ def _patch_button_busy_feedback(button: QPushButton) -> None:
         text = _clean_text(str(_button.property("fullText") or _button.text())).lower()
         if any(word in text for word in ("procesar", "cruzar", "comprobar", "revalidar", "generar")):
             _button.setText("Procesando...")
-        elif any(word in text for word in ("guardar", "enviar")):
+        elif "enviar" in text:
+            _button.setText("Enviando...")
+        elif "guardar" in text:
             _button.setText("Guardando...")
         _button.setProperty("busy", True)
         _refresh_style(_button)
-        QTimer.singleShot(350, lambda: _clear_busy(_button))
+        def settle_feedback():
+            from shiboken6 import isValid
+            if not isValid(_button):
+                return
+            owner = getattr(_button, "_operation_owner", None)
+            if owner is not None and owner.property("operationActive"):
+                QTimer.singleShot(100, settle_feedback)
+            else:
+                _clear_busy(_button)
+        QTimer.singleShot(0, settle_feedback)
 
     button.pressed.connect(mark_busy)
 
@@ -974,7 +945,18 @@ def _patch_editor_empty_state(editor: QPlainTextEdit) -> None:
 
     def set_plain_text(text: str, *, _original=original, _editor=editor) -> None:
         display_text = _safe_editor_text(_editor, text)
+        if display_text == _editor.toPlainText():
+            return
+        cursor = _editor.textCursor()
+        position, anchor = cursor.position(), cursor.anchor()
+        horizontal, vertical = _editor.horizontalScrollBar().value(), _editor.verticalScrollBar().value()
         _original(display_text)
+        maximum = max(0, _editor.document().characterCount() - 1)
+        cursor.setPosition(min(anchor, maximum))
+        cursor.setPosition(min(position, maximum), cursor.MoveMode.KeepAnchor)
+        _editor.setTextCursor(cursor)
+        _editor.horizontalScrollBar().setValue(horizontal)
+        _editor.verticalScrollBar().setValue(vertical)
         _update_editor_empty_state(_editor, display_text)
 
     editor.setPlainText = set_plain_text  # type: ignore[method-assign]
@@ -1165,148 +1147,11 @@ def _compact_button_text(text: str) -> str:
     return mapping.get(text, text)
 
 
-def confirm_discard_work(widget: QWidget, title: str = "Descartar cambios") -> bool:
-    reason = close_risk_reason(widget)
-    if not reason:
-        return True
-    app = QApplication.instance()
-    if app is not None and app.platformName().lower() == "offscreen":
-        return True
-    if not getattr(widget, "show_dialogs", True):
-        return True
-    dialog = QMessageBox(QMessageBox.Warning, title, reason, parent=widget)
-    safe = dialog.addButton("Seguir trabajando", QMessageBox.RejectRole)
-    discard_label = "Cerrar sin guardar" if title == "Cerrar ventana" else "Descartar trabajo"
-    discard = dialog.addButton(discard_label, QMessageBox.DestructiveRole)
-    dialog.setDefaultButton(safe)
-    dialog.exec()
-    return dialog.clickedButton() is discard
-
-
-def _install_close_guard(widget: QWidget) -> None:
-    if not isinstance(widget, (QMainWindow, QDialog)) or widget.property("closeGuardPatched"):
-        return
-    original_close_event = widget.closeEvent
-
-    def close_event(event, *, _widget=widget, _original=original_close_event) -> None:
-        if _has_running_worker(_widget):
-            # Never detach a QMainWindow which owns a running QThread.  Qt will
-            # abort the entire process if the thread is destroyed underneath it.
-            if getattr(_widget, "show_dialogs", True) and QApplication.instance() is not None and QApplication.instance().platformName().lower() != "offscreen":
-                QMessageBox.information(
-                    _widget,
-                    "Operación en curso",
-                    "La operación actual sigue trabajando. Espera a que finalice o usa Cancelar cuando esté disponible.",
-                )
-            event.ignore()
-            return
-        if confirm_discard_work(_widget, "Cerrar ventana"):
-            _original(event)
-        else:
-            event.ignore()
-
-    widget.closeEvent = close_event  # type: ignore[method-assign]
-    widget.setProperty("closeGuardPatched", True)
-
-
-def _has_running_worker(widget: QWidget) -> bool:
-    """Detect worker threads without coupling the shared close guard to each app."""
-    thread = getattr(widget, "_thread", None)
-    if thread is not None and hasattr(thread, "isRunning") and thread.isRunning():
-        return True
-    threads = getattr(widget, "_background_threads", ())
-    return any(thread is not None and hasattr(thread, "isRunning") and thread.isRunning() for thread in threads)
-
-
-def _install_desktop_shortcuts(widget: QWidget) -> None:
-    if widget.property("desktopShortcutsPatched"):
-        return
-    cancel_action = QAction(widget)
-    cancel_action.setShortcut("Esc")
-    cancel_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
-    cancel_action.triggered.connect(lambda _checked=False, _widget=widget: _cancel_transient_state(_widget))
-    widget.addAction(cancel_action)
-    widget.setProperty("desktopShortcutsPatched", True)
-
-
-def _cancel_transient_state(widget: QWidget) -> None:
-    focused = QApplication.focusWidget()
-    if focused is not None and (focused is widget or widget.isAncestorOf(focused)):
-        focused.clearFocus()
-    clear_inline_message(widget)
-    focus_next_action(widget)
-
-
-def close_risk_reason(widget: QWidget) -> str:
-    """Describe el riesgo real de cierre; un archivo sólo seleccionado no basta."""
-    if widget.property("operationActive") or _has_running_worker(widget):
-        return "Hay una operación en curso. Cerrar ahora puede dejarla incompleta."
-    snapshot = _pending_work_snapshot(widget)
-    if not snapshot or snapshot == str(widget.property("closeSafeSnapshot") or ""):
-        return ""
-    if getattr(widget, "weight_filter_pending", False) or _has_editable_correction(widget):
-        return "Hay correcciones o cambios sin guardar. Si cierras ahora, se perderán."
-    return "Los datos procesados todavía no se han exportado. Si cierras ahora, tendrás que procesarlos de nuevo."
-
-
-def _pending_work_snapshot(widget: QWidget) -> str:
-    parts: list[str] = []
-    result = getattr(widget, "result", None)
-    if _result_has_work(result):
-        parts.append(f"result:{id(result)}")
-    adjustment = getattr(widget, "adjustment", None)
-    if adjustment is not None:
-        # En Reparto, el análisis inicial es una vista previa reproducible. Solo
-        # pasa a ser trabajo pendiente cuando ya hay un ajuste calculado.
-        source_result = getattr(widget, "source_result", None)
-        if _result_has_work(source_result):
-            parts.append(f"source:{id(source_result)}")
-        parts.append(f"adjustment:{id(adjustment)}")
-    if getattr(widget, "weight_filter_pending", False):
-        parts.append("weight-filter")
-    if _has_editable_correction(widget):
-        parts.append(f"revision:{int(widget.property('closeWorkRevision') or 0)}")
-    return "|".join(parts)
-
-
-def _result_has_work(result: object) -> bool:
-    if result is None:
-        return False
-    for attr in (
-        "precintos", "processed_lines", "validos", "invalidos", "duplicados", "issues",
-        "final_palets", "registros_txt", "salidas", "records", "processed_excels", "results",
-        "valid_base", "detected", "log_lines",
-    ):
-        if getattr(result, attr, None):
-            return True
-    if getattr(result, "pending_correction", False):
-        return True
-    dataframe = getattr(result, "dataframe", None)
-    return dataframe is not None and hasattr(dataframe, "empty") and not dataframe.empty
-
-
-def _has_editable_correction(widget: QWidget) -> bool:
-    result = getattr(widget, "result", None)
-    correction_expected = bool(
-        getattr(result, "invalidos", None)
-        or getattr(result, "issues", None)
-        or getattr(result, "pending_correction", False)
-    )
-    if not correction_expected:
-        return False
-    return any(not editor.isReadOnly() and editor.toPlainText().strip() for editor in widget.findChildren(QPlainTextEdit))
-
-
-def _has_pending_work(widget: QWidget) -> bool:
-    """Compatibilidad interna para consumidores anteriores del guard."""
-    return bool(close_risk_reason(widget))
-
-
 def _apply_tab_order(widget: QWidget) -> None:
     focus_widgets = [
         child
         for child in widget.findChildren(QWidget)
-        if isinstance(child, (QLineEdit, QComboBox, QPushButton, QPlainTextEdit, QTableWidget))
+        if isinstance(child, (QLineEdit, QComboBox, QPushButton, QPlainTextEdit, QTableView))
         and child.focusPolicy() != Qt.NoFocus
         and child.objectName() != "ThemeToggle"
     ]
@@ -1556,7 +1401,7 @@ def _highlight_next_action(widget: QWidget, next_button: QPushButton | None) -> 
 def _state_summary(status_text: str, summary_text: str) -> str:
     combined = " ".join(part for part in (status_text, summary_text) if part)
     normalized = combined.lower()
-    if "sin archivos" in normalized:
+    if "sin archivos" in normalized or "seleccione" in normalized or "selecciona " in normalized:
         return "Esperando archivos"
     if "guardado" in normalized or "enviado" in normalized:
         return "Salida completada"
@@ -1577,7 +1422,7 @@ def _operational_metrics(widget: QWidget) -> dict[str, str]:
     pending_count = _count_result_items(result, ("pending_corrections",))
     if hasattr(result, "error_count"):
         try:
-            issue_count += int(result.error_count)
+            issue_count = max(issue_count, int(result.error_count))
         except Exception:
             pass
     if getattr(widget, "weight_filter_pending", False):
@@ -1598,9 +1443,11 @@ def _operational_metrics(widget: QWidget) -> dict[str, str]:
         alert_parts.append(f"{issue_count} incidencias")
     if pending_count:
         alert_parts.append(f"{pending_count} pendientes")
-    if _expects_seals_report(widget) and getattr(widget, "seals_file", None) is None:
+    if valid_count and _expects_seals_report(widget) and getattr(widget, "seals_file", None) is None:
         alert_parts.append("SealsReport no cargado")
-    if _expects_email(widget) and hasattr(widget, "recipients") and not widget.recipients.text().strip():
+    email_action = getattr(widget, "_recommended_action", None)
+    expects_send = callable(email_action) and "enviar correo" in str(email_action()).lower()
+    if expects_send and _expects_email(widget) and hasattr(widget, "recipients") and not widget.recipients.text().strip():
         alert_parts.append("Correo sin destinatarios")
 
     return {

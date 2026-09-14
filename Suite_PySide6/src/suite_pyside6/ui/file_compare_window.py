@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from suite_pyside6.ui.components import ModernSelect
+from suite_pyside6.ui.visual_controls import ModernCheckBox, ModernSpinBox
+
 import difflib
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QThread, Signal, Qt, QUrl
+from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QColor, QDesktopServices, QTextCursor
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QFileDialog, QFormLayout, QHBoxLayout, QLabel,
@@ -15,27 +18,11 @@ from suite_pyside6.core.file_compare.detectors import detect_encoding
 from suite_pyside6.core.file_compare.models import CompareMode, ComparisonOptions, ComparisonResult
 from suite_pyside6.core.file_compare.reports import as_text, write_report
 from suite_pyside6.core.file_compare.service import compare_paths
+from suite_pyside6.core.file_compare.text import aligned_opcodes
 from suite_pyside6.ui.components import ActionMenuButton, section_label, step_bar
-from suite_pyside6.ui.polish import polish_window
+from suite_pyside6.ui.polish import polish_window, show_inline_message
+from suite_pyside6.ui.background import run_background
 from suite_pyside6.ui.theme import base_qss, palette
-
-
-class _Worker(QObject):
-    finished = Signal(object)
-    failed = Signal(str)
-
-    def __init__(self, left: Path, right: Path, options: ComparisonOptions, cancelled) -> None:
-        super().__init__()
-        self.left, self.right, self.options = left, right, options
-        self.cancelled = cancelled
-
-    def run(self) -> None:
-        try:
-            self.finished.emit(compare_paths(self.left, self.right, self.options, cancelled=self.cancelled))
-        except Exception as exc:
-            # An uncaught exception here leaves the event loop alive forever and
-            # makes closing the parent window capable of crashing Qt.
-            self.failed.emit(str(exc) or exc.__class__.__name__)
 
 
 class FileCompareWindow(QMainWindow):
@@ -46,9 +33,9 @@ class FileCompareWindow(QMainWindow):
         self.setWindowTitle("Comparador de archivos")
         self.setMinimumSize(760, 540)
         self.setStyleSheet(base_qss())
-        self._thread: QThread | None = None
-        self._worker: _Worker | None = None
         self._result: ComparisonResult | None = None
+        self._selected_left: Path | None = None
+        self._selected_right: Path | None = None
         self._active_left: Path | None = None
         self._active_right: Path | None = None
         self._active_options: ComparisonOptions | None = None
@@ -83,6 +70,9 @@ class FileCompareWindow(QMainWindow):
         options_layout.setSpacing(8)
         options_layout.addWidget(section_label("Rutas y opciones"))
         form = QFormLayout()
+        form.setVerticalSpacing(8)
+        options_panel.setMinimumHeight(350)
+        options_panel.setProperty('contentMinimumHeight', 350)
         form.setHorizontalSpacing(12)
         form.setVerticalSpacing(8)
         self.left_label = QLabel("Seleccione el primer archivo o carpeta")
@@ -93,14 +83,16 @@ class FileCompareWindow(QMainWindow):
         right_buttons = self._path_buttons(self.right_label, "segundo")
         form.addRow("Archivo/carpeta A:", left_buttons)
         form.addRow("Archivo/carpeta B:", right_buttons)
-        self.mode = QComboBox()
+        self.mode = ModernSelect()
         self.mode.addItem("Estricto (bytes)", CompareMode.STRICT.value)
         self.mode.addItem("Semantico cuando sea posible", CompareMode.SEMANTIC.value)
         self.mode.addItem("Automatico", CompareMode.AUTO.value)
-        self.maximum = QSpinBox(); self.maximum.setRange(1, 10000); self.maximum.setValue(100)
-        self.ignore_case = QCheckBox("Ignorar mayusculas/minusculas")
-        self.ignore_whitespace = QCheckBox("Ignorar espacios iniciales/finales")
-        self.ignore_eol = QCheckBox("Ignorar finales de linea")
+        # ModernSelect has a placeholder; keep the original strict default.
+        self.mode.setCurrentIndex(0)
+        self.maximum = ModernSpinBox(); self.maximum.setRange(1, 10000); self.maximum.setValue(100)
+        self.ignore_case = ModernCheckBox("Ignorar mayúsculas/minúsculas")
+        self.ignore_whitespace = ModernCheckBox("Ignorar espacios iniciales/finales")
+        self.ignore_eol = ModernCheckBox("Ignorar finales de línea")
         form.addRow("Modo:", self.mode)
         form.addRow("Maximo de diferencias:", self.maximum)
         form.addRow("Opciones de texto:", self.ignore_case)
@@ -170,6 +162,44 @@ class FileCompareWindow(QMainWindow):
         layout.addWidget(preview_panel, 2)
         self.setCentralWidget(root)
         polish_window(self)
+        self.mode.currentIndexChanged.connect(self._invalidate_comparison)
+        self.maximum.valueChanged.connect(self._invalidate_comparison)
+        for option in (self.ignore_case, self.ignore_whitespace, self.ignore_eol):
+            option.toggled.connect(self._invalidate_comparison)
+
+    def flow_state(self):
+        if self.property('operationActive'):
+            return 3, False, False
+        if self._result is not None:
+            return 4, bool(self._result.errors), not self._result.errors
+        return (2 if self._selected_left and self._selected_right else 1), False, False
+
+    def context_snapshot(self):
+        if self._result is not None:
+            return {'state': self._result.status_text(), 'next': 'Revisar o guardar informe',
+                    'alerts': f'{len(self._result.errors)} errores' if self._result.errors else 'Sin errores de lectura'}
+        return {'state': 'Rutas seleccionadas' if self._selected_left and self._selected_right else 'Esperando rutas',
+                'next': 'Comparar' if self._selected_left and self._selected_right else 'Seleccionar dos rutas', 'alerts':'Sin resultado vigente'}
+
+    def _invalidate_comparison(self, *_args):
+        if self.property('operationActive'):
+            return
+        self._result = None
+        self.setProperty('jobState', 'idle')
+        self._job_display.hide()
+        self.summary.setText('Selección u opciones cambiadas. Compara de nuevo para obtener un resultado vigente.')
+        self.details.clear()
+        self._clear_preview()
+
+    def _set_path(self, label, selected):
+        if self.property('operationActive'):
+            return
+        if label is self.left_label:
+            self._selected_left = Path(selected)
+        else:
+            self._selected_right = Path(selected)
+        label.setText(str(selected))
+        self._invalidate_comparison()
 
     def flow_steps(self) -> tuple[str, ...]:
         return ("Seleccionar rutas", "Configurar", "Comparar", "Revisar")
@@ -200,26 +230,28 @@ class FileCompareWindow(QMainWindow):
         return holder
 
     def _select_file(self, label: QLabel, _which: str) -> None:
+        if self.property("operationActive"):
+            return
         selected, _ = QFileDialog.getOpenFileName(self, "Seleccione un archivo")
-        if selected: label.setText(selected)
+        if selected: self._set_path(label, selected)
 
     def _select_folder(self, label: QLabel, _which: str) -> None:
+        if self.property("operationActive"):
+            return
         selected = QFileDialog.getExistingDirectory(self, "Seleccione una carpeta")
-        if selected: label.setText(selected)
+        if selected: self._set_path(label, selected)
 
     def _left_path(self) -> Path | None:
-        path = Path(self.left_label.text())
-        return path if path.exists() else None
+        return self._selected_left
 
     def _right_path(self) -> Path | None:
-        path = Path(self.right_label.text())
-        return path if path.exists() else None
+        return self._selected_right
 
     def _options(self) -> ComparisonOptions:
         return ComparisonOptions(CompareMode(self.mode.currentData()), self.maximum.value(), ignore_case=self.ignore_case.isChecked(), ignore_whitespace=self.ignore_whitespace.isChecked(), ignore_line_endings=self.ignore_eol.isChecked())
 
     def _start(self) -> None:
-        if self._thread is not None and self._thread.isRunning():
+        if self.property("operationActive"):
             return
         left, right = self._left_path(), self._right_path()
         if not left or not right:
@@ -230,34 +262,32 @@ class FileCompareWindow(QMainWindow):
         self.compare_button.setEnabled(False); self.cancel_button.setEnabled(True)
         self.progress.setRange(0, 0); self.summary.setText("Comparando en segundo plano…"); self.details.clear()
         self._clear_preview()
-        self.setProperty("operationActive", True)
-        self._thread = QThread(self); self._worker = _Worker(left, right, self._active_options, lambda: self._cancelled)
-        self._worker.moveToThread(self._thread)
-        self._thread.started.connect(self._worker.run)
-        self._worker.finished.connect(self._finished)
-        self._worker.failed.connect(self._failed)
-        self._worker.finished.connect(self._thread.quit)
-        self._worker.failed.connect(self._thread.quit)
-        self._thread.finished.connect(self._worker.deleteLater)
-        self._thread.finished.connect(self._thread.deleteLater)
-        self._thread.finished.connect(self._thread_finished)
-        self._thread.start()
+        run_background(self,
+                       lambda: compare_paths(left, right, self._active_options, cancelled=lambda: self._cancelled),
+                       self._finished, self._failed)
 
     def _cancel(self) -> None:
+        from .job_display import request_cancel
+        request_cancel(self)
         self._cancelled = True
         self.summary.setText("Cancelacion solicitada; el resultado en curso se descartara al terminar el bloque actual.")
         self.cancel_button.setEnabled(False)
 
     def _finished(self, result: ComparisonResult) -> None:
-        self.progress.setRange(0, 1); self.progress.setValue(1); self.compare_button.setEnabled(True); self.cancel_button.setEnabled(False)
+        self.cancel_button.setEnabled(False)
+        self.summary.setText("Preparando la vista del resultado…")
         if self._cancelled or result.metadata.get("cancelled"):
             self.summary.setText("Comparacion cancelada.")
+            self.progress.setRange(0, 1); self.progress.setValue(0)
+            self.compare_button.setEnabled(True)
             return
         self._result = result
-        state = "IGUALES" if result.strict_equal else "DIFERENTES"
+        state = result.status_text()
         self.summary.setText(f"{state} · {result.detected_type} · {result.total_differences} diferencias · {result.elapsed_seconds:.2f} s")
         self.details.setPlainText(as_text(result))
         self._render_preview(result)
+        self.progress.setRange(0, 1); self.progress.setValue(0 if result.errors else 1)
+        self.compare_button.setEnabled(True)
 
     def _failed(self, message: str) -> None:
         self.progress.setRange(0, 1); self.progress.setValue(0)
@@ -265,11 +295,6 @@ class FileCompareWindow(QMainWindow):
         self.summary.setText(f"No se pudo completar la comparación: {message}")
         self.details.setPlainText(f"Error de comparación\n{message}")
         self._clear_preview()
-
-    def _thread_finished(self) -> None:
-        self.setProperty("operationActive", False)
-        self._thread = None
-        self._worker = None
 
     def _clear_preview(self) -> None:
         self.left_preview_title.setText("Archivo A")
@@ -297,7 +322,10 @@ class FileCompareWindow(QMainWindow):
             if path.stat().st_size > 2 * 1024 * 1024:
                 return None
             encoding = detect_encoding(path)
-            return path.read_text(encoding=encoding).splitlines(keepends=True) if encoding else None
+            if not encoding:
+                return None
+            with path.open(encoding=encoding, newline="") as stream:
+                return stream.read().splitlines(keepends=True)
         except (OSError, UnicodeDecodeError):
             return None
 
@@ -332,7 +360,7 @@ class FileCompareWindow(QMainWindow):
         right_ranges: list[tuple[int, int]] = []
         # Per-character matching is quadratic for long lines. Highlighting the
         # line is both clearer and bounded in the visual preview.
-        if len(left) + len(right) > 8_000:
+        if len(left) + len(right) > 8_000 or len(left) * len(right) > 100_000:
             return ([(0, len(left))] if left else [], [(0, len(right))] if right else [])
         matcher = difflib.SequenceMatcher(None, left, right, autojunk=False)
         for tag, left_start, left_end, right_start, right_end in matcher.get_opcodes():
@@ -350,7 +378,8 @@ class FileCompareWindow(QMainWindow):
         if not left or not right or left.is_dir() or right.is_dir() or result.detected_type != "text":
             self.preview_label.setText("Vista comparada disponible para archivos de texto; el detalle de esta comparacion aparece arriba.")
             return
-        left_lines, right_lines = self._read_preview_lines(left), self._read_preview_lines(right)
+        cached = result.metadata.get("_text_preview")
+        left_lines, right_lines = cached[:2] if cached else (self._read_preview_lines(left), self._read_preview_lines(right))
         if left_lines is None or right_lines is None:
             self.preview_label.setText("Vista previa omitida: uno de los archivos no es texto legible o supera 2 MiB. El resumen sigue disponible arriba.")
             return
@@ -361,16 +390,13 @@ class FileCompareWindow(QMainWindow):
         self.preview_label.setText("Contenido completo alineado. Solo los caracteres distintos se marcan en rojo (A) y verde (B).")
         self.left_preview_title.setText(f"Archivo A · {left.name}")
         self.right_preview_title.setText(f"Archivo B · {right.name}")
-        matcher = difflib.SequenceMatcher(
-            None,
+        codes = cached[2] if cached else aligned_opcodes(
             [self._normalise_preview_line(line) for line in left_lines],
-            [self._normalise_preview_line(line) for line in right_lines],
-            autojunk=False,
-        )
+            [self._normalise_preview_line(line) for line in right_lines])[0]
         left_rows: list[str] = []; right_rows: list[str] = []
         left_ranges: list[tuple[int, int, int]] = []
         right_ranges: list[tuple[int, int, int]] = []
-        for tag, a_start, a_end, b_start, b_end in matcher.get_opcodes():
+        for tag, a_start, a_end, b_start, b_end in codes:
             row_count = max(a_end - a_start, b_end - b_start)
             for offset in range(row_count):
                 a_index, b_index = a_start + offset, b_start + offset
@@ -379,7 +405,7 @@ class FileCompareWindow(QMainWindow):
                 left_row = self._line_text(a_index + 1 if a_index < a_end else None, left_value)
                 right_row = self._line_text(b_index + 1 if b_index < b_end else None, right_value)
                 left_rows.append(left_row); right_rows.append(right_row)
-                if tag != "equal":
+                if tag != "equal" and (len(left_ranges) < self._preview_max_highlights or len(right_ranges) < self._preview_max_highlights):
                     left_changes, right_changes = self._changed_character_ranges(left_value, right_value)
                     row = len(left_rows) - 1
                     left_prefix = len(left_row) - len(left_value or "")
@@ -390,6 +416,8 @@ class FileCompareWindow(QMainWindow):
                         right_ranges.extend((row, right_prefix + start, right_prefix + end) for start, end in right_changes)
         left_ranges = left_ranges[:self._preview_max_highlights]
         right_ranges = right_ranges[:self._preview_max_highlights]
+        if len(left_ranges) >= self._preview_max_highlights or len(right_ranges) >= self._preview_max_highlights:
+            self.preview_label.setText(f"Contenido alineado; resaltado limitado a {self._preview_max_highlights} marcas por lado. Consulta el informe para el recuento y los límites del detalle.")
         self.left_preview.setPlainText("\n".join(left_rows)); self.right_preview.setPlainText("\n".join(right_rows))
         colors = palette()
         self._highlight_ranges(self.left_preview, left_ranges, colors["danger_soft"])
@@ -405,8 +433,13 @@ class FileCompareWindow(QMainWindow):
         path, selected = QFileDialog.getSaveFileName(self, "Guardar informe", "comparacion.html", "HTML (*.html);;JSON (*.json);;Texto (*.txt)")
         if not path: return
         output_format = "json" if "JSON" in selected else "text" if "Texto" in selected else "html"
-        write_report(self._result, path, output_format)
-        self.summary.setText(f"Informe guardado: {path}")
+        result = self._result
+        self.summary.setText("Guardando informe…")
+        def completed(_value):
+            self.summary.setText(f"Informe guardado: {path}")
+        def failed(message):
+            show_inline_message(self, "error", f"No se guardó el informe. Puedes reintentar: {message}")
+        run_background(self, lambda: write_report(result, path, output_format), completed, failed)
 
     def _open_path(self, path: Path | None) -> None:
         if path: QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))

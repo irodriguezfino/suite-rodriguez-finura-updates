@@ -28,6 +28,7 @@ from suite_pyside6.core.control_recepcion_maquilas import (
 )
 from suite_pyside6.ui.control_recepcion_maquilas_window import ControlRecepcionPrecintosWindow
 from suite_pyside6.ui.main_window import MainWindow
+from verify_helpers import wait_for
 
 
 def pdf_text(path: Path) -> str:
@@ -154,7 +155,7 @@ def main() -> int:
         window.show_dialogs = False
         window.config_file = config
         window.set_txt_files([txt])
-        app.processEvents()
+        wait_for(app, lambda: len(window.result.validos) == 2)
         assert len(window.result.validos) == 2
         assert not hasattr(window, "weight_button")
         window.clear_corrections()
@@ -162,8 +163,11 @@ def main() -> int:
         window.save_txt_ax(tmp_path / "window_ax.txt")
         window.seals_file = seals
         window.process_seals()
+        wait_for(app, lambda: window.result.recepcion is not None)
         assert window._next_action_text() == "Enviar correo"
         assert "ALB1" in window._render_template(window.subject.text())
+        assert window.empresa_cliente.count() > 0
+        window.empresa_cliente.setCurrentIndex(0)
         window.save_pdf(tmp_path / "window_rangos.pdf")
         assert window.result.pdf_rangos is not None
         window.close()
@@ -171,7 +175,7 @@ def main() -> int:
         correction_window = ControlRecepcionPrecintosWindow()
         correction_window.show_dialogs = False
         correction_window.set_txt_files([bad_txt])
-        app.processEvents()
+        wait_for(app, lambda: bool(correction_window.result.invalidos))
         assert correction_window.result.invalidos
         correction_window.preview.setPlainText(correction_text(correction_window.result).replace(";;10,50;", ";LOT1;10,50;"))
         correction_window.revalidate()

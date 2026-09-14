@@ -6,8 +6,9 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from .jobs import checked
 
-from .atomic_io import write_bytes_atomically
+from .atomic_io import write_bytes_atomically, atomic_text_writer
 
 
 AX_ENCODING = "cp1252"
@@ -98,7 +99,7 @@ def decode_txt_bytes(content: bytes) -> tuple[str, str]:
 def extract_precintos(text: str) -> PrecintosTxtAxResult:
     """Extract the value after the first supported arrow on each valid line."""
     result = PrecintosTxtAxResult()
-    for line_number, line in enumerate(text.splitlines(), start=1):
+    for line_number, line in enumerate(checked(text.splitlines(), phase='Extrayendo precintos', unit='líneas'), start=1):
         result.lines_read = line_number
         if not line.strip():
             _record_ignored_line(result, line_number, line, "Línea vacía")
@@ -181,7 +182,9 @@ def render_ax_csv(precintos: list[str]) -> bytes:
 
 def write_ax_csv(path: Path, precintos: list[str]) -> None:
     LOGGER.info("Iniciando escritura de CSV AX: archivo=%s precintos=%s", path, len(precintos))
-    write_bytes_atomically(path, render_ax_csv(precintos))
+    with atomic_text_writer(path, encoding=AX_ENCODING) as stream:
+        writer = csv.writer(stream, delimiter=AX_DELIMITER, lineterminator=AX_LINE_ENDING, quoting=csv.QUOTE_MINIMAL)
+        writer.writerows((value,) for value in precintos)
     LOGGER.info("CSV AX generado: archivo=%s precintos=%s", path, len(precintos))
 
 

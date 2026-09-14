@@ -11,6 +11,7 @@ from PySide6.QtWidgets import QApplication
 
 from suite_pyside6.core.apps import APP_REGISTRY
 from suite_pyside6.ui.main_window import MainWindow
+from verify_helpers import wait_for
 
 
 def main() -> int:
@@ -33,13 +34,14 @@ def main() -> int:
     first = APP_REGISTRY[0]
     second = APP_REGISTRY[1]
     window.open_app(first)
+    wait_for(app, lambda: first.key in window.app_pages)
     window.open_app(second)
-    app.processEvents()
+    wait_for(app, lambda: second.key in window.app_pages)
 
     assert window.tabs.count() == 3
     assert window.tabs.tabText(1) == first.title
     assert window.tabs.tabText(2) == second.title
-    assert window.process_context.isVisible()
+    assert window.process_context.isVisible() or window.compact_context_bar.isVisible()
     assert window.context_app_title.text() == second.title
     assert window.search.isHidden()
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .jobs import checkpoint, checked, report_progress, begin_commit
+
 from dataclasses import dataclass, field
 from email.message import EmailMessage
 from pathlib import Path
@@ -177,6 +179,7 @@ def producto_parece_iberico(nombre: str) -> bool:
 def codigos_ibericos_desde_config(rangos_por_codigo: dict) -> set[str]:
     codigos: set[str] = set()
     for codigo, rangos in (rangos_por_codigo or {}).items():
+        checkpoint()
         if any(producto_parece_iberico(getattr(rango, "nombre_producto", "")) for rango in rangos):
             codigos.add(str(codigo).strip())
     return codigos
@@ -240,16 +243,12 @@ def validate_control_record(
 
 def leer_control_txt(paths: list[Path]) -> list[RegistroControlRecepcion]:
     registros: list[RegistroControlRecepcion] = []
-    for path in paths:
-        for encoding in ("utf-8-sig", "cp1252", "latin-1"):
-            try:
-                lines = path.read_text(encoding=encoding).splitlines()
-                break
-            except UnicodeDecodeError:
-                continue
-        else:
-            lines = path.read_text(encoding="utf-8-sig", errors="replace").splitlines()
+    for path in checked(paths, phase="Leyendo archivos", total=len(paths), unit="archivos"):
+        checkpoint()
+        from .text_stream import iter_text_lines
+        lines = iter_text_lines(path)
         for numero, line in enumerate(lines, start=1):
+            checkpoint()
             registro = parse_control_line(line, path.name, numero)
             if registro is not None:
                 registros.append(registro)
@@ -260,7 +259,8 @@ def dedupe_records(registros: list[RegistroControlRecepcion]) -> tuple[list[Regi
     vistos: set[str] = set()
     validos: list[RegistroControlRecepcion] = []
     duplicados: list[RegistroControlRecepcion] = []
-    for registro in registros:
+    for registro in checked(registros):
+        checkpoint()
         if registro.precinto in vistos:
             duplicados.append(registro)
             continue
@@ -276,7 +276,8 @@ def process_control_txt(paths: list[Path], config_file: Path | None = None) -> C
     partida, lote = sugerir_partida_lote(registros)
     validos_pre: list[RegistroControlRecepcion] = []
     invalidos: list[tuple[RegistroControlRecepcion, str]] = []
-    for registro in registros:
+    for registro in checked(registros):
+        checkpoint()
         motivos = validate_control_record(registro, tipo.tipo, partida, lote)
         if motivos:
             invalidos.append((registro, "; ".join(motivos)))
@@ -300,6 +301,7 @@ def correction_text(result: ControlRecepcionResult) -> str:
         return "# Sin incidencias pendientes.\n"
     blocks = ["# Corrige las lineas de datos. Las lineas que empiezan por # se ignoran al revalidar."]
     for registro, motivo in result.invalidos:
+        checkpoint()
         blocks.append(f"# Archivo: {registro.archivo} | linea: {registro.linea} | motivo: {motivo}")
         blocks.append(registro.to_line())
     return "\n".join(blocks) + "\n"
@@ -312,6 +314,7 @@ def revalidate_corrections(result: ControlRecepcionResult, text: str) -> Control
     partida = partida or result.partida_sugerida
     lote = lote or result.lote_sugerido
     for index, line in enumerate(text.splitlines(), start=1):
+        checkpoint()
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
             continue
@@ -388,6 +391,7 @@ def parsear_destinatarios(texto: str) -> list[str]:
     vistos: set[str] = set()
     resultado: list[str] = []
     for correo in candidatos:
+        checkpoint()
         clave = correo.lower()
         if clave not in vistos:
             vistos.add(clave)
@@ -405,6 +409,7 @@ def albaran_recepcion(result: ControlRecepcionResult) -> str:
     vistos: set[str] = set()
     albaranes: list[str] = []
     for registro in result.recepcion.registros_oficiales:
+        checkpoint()
         albaran = (registro.albaran or "").strip()
         if albaran and albaran not in vistos:
             vistos.add(albaran)
@@ -463,6 +468,7 @@ def send_control_email(
         if not pdf.exists():
             save_pdf_rangos(pdf, result, metadata)
         for path in (detail, pdf):
+            checkpoint()
             subtype = "pdf" if path.suffix.lower() == ".pdf" else "plain"
             maintype = "application" if subtype == "pdf" else "text"
             msg.add_attachment(path.read_bytes(), maintype=maintype, subtype=subtype, filename=path.name)
@@ -474,6 +480,7 @@ def send_control_email(
                     smtp.ehlo()
                 if smtp_user and smtp_password:
                     smtp.login(smtp_user, smtp_password)
+                begin_commit()
                 smtp.send_message(msg)
         except smtplib.SMTPException as exc:
             raise RuntimeError("No se pudo enviar el correo con el servidor corporativo. Revisa la conexion o las credenciales SMTP.") from exc

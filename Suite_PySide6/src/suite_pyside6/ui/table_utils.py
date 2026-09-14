@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
+from collections import defaultdict
 
+from PySide6.QtCore import QItemSelectionModel, Qt
 from PySide6.QtWidgets import QLabel, QTableWidget
 
 
@@ -11,6 +13,19 @@ def bulk_table_update(table: QTableWidget, *, block_signals: bool = True) -> Ite
     updates_enabled = table.updatesEnabled()
     signals_blocked = table.signalsBlocked()
     sorting_enabled = table.isSortingEnabled()
+    def keys():
+        occurrences = defaultdict(int)
+        values = []
+        for row in range(table.rowCount()):
+            item = table.item(row, 0)
+            identity = str(item.data(Qt.UserRole) or item.text()) if item else f"row:{row}"
+            values.append((identity, occurrences[identity]))
+            occurrences[identity] += 1
+        return values
+    before = keys()
+    selected = {(before[index.row()], index.column()) for index in table.selectedIndexes()}
+    current = (before[table.currentRow()], table.currentColumn()) if 0 <= table.currentRow() < len(before) else None
+    scroll = (table.horizontalScrollBar().value(), table.verticalScrollBar().value())
     table.setSortingEnabled(False)
     table.setUpdatesEnabled(False)
     if block_signals:
@@ -19,6 +34,15 @@ def bulk_table_update(table: QTableWidget, *, block_signals: bool = True) -> Ite
         yield
     finally:
         table.setSortingEnabled(sorting_enabled)
+        after = {key: row for row, key in enumerate(keys())}
+        if current and current[0] in after:
+            table.setCurrentCell(after[current[0]], current[1], QItemSelectionModel.NoUpdate)
+        table.clearSelection()
+        for key, column in selected:
+            if key in after and column < table.columnCount():
+                table.selectionModel().select(table.model().index(after[key], column), QItemSelectionModel.Select)
+        table.horizontalScrollBar().setValue(scroll[0])
+        table.verticalScrollBar().setValue(scroll[1])
         if block_signals:
             table.blockSignals(signals_blocked)
         table.setUpdatesEnabled(updates_enabled)

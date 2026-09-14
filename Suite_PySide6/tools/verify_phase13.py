@@ -23,7 +23,7 @@ def main() -> int:
     app.processEvents()
     window._update_process_context()
 
-    assert window.process_context.isVisible()
+    assert window.process_context.isVisible() or window.compact_context_bar.isVisible()
     assert window.process_state.text().startswith("Estado:")
     assert window.process_next.text().startswith("Siguiente:")
     assert window.process_alerts.text().startswith("Avisos:")
@@ -36,6 +36,7 @@ def main() -> int:
     window.show_dashboard()
     app.processEvents()
     assert not window.process_context.isVisible()
+    assert not window.compact_context_bar.isVisible()
 
     window.close()
     print("PHASE13_OK")

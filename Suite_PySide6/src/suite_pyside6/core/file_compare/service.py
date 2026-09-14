@@ -43,7 +43,7 @@ def compare_paths(
             result = ComparisonResult(str(left), str(right), detected_type="directory")
             result.warnings.append("Comparación cancelada por el usuario.")
             result.metadata["cancelled"] = True
-        except (OSError, PermissionError, ValueError) as error:
+        except (OSError, PermissionError, ValueError, RecursionError) as error:
             result = ComparisonResult(str(left), str(right), detected_type="directory")
             result.errors.append(f"No se pudo comparar la carpeta: {error}")
         result.elapsed_seconds = perf_counter() - started
@@ -54,7 +54,11 @@ def compare_paths(
         result.elapsed_seconds = perf_counter() - started
         return result
     result = ComparisonResult(str(left), str(right))
+    result.metadata["mode"] = options.mode.value
+    result._cancelled = cancelled
+    versions = None
     try:
+        versions = (left.stat().st_size, left.stat().st_mtime_ns, right.stat().st_size, right.stat().st_mtime_ns)
         # Refuse inputs that cannot be compared safely in a desktop UI.  This
         # protects memory, long network reads and accidental whole-drive scans.
         if max(left.stat().st_size, right.stat().st_size) > MAX_BINARY_COMPARISON_SIZE:
@@ -64,12 +68,14 @@ def compare_paths(
             )
             result.elapsed_seconds = perf_counter() - started
             return result
-        result.left_sha256, result.left_size = sha256_and_size(left, options.block_size, cancelled)
-        result.right_sha256, result.right_size = sha256_and_size(right, options.block_size, cancelled)
         result.detected_type = detect_type(left)
         # El hash acelera la respuesta, pero toda igualdad se confirma por lectura binaria.
         compare_binary(left, right, options, result, cancelled)
         strict_differences = result.total_differences
+        if result.strict_equal and (options.mode == CompareMode.STRICT or result.detected_type not in {"json", "xml", "csv", "tsv", "zip"}):
+            result.semantic_equal = True
+            result.elapsed_seconds = perf_counter() - started
+            return result
         if result.detected_type == "text":
             # Conserva la igualdad binaria y sustituye el detalle por un diff legible.
             strict_equal = result.strict_equal
@@ -103,7 +109,16 @@ def compare_paths(
     except ComparisonCancelled:
         result.warnings.append("Comparación cancelada por el usuario.")
         result.metadata["cancelled"] = True
-    except (OSError, PermissionError, ValueError) as error:
+    except (OSError, PermissionError, ValueError, RecursionError) as error:
         result.errors.append(f"No se pudo leer el archivo: {error}")
+    finally:
+        if versions is not None:
+            try:
+                current = (left.stat().st_size, left.stat().st_mtime_ns, right.stat().st_size, right.stat().st_mtime_ns)
+            except OSError:
+                current = None
+            if current != versions:
+                result.errors.append("Un archivo cambió durante la comparación. Repite con copias estables.")
+                result.strict_equal = result.semantic_equal = None
     result.elapsed_seconds = perf_counter() - started
     return result

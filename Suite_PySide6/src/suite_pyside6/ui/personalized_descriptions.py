@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from suite_pyside6.ui.components import configure_header_action
+from suite_pyside6.ui.components import configure_header_action, ActionMenuButton
 from suite_pyside6.ui.session import (
     MAX_PERSONAL_DESCRIPTION_LENGTH,
     migrate_personal_description,
@@ -110,14 +110,25 @@ class PersonalizedDescriptionControl(QWidget):
         self._refresh()
 
     def move_actions_to(self, target_layout: QLayout) -> None:
-        """Agrupa sus acciones con las demás acciones de la cabecera."""
-        layout = self.layout()
-        if layout is None:
-            return
-        for button in (self.edit_button, self.restore_button):
-            layout.removeWidget(button)
-            configure_header_action(button)
-            target_layout.addWidget(button, 0, Qt.AlignVCenter)
+        """Keep personalisation in one stable secondary menu, at either density."""
+        self._external_actions = True
+        self._ensure_actions_menu()
+        self.layout().removeWidget(self._actions_menu)
+        target_layout.addWidget(self._actions_menu, 0, Qt.AlignVCenter)
+        self._refresh()
+
+    def set_compact(self, compact: bool) -> None:
+        self._compact = compact
+        self._ensure_actions_menu()
+        self._refresh()
+
+    def _ensure_actions_menu(self) -> None:
+        if not hasattr(self, "_actions_menu"):
+            self._actions_menu = ActionMenuButton(self, accessible_name="Personalizar descripción")
+            self._actions_menu.setText("Opciones")
+            self._actions_menu.add_action("Editar descripción", self.edit_description)
+            self._restore_action = self._actions_menu.add_action("Restaurar descripción estándar", self.restore_standard_description)
+            self.layout().addWidget(self._actions_menu, 0, Qt.AlignTop)
 
     def edit_description(self) -> None:
         if not self._preference_key:
@@ -154,9 +165,14 @@ class PersonalizedDescriptionControl(QWidget):
     def _refresh(self) -> None:
         customized = personal_description(self._preference_key) if self._preference_key else ""
         self.description_label.setText(customized or self._standard_description)
+        self.description_label.setToolTip(customized or self._standard_description)
         self.edit_button.setText("Editar descripción" if customized else "Añadir descripción")
-        self.edit_button.setVisible(bool(self._preference_key))
-        self.restore_button.setVisible(bool(customized))
+        menu_mode = getattr(self, '_external_actions', False) or getattr(self, '_compact', False)
+        self.edit_button.setVisible(bool(self._preference_key) and not menu_mode)
+        self.restore_button.setVisible(bool(customized) and not menu_mode)
+        if hasattr(self, '_actions_menu'):
+            self._actions_menu.setVisible(bool(self._preference_key) and menu_mode)
+            self._restore_action.setEnabled(bool(customized))
 
 
 def migrate_control_recepcion_precintos_header() -> None:

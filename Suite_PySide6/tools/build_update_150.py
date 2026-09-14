@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.7.16"
+VERSION = "1.7.22"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
@@ -139,6 +139,10 @@ def harden_legacy_runtime_scripts(target: Path) -> None:
 
 
 def remove_tree(path: Path) -> None:
+    resolved = path.resolve()
+    allowed = {(ROOT / 'outputs' / f'release_{VERSION}').resolve(), (ROOT / 'outputs' / f'full_release_{VERSION}').resolve()}
+    if resolved not in allowed:
+        raise ValueError(f'Refusing cleanup outside versioned staging: {resolved}')
     def on_error(func, failed_path, _exc_info):
         os.chmod(failed_path, 0o700)
         func(failed_path)
@@ -292,9 +296,13 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
     full_digest = sha256(full_package)
     installer_digest = sha256(installer_bat)
     notes = (
-        "- Nueva ayuda contextual en las 12 aplicaciones: objetivo, preparación, pasos, resultado y consejos de uso.\n"
-        "- Acceso directo a la ayuda desde cada aplicación con el botón Ayuda o la tecla F1.\n"
-        "- Corregido el fondo de la guía para que se vea de forma uniforme y legible en Windows y en todos los temas."
+        "- Tarjetas de Procesos: acciones alineadas y estables en ambas densidades, con adaptación a anchos reducidos.\n"
+        "- Cabeceras compactas, personalización en menú y menos paneles, sombras e indicaciones duplicadas.\n"
+        "- Casillas con marca explícita, controles numéricos y desplegables coherentes e iconos vectoriales compartidos.\n"
+        "- Bandeja simplificada, estados vacíos útiles, elección PDA/FAC mediante tarjetas y trabajos abiertos con desplazamiento.\n"
+        "- Motores, cálculos, guardado y medidas de protección de datos sin cambios respecto a v1.7.21.\n"
+        "- Pruebas de regresión y renderizados Qt en temas claro/oscuro y escalas 100/125/150/200 %.\n"
+        "- Detalle de cambios y límites de validación: outputs/audit_1.7.22/IMPLEMENTACION.md."
     )
     manifest = {
         "schema": "suite-rodriguez-finura-update-v1",

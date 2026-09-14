@@ -4,11 +4,13 @@ import os
 import shutil
 import tempfile
 import unittest
+from zipfile import ZipFile
 from decimal import Decimal
 from pathlib import Path
 
 from openpyxl import Workbook, load_workbook
 from PySide6.QtTest import QTest
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QAbstractItemView, QBoxLayout, QCheckBox
 
 try:
@@ -98,11 +100,11 @@ class PesosCoreTests(unittest.TestCase):
             neto_formats = [reloaded.active.cell(row, 9).number_format for row in range(2, 6)]
             reloaded.close()
             self.assertEqual(bruto_weights, ["12.20", "0.10", "98.90", "1.00"])
-            self.assertEqual(neto_weights, ["12.20", "0.10", "98.90", "1.00"])
+            self.assertEqual(neto_weights, [12.345, 0.125, 99.9999, 1.01])
             self.assertEqual(bruto_formats, ["@", "@", "@", "@"])
-            self.assertEqual(neto_formats, ["@", "@", "@", "@"])
+            self.assertEqual(neto_formats, ["General"] * 4)
 
-    def test_normal_calcula_ambas_columnas_de_forma_independiente(self) -> None:
+    def test_normal_calcula_solo_bruto_y_conserva_neto(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "bruto_neto.xlsx"
             book = Workbook()
@@ -114,15 +116,15 @@ class PesosCoreTests(unittest.TestCase):
 
             result = process_pesos_files([path], {path: "normal"})
             self.assertEqual(result.error_count, 0)
-            self.assertEqual(result.results[0].adjusted_weights, 2)
+            self.assertEqual(result.results[0].adjusted_weights, 1)
             reloaded = load_workbook(path, data_only=False)
             self.assertEqual(reloaded.active.cell(2, 6).value, "139.90")
-            self.assertEqual(reloaded.active.cell(2, 9).value, "142.10")
+            self.assertEqual(reloaded.active.cell(2, 9).value, 143.70)
             self.assertEqual(reloaded.active.cell(2, 6).number_format, "@")
-            self.assertEqual(reloaded.active.cell(2, 9).number_format, "@")
+            self.assertEqual(reloaded.active.cell(2, 9).number_format, "General")
             reloaded.close()
 
-    def test_completo_modifica_peso_bruto_y_neto_y_todas_las_hojas_con_encabezado(self) -> None:
+    def test_completo_modifica_solo_bruto_en_todas_las_hojas_con_encabezado(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "lote.xlsx"
             _write_lote(path, sheets=2)
@@ -137,25 +139,38 @@ class PesosCoreTests(unittest.TestCase):
             result = process_pesos_files([path], {path: "completo"}, updates.append)
 
             self.assertEqual(result.error_count, 0)
-            self.assertEqual(result.results[0].adjusted_weights, 12)
+            self.assertEqual(result.results[0].adjusted_weights, 6)
             self.assertEqual(updates[-1].completed, updates[-1].total)
             book = load_workbook(path, data_only=False)
             for sheet_index, sheet in enumerate(book.worksheets):
                 self.assertEqual(sheet.cell(2, 6).value, "139.20")
                 self.assertEqual(sheet.cell(3, 6).value, "137.00")
                 self.assertEqual(sheet.cell(4, 6).value, "136.80")
-                self.assertEqual(sheet.cell(2, 9).value, "133.60")
-                self.assertEqual(sheet.cell(3, 9).value, "131.60")
-                self.assertEqual(sheet.cell(4, 9).value, "130.60")
+                self.assertEqual(sheet.cell(2, 9).value, 138)
+                self.assertEqual(sheet.cell(3, 9).value, 136)
+                self.assertEqual(sheet.cell(4, 9).value, 135)
                 self.assertEqual(sheet.cell(3, 6).number_format, "@")
-                self.assertEqual(sheet.cell(3, 9).number_format, "@")
+                self.assertEqual(sheet.cell(3, 9).number_format, "General")
                 for row_index, row in enumerate(sheet.iter_rows(), start=1):
                     for column_index, cell in enumerate(row, start=1):
-                        if row_index > 1 and column_index in (6, 9):
+                        if row_index > 1 and column_index == 6:
                             continue
                         self.assertEqual(cell.value, before_values[sheet_index][row_index - 1][column_index - 1])
             self.assertEqual(book.worksheets[0].title, "Hoja1")
             book.close()
+
+    def test_progreso_distingue_operaciones_sin_medida_de_las_celdas_contadas(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "lote.xlsx"
+            _write_lote(path)
+            updates = []
+            result = process_pesos_files([path], {path: "normal"}, updates.append)
+
+            self.assertEqual(result.error_count, 0)
+            self.assertFalse(any(update.busy for update in updates))
+            self.assertTrue(any(not update.busy and "Ajustando pesos" in update.message for update in updates))
+            self.assertFalse(updates[-1].busy)
+            self.assertEqual(updates[-1].completed, updates[-1].total)
 
     def test_sin_vaciado_no_modifica_los_pesos(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -167,6 +182,20 @@ class PesosCoreTests(unittest.TestCase):
             self.assertEqual([book.active.cell(row, 6).value for row in range(2, 5)], [143.7, 141.5, 141.3])
             self.assertEqual(book.active.title, "Hoja1")
             book.close()
+
+    def test_ooxml_directo_preserva_las_partes_no_modificadas(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "lote.xlsx"
+            _write_lote(path)
+            payload = b"contenido auxiliar que Pesos no debe tocar"
+            with ZipFile(path, "a") as archive:
+                archive.writestr("customXml/itemPesosAudit.xml", payload)
+
+            result = process_pesos_files([path], {path: "normal"})
+
+            self.assertEqual(result.error_count, 0)
+            with ZipFile(path, "r") as archive:
+                self.assertEqual(archive.read("customXml/itemPesosAudit.xml"), payload)
 
     def test_error_por_encabezado_ausente_no_sobrescribe_archivo(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -180,7 +209,7 @@ class PesosCoreTests(unittest.TestCase):
             updates = []
             result = process_pesos_files([path], {path: "normal"}, updates.append)
             self.assertEqual(result.error_count, 1)
-            self.assertIn("pesoBruto y pesoNeto", result.results[0].message)
+            self.assertIn("pesoBruto", result.results[0].message)
             self.assertEqual(path.read_bytes(), original)
             self.assertLess(updates[-1].completed, updates[-1].total)
 
@@ -197,7 +226,7 @@ class PesosCoreTests(unittest.TestCase):
             self.assertIn("fila 3", result.results[0].message)
             self.assertIn("pesoBruto", result.results[0].message)
 
-    def test_error_por_peso_neto_no_numerico_indica_columna(self) -> None:
+    def test_peso_neto_no_numerico_se_conserva_sin_error(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "neto_invalido.xlsx"
             _write_lote(path)
@@ -206,52 +235,66 @@ class PesosCoreTests(unittest.TestCase):
             book.save(path)
             book.close()
             result = process_pesos_files([path], {path: "normal"})
-            self.assertEqual(result.error_count, 1)
-            self.assertIn("fila 3", result.results[0].message)
-            self.assertIn("pesoNeto", result.results[0].message)
-
-    @unittest.skipUnless(
-        os.environ.get("PESOS_REFERENCE_DIR") and open_workbook is not None,
-        "Defina PESOS_REFERENCE_DIR e instale xlrd para ejecutar la regresión XLS real.",
-    )
-    def test_lote_xls_de_referencia_coincide_con_vaciado_completo(self) -> None:
-        reference_dir = Path(os.environ["PESOS_REFERENCE_DIR"])
-        initial = reference_dir / "LOTE 2631115W-inicial.xls"
-        expected = reference_dir / "LOTE 2631115W.xls"
-        self.assertTrue(initial.is_file())
-        self.assertTrue(expected.is_file())
-        with tempfile.TemporaryDirectory() as directory:
-            working = Path(directory) / initial.name
-            shutil.copy2(initial, working)
-            result = process_pesos_files([working], {working: "completo"})
             self.assertEqual(result.error_count, 0)
-            self.assertEqual(result.results[0].adjusted_weights, 118)
-            initial_sheet = open_workbook(initial).sheet_by_index(0)
-            actual_sheet = open_workbook(working).sheet_by_index(0)
-            expected_sheet = open_workbook(expected).sheet_by_index(0)
-            initial_header = [str(value).strip().casefold() for value in initial_sheet.row_values(0)]
-            actual_header = [str(value).strip().casefold() for value in actual_sheet.row_values(0)]
-            expected_header = [str(value).strip().casefold() for value in expected_sheet.row_values(0)]
-            self.assertEqual(actual_sheet.nrows - 1, 59)
-            for header in ("pesobruto", "pesoneto"):
-                initial_column = initial_header.index(header)
-                actual_column = actual_header.index(header)
-                self.assertEqual(
-                    [actual_sheet.cell_value(row, actual_column) for row in range(1, actual_sheet.nrows)],
-                    [
-                        calcular_peso_vaciado(initial_sheet.cell_value(row, initial_column), "completo")
-                        for row in range(1, initial_sheet.nrows)
-                    ],
-                )
-            actual_bruto_column = actual_header.index("pesobruto")
-            expected_bruto_column = expected_header.index("pesobruto")
-            self.assertEqual(
-                [actual_sheet.cell_value(row, actual_bruto_column) for row in range(1, actual_sheet.nrows)],
-                [
-                    format(Decimal(str(expected_sheet.cell_value(row, expected_bruto_column))).quantize(Decimal("0.01")), ".2f")
-                    for row in range(1, expected_sheet.nrows)
-                ],
-            )
+            book = load_workbook(path)
+            self.assertEqual(book.active.cell(3, 9).value, "no valido")
+            book.close()
+
+    def test_neto_preserva_formula_tipo_estilo_y_celdas_vacias_en_ambos_vaciados(self) -> None:
+        from xml.etree import ElementTree as ET
+        from openpyxl.styles import PatternFill
+        namespace = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+
+        def neto_xml(path):
+            with ZipFile(path) as archive:
+                root = ET.fromstring(archive.read("xl/worksheets/sheet1.xml"))
+                return {cell.attrib["r"]: ET.tostring(cell) for cell in root.iter(namespace + "c")
+                        if cell.attrib["r"].startswith("B")}
+
+        for suffix in (".xlsx", ".xlsm"):
+            for mode in ("normal", "completo"):
+                with self.subTest(suffix=suffix, mode=mode), tempfile.TemporaryDirectory() as directory:
+                    path = Path(directory) / ("neto" + suffix)
+                    book = Workbook()
+                    sheet = book.active
+                    sheet.append(["pesoBruto", "pesoNeto"])
+                    for value in (138.123, "138,123", "=SUM(1,2)", "pendiente", None):
+                        sheet.append([143.7, value])
+                    for row in range(2, 7):
+                        sheet.cell(row, 2).number_format = "0.0000"
+                        sheet.cell(row, 2).fill = PatternFill("solid", fgColor="FFFF00")
+                    book.save(path)
+                    book.close()
+                    before = neto_xml(path)
+                    result = process_pesos_files([path], {path: mode})
+                    self.assertEqual(result.error_count, 0)
+                    self.assertEqual(result.results[0].adjusted_weights, 5)
+                    self.assertEqual(neto_xml(path), before)
+
+    def test_vaciado_solo_requiere_bruto_e_ignora_encabezados_neto_duplicados(self) -> None:
+        for headers in (["pesoBruto"], ["pesoBruto", "pesoNeto", "pesoNeto"]):
+            with self.subTest(headers=headers), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "bruto.xlsx"
+                book = Workbook()
+                book.active.append(headers)
+                book.active.append([143.7] + ["no tocar"] * (len(headers) - 1))
+                book.save(path)
+                book.close()
+                result = process_pesos_files([path], {path: "completo"})
+                self.assertEqual(result.error_count, 0)
+                self.assertEqual(result.results[0].adjusted_weights, 1)
+
+    @unittest.skipUnless(os.environ.get("PESOS_REFERENCE_DIR"), "Integración Excel real: configure PESOS_REFERENCE_DIR.")
+    def test_xls_representativos_sobre_copias(self):
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+        try:
+            from verify_user_pesos import verify
+            result = verify(Path(os.environ["PESOS_REFERENCE_DIR"]))
+            self.assertTrue(result["originals_unchanged"])
+            self.assertGreater(result["verification"]["gross_checked"], 0)
+        finally:
+            sys.path.pop(0)
 
 
 class PesosWindowTests(unittest.TestCase):
@@ -263,15 +306,29 @@ class PesosWindowTests(unittest.TestCase):
         window = PesosWindow()
         path = Path("lote.xlsx")
         window.set_files([path])
-        normal = window.result_table.cellWidget(0, 1).findChild(QCheckBox)
-        normal.setChecked(True)
+        normal = window.result_table.model().index(0, 1)
+        window.result_table.activate(normal)
         self.assertEqual(window.vaciados[path], "normal")
-        complete = window.result_table.cellWidget(0, 2).findChild(QCheckBox)
-        complete.setChecked(True)
+        complete = window.result_table.model().index(0, 2)
+        window.result_table.activate(complete)
         self.assertEqual(window.vaciados[path], "completo")
-        self.assertFalse(window.result_table.cellWidget(0, 1).findChild(QCheckBox).isChecked())
-        window.result_table.cellWidget(0, 2).findChild(QCheckBox).setChecked(False)
+        self.assertEqual(normal.data(Qt.CheckStateRole), Qt.Unchecked)
+        window.result_table.activate(complete)
         self.assertEqual(window.vaciados[path], "ninguno")
+        window.close()
+
+    def test_elegir_vaciado_conserva_la_posicion_en_lotes_largos(self) -> None:
+        window = PesosWindow()
+        paths = [Path(f"lote_{index:03}.xlsx") for index in range(80)]
+        window.set_files(paths)
+        window.show()
+        QTest.qWait(30)
+        scroll = window.result_table.verticalScrollBar()
+        scroll.setValue(scroll.maximum())
+        expected_position = scroll.value()
+        window.result_table.activate(window.result_table.model().index(len(paths) - 1, 1))
+        self.assertEqual(window.vaciados[paths[-1]], "normal")
+        self.assertEqual(scroll.value(), expected_position)
         window.close()
 
     def test_checkbox_columns_y_texto_de_progreso_tienen_espacio_suficiente(self) -> None:
@@ -280,18 +337,18 @@ class PesosWindowTests(unittest.TestCase):
         window.set_files([path])
         self.assertEqual(window.rail_progress.value(), 0)
         for column in (1, 2):
-            holder = window.result_table.cellWidget(0, column)
-            checkbox = holder.findChild(QCheckBox)
-            self.assertEqual(holder.objectName(), "VaciadoCheckHolder")
-            self.assertEqual(checkbox.objectName(), "VaciadoCheck")
-            self.assertGreaterEqual(window.result_table.columnWidth(column), checkbox.minimumWidth())
-            self.assertGreaterEqual(window.result_table.columnWidth(column), holder.sizeHint().width())
-            self.assertGreater(window.result_table.rowHeight(0), checkbox.sizeHint().height())
+            self.assertGreaterEqual(window.result_table.columnWidth(column), 164)
+            self.assertEqual(window.result_table.model().index(0, column).data(Qt.CheckStateRole), Qt.Unchecked)
+        self.assertFalse(window.result_table.findChildren(QCheckBox))
         window._on_progress(type("Progress", (), {"completed": 35, "total": 120, "message": "Procesando 35 de 120"})())
         self.assertEqual(window.rail_progress.value(), 29)
         self.assertIn("Procesando 35 de 120", window.rail_progress_text.text())
         self.assertIn("29 %", window.rail_progress_text.text())
-        self.assertEqual(window.result_table.selectionMode(), QAbstractItemView.NoSelection)
+        window._on_progress(type("Progress", (), {"completed": 1, "total": 2, "message": "Validando archivo", "busy": True})())
+        self.assertEqual(window.rail_progress.maximum(), 100)
+        self.assertEqual(window.rail_progress.value(), 50)
+        self.assertIn("50 %", window.rail_progress_text.text())
+        self.assertEqual(window.result_table.selectionMode(), QAbstractItemView.ExtendedSelection)
         self.assertEqual(window.log.objectName(), "LotControlLog")
         window.close()
 

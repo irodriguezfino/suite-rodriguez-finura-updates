@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict
 import json
 
-from PySide6.QtCore import QMarginsF, QPointF, QRectF, QSizeF, Qt, Signal
+from PySide6.QtCore import QMarginsF, QPointF, QRectF, QSizeF, Qt, Signal, QTimer
 from PySide6.QtGui import QColor, QFont, QIcon, QPageLayout, QPageSize, QPainter, QPen
 from PySide6.QtPrintSupport import QAbstractPrintDialog, QPrintDialog, QPrinter
 from PySide6.QtWidgets import (
@@ -43,7 +43,8 @@ from suite_pyside6.core.numerador_etiquetas import (
 )
 from suite_pyside6.core.paths import resource_path
 from suite_pyside6.ui.background import run_background
-from suite_pyside6.ui.components import ActionMenuButton, labeled_field, metric, panel, section_label, step_bar
+from suite_pyside6.ui.components import ActionMenuButton, ModernSelect, labeled_field, metric, panel, section_label, step_bar
+from suite_pyside6.ui.visual_controls import ModernSpinBox, ModernDoubleSpinBox, ModernCheckBox
 from suite_pyside6.ui.file_dialogs import open_file, save_file
 from suite_pyside6.ui.polish import collapsible_section, polish_window, show_inline_message, sync_recommended_action
 from suite_pyside6.ui.responsive import register_adaptive_layout
@@ -51,14 +52,14 @@ from suite_pyside6.ui.session import settings
 from suite_pyside6.ui.theme import base_qss, palette
 
 
-class NoWheelSpinBox(QSpinBox):
+class NoWheelSpinBox(ModernSpinBox):
     """Evita alterar importes o cantidades al desplazar la página con el ratón."""
 
     def wheelEvent(self, event) -> None:  # noqa: N802 - Qt API
         event.ignore()
 
 
-class NoWheelDoubleSpinBox(QDoubleSpinBox):
+class NoWheelDoubleSpinBox(ModernDoubleSpinBox):
     """Los cambios de medidas se hacen con teclado, flechas o el editor visual."""
 
     def wheelEvent(self, event) -> None:  # noqa: N802 - Qt API
@@ -180,6 +181,8 @@ class NumeradorEtiquetasWindow(QMainWindow):
         self._build_ui()
         polish_window(self)
         self._refresh()
+        if self.layout_recovered:
+            show_inline_message(self, "warning", "Se recuperó un diseño con valores no válidos. Se conserva la configuración original para revisión; comprueba las medidas antes de imprimir.")
 
     def flow_steps(self) -> tuple[str, ...]:
         return ("Definir secuencia", "Elegir diseño", "Enviar a impresora", "Confirmar impresión")
@@ -245,7 +248,7 @@ class NumeradorEtiquetasWindow(QMainWindow):
 
         controls.addWidget(section_label("Diseños guardados"))
         designs = QGridLayout(); designs.setSpacing(8)
-        self.design_selector = QComboBox(); self.design_selector.currentIndexChanged.connect(self._on_design_selected)
+        self.design_selector = ModernSelect(); self.design_selector.currentIndexChanged.connect(self._on_design_selected)
         self.load_design_button = QPushButton("Cargar diseño"); self.load_design_button.clicked.connect(self.load_selected_design)
         self.save_design_button = QPushButton("Guardar diseño actual"); self.save_design_button.clicked.connect(self.save_design)
         self.design_actions_button = ActionMenuButton(accessible_name="Más acciones de diseño")
@@ -274,8 +277,9 @@ class NumeradorEtiquetasWindow(QMainWindow):
         typography = QGridLayout(typography_content); typography.setContentsMargins(0, 4, 0, 4); typography.setSpacing(8)
         self.font_family = QFontComboBox()
         self.font_size = NoWheelDoubleSpinBox(); self.font_size.setRange(6, 288); self.font_size.setDecimals(1); self.font_size.setSuffix(" pt")
-        self.alignment = QComboBox(); self.alignment.addItem("Izquierda", "left"); self.alignment.addItem("Centrado", "center"); self.alignment.addItem("Derecha", "right")
-        self.bold = QCheckBox("Negrita")
+        self.alignment = ModernSelect(); self.alignment.addItem("Izquierda", "left"); self.alignment.addItem("Centrado", "center"); self.alignment.addItem("Derecha", "right")
+        self.alignment.setCurrentIndex(0)
+        self.bold = ModernCheckBox("Negrita")
         typography.addWidget(labeled_field("Fuente", self.font_family, compact=True), 0, 0, 1, 2)
         typography.addWidget(labeled_field("Tamaño", self.font_size, compact=True), 1, 0); typography.addWidget(labeled_field("Alineación", self.alignment, compact=True), 1, 1)
         typography.addWidget(self.bold, 2, 0, 1, 2)
@@ -300,6 +304,7 @@ class NumeradorEtiquetasWindow(QMainWindow):
 
         self.status = QLabel(); self.status.setObjectName("StatusLabel"); self.status.setAlignment(Qt.AlignCenter); self.status.setWordWrap(True); self.status.setProperty("liveRegion", "polite")
         root_layout.addWidget(self.status)
+        root.setObjectName('OperationalPage')
         scroll.setWidget(root); self.setCentralWidget(scroll)
         for control in (self.label_width, self.label_height, self.zone_x, self.zone_y, self.zone_width, self.zone_height, self.font_size): control.valueChanged.connect(self._on_layout_changed)
         self.font_family.currentFontChanged.connect(self._on_layout_changed); self.alignment.currentIndexChanged.connect(self._on_layout_changed); self.bold.toggled.connect(self._on_layout_changed)
@@ -316,10 +321,26 @@ class NumeradorEtiquetasWindow(QMainWindow):
 
     def _load_state(self) -> None:
         app = settings(); default = LabelLayout(); raw = app.value(f"{self.SETTINGS_PREFIX}/layout", "")
+        self.layout_recovered = False
         try: values = json.loads(str(raw)) if raw else {}
-        except (TypeError, ValueError, json.JSONDecodeError): values = {}
-        merged = {**asdict(default), **{key: value for key, value in values.items() if key in asdict(default)}}
+        except (TypeError, ValueError, json.JSONDecodeError):
+            values = {}
+            self.layout_recovered = True
+        if not isinstance(values, dict):
+            self.layout_recovered = True
+            values = {}
+        merged = asdict(default)
+        for key, value in values.items():
+            if key not in merged:
+                continue
+            try:
+                LabelLayout(**{key: value}).normalized()
+                merged[key] = value
+            except (TypeError, ValueError, OverflowError):
+                self.layout_recovered = True
         self.layout_model = LabelLayout(**merged).normalized()
+        if self.layout_recovered:
+            app.setValue(f"{self.SETTINGS_PREFIX}/invalid_layout", str(raw))
         self.last_code = str(app.value(f"{self.SETTINGS_PREFIX}/state/last_code", "") or "")
         self.last_first_code = str(app.value(f"{self.SETTINGS_PREFIX}/state/last_first", "") or "")
         try: self.last_quantity = int(app.value(f"{self.SETTINGS_PREFIX}/state/last_quantity", 0) or 0)
@@ -339,10 +360,10 @@ class NumeradorEtiquetasWindow(QMainWindow):
     def _on_layout_changed(self, *_args) -> None:
         if self._updating_controls: return
         self.layout_model = LabelLayout(width_mm=self.label_width.value(), height_mm=self.label_height.value(), x_mm=self.zone_x.value(), y_mm=self.zone_y.value(), zone_width_mm=self.zone_width.value(), zone_height_mm=self.zone_height.value(), font_family=self.font_family.currentFont().family(), font_size_pt=self.font_size.value(), alignment=str(self.alignment.currentData() or "center"), bold=self.bold.isChecked()).normalized()
-        self._apply_model_to_controls(); self._persist_layout(); self._refresh()
+        self._apply_model_to_controls(); self._schedule_layout_save(); self._refresh()
 
     def move_zone(self, x: float, y: float) -> None:
-        self.layout_model = LabelLayout(**{**asdict(self.layout_model), "x_mm": x, "y_mm": y}).normalized(); self._apply_model_to_controls(); self._persist_layout(); self._refresh()
+        self.layout_model = LabelLayout(**{**asdict(self.layout_model), "x_mm": x, "y_mm": y}).normalized(); self._apply_model_to_controls(); self._schedule_layout_save(); self._refresh()
 
     def center_zone(self) -> None:
         item = self.layout_model; self.move_zone((item.width_mm - item.zone_width_mm) / 2, (item.height_mm - item.zone_height_mm) / 2)
@@ -488,8 +509,14 @@ class NumeradorEtiquetasWindow(QMainWindow):
         if printer.copyCount() != 1 or printer.printRange() != QPrinter.PrintRange.AllPages:
             self.status.setText("Para proteger la secuencia, imprime una única copia de todas las etiquetas."); show_inline_message(self, "warning", "La cantidad se controla desde esta aplicación; no uses copias ni rangos."); return
         self._configure_printer(printer, self.layout_model)
+        self.pending_job = (values[0], len(values), values[-1])
+        self._persist_pending()
         try: self._render_print_job(printer, values)
-        except Exception as exc: self.status.setText(f"No se pudo enviar el trabajo: {exc}"); show_inline_message(self, "error", str(exc)); return
+        except Exception as exc:
+            self._refresh()
+            self.status.setText(f"Envío incompleto o incierto: {exc}")
+            show_inline_message(self, "error", "Puede haber etiquetas ya impresas. Revisa físicamente el trabajo pendiente antes de confirmar o descartarlo.")
+            return
         self.pending_job = (values[0], len(values), values[-1]); self._persist_pending(); self.status.setText("Trabajo enviado. Confirma solo después de comprobar físicamente las etiquetas."); show_inline_message(self, "warning", "Impresión pendiente de confirmación física; el último código no se ha actualizado."); self._refresh()
 
     @staticmethod
@@ -554,6 +581,19 @@ class NumeradorEtiquetasWindow(QMainWindow):
     def _load_mail_template(self) -> None:
         app = settings(); self.recipients.setText(str(app.value(f"{self.SETTINGS_PREFIX}/mail/recipients", "") or "")); self.subject.setText(str(app.value(f"{self.SETTINGS_PREFIX}/mail/subject", DEFAULT_SUBJECT) or DEFAULT_SUBJECT)); self.body_editor.setPlainText(str(app.value(f"{self.SETTINGS_PREFIX}/mail/body", DEFAULT_BODY) or DEFAULT_BODY))
 
+    def _schedule_layout_save(self) -> None:
+        if not hasattr(self, "_layout_save_timer"):
+            self._layout_save_timer = QTimer(self)
+            self._layout_save_timer.setSingleShot(True)
+            self._layout_save_timer.timeout.connect(self._persist_layout)
+        self._layout_save_timer.start(250)
+
+    def flush_pending_preferences(self) -> None:
+        timer = getattr(self, "_layout_save_timer", None)
+        if timer is not None and timer.isActive():
+            timer.stop()
+            self._persist_layout()
+
     def _persist_layout(self) -> None:
         app = settings(); app.setValue(f"{self.SETTINGS_PREFIX}/layout", json.dumps(asdict(self.layout_model), ensure_ascii=False, separators=(",", ":"))); app.sync()
 
@@ -567,18 +607,47 @@ class NumeradorEtiquetasWindow(QMainWindow):
         app.sync()
 
     def _refresh(self, *_args) -> None:
-        try: values, error = self._sequence(), ""
-        except (SequenceFormatError, ValueError) as exc: values, error = (), str(exc)
+        try:
+            first_code, quantity = self.first_code.text(), self.quantity.value()
+            if not 1 <= quantity <= MAX_LABELS_PER_JOB:
+                raise ValueError("Cantidad fuera del límite permitido")
+            values, error = (increment_code(first_code, 0), increment_code(first_code, quantity - 1)), ""
+        except (SequenceFormatError, ValueError) as exc:
+            values, error = (), str(exc)
         first, last = (values[0], values[-1]) if values else ("—", "—")
-        for card, value in ((self.first_metric, first), (self.last_metric, last), (self.next_metric, increment_code(self.last_code) if self.last_code else "—")):
+        metric_values = (
+            (self.first_metric, first),
+            (self.last_metric, last),
+            (self.next_metric, increment_code(self.last_code) if self.last_code else "—"),
+        )
+        for card, value in metric_values:
             label = card.property("valueLabel")
-            if isinstance(label, QLabel): label.setText(value)
-        self.canvas.set_text(first if values else self.first_code.text().strip() or "?"); self.canvas.set_layout_model(self.layout_model)
-        self.last_confirmed_label.setText(f"Último confirmado en este equipo: {self.last_code}. Siguiente sugerido: {increment_code(self.last_code)}." if self.last_code else "Aún no hay una impresión confirmada en este equipo.")
-        pending = self.pending_job is not None; self.print_button.setEnabled(bool(values) and not pending); self.confirm_button.setEnabled(pending); self.discard_pending_button.setEnabled(pending); self.email_button.setEnabled(bool(self.last_code))
-        if error: self.status.setText(error)
-        elif pending: self.status.setText("Hay una impresión pendiente de confirmación física.")
-        elif not self.status.text() or self.status.text().startswith("Hay una impresión"): self.status.setText("Define el código y la cantidad; el diseño activo se conserva en este equipo.")
+            if isinstance(label, QLabel):
+                label.setText(value)
+        self.canvas.set_text(first if values else self.first_code.text().strip() or "?")
+        self.canvas.set_layout_model(self.layout_model)
+        confirmed_text = (
+            f"Último confirmado en este equipo: {self.last_code}. Siguiente sugerido: {increment_code(self.last_code)}."
+            if self.last_code
+            else "Aún no hay una impresión confirmada en este equipo."
+        )
+        self.last_confirmed_label.setText(confirmed_text)
+        pending = self.pending_job is not None
+        self.print_button.setEnabled(bool(values) and not pending)
+        self.confirm_button.setEnabled(pending)
+        self.discard_pending_button.setEnabled(pending)
+        self.email_button.setEnabled(bool(self.last_code))
+        # Estas acciones sólo son válidas tras enviar una impresión. Ocultarlas
+        # mientras no exista trabajo pendiente reduce ruido y evita dos
+        # controles bloqueados al abrir la herramienta.
+        self.confirm_button.setVisible(pending)
+        self.discard_pending_button.setVisible(pending)
+        if error:
+            self.status.setText(error)
+        elif pending:
+            self.status.setText("Hay una impresión pendiente de confirmación física.")
+        elif not self.status.text() or self.status.text().startswith("Hay una impresión"):
+            self.status.setText("Define el código y la cantidad; el diseño activo se conserva en este equipo.")
         next_text = "Confirmar impresión" if pending else "Corregir código inicial" if error else "Enviar a impresora"
         sync_recommended_action(self, next_text, {"Enviar a impresora": self.print_button, "Confirmar impresión": self.confirm_button}, (self.print_button, self.confirm_button, self.discard_pending_button, self.email_button))
 

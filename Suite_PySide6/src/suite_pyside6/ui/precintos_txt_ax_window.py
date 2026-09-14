@@ -1,12 +1,13 @@
 from __future__ import annotations
+from .record_table import RecordTable
 
 import logging
 from pathlib import Path
+from suite_pyside6.ui.background import run_background
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
-    QAbstractItemView,
     QFrame,
     QGridLayout,
     QHeaderView,
@@ -190,17 +191,11 @@ class PrecintosTxtAxWindow(QMainWindow):
         self.ignored_empty.setObjectName("ModuleDescription")
         self.ignored_empty.setWordWrap(True)
         summary_layout.addWidget(self.ignored_empty)
-        self.ignored_table = QTableWidget(0, 3)
+        self.ignored_table = RecordTable(["N.º línea", "Contenido original", "Motivo"], self)
         self.ignored_table.setObjectName("IgnoredLinesTable")
-        self.ignored_table.setHorizontalHeaderLabels(("N.º línea", "Contenido original", "Motivo"))
-        self.ignored_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self.ignored_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.ignored_table.setAlternatingRowColors(True)
-        self.ignored_table.setWordWrap(False)
         self.ignored_table.setMinimumHeight(120)
         self.ignored_table.setMaximumHeight(180)
         self.ignored_table.setAccessibleName("Tabla de líneas ignoradas")
-        self.ignored_table.verticalHeader().setVisible(False)
         ignored_header = self.ignored_table.horizontalHeader()
         ignored_header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
         ignored_header.setSectionResizeMode(1, QHeaderView.Stretch)
@@ -283,21 +278,16 @@ class PrecintosTxtAxWindow(QMainWindow):
         self.is_processing = True
         self.status.setText("Procesando el archivo TXT…")
         self._refresh()
-        QApplication.processEvents()
-        try:
-            self.result = process_txt_file(path)
-        except (OSError, UnicodeError, ValueError):
-            LOGGER.exception("No se pudo procesar el TXT de precintos: %s", path)
-            self.result = PrecintosTxtAxResult(source_path=path)
-            self.status.setText("No se ha podido leer o procesar el archivo seleccionado.")
-        else:
-            if self.result.precintos:
-                self.status.setText("Archivo procesado. Pulsa Convertir a CSV para elegir dónde guardarlo.")
-            else:
-                self.status.setText("No se han encontrado precintos válidos en el archivo.")
-        finally:
+        def completed(result):
+            self.result = result
             self.is_processing = False
+            self.status.setText("Archivo procesado. Pulsa Convertir a CSV para guardar." if result.precintos else "No se han encontrado precintos válidos.")
             self._refresh()
+        def failed(message):
+            self.is_processing = False
+            self.status.setText(f"No se pudo procesar: {message}")
+            self._refresh()
+        run_background(self, lambda: process_txt_file(path), completed, failed)
 
     def select_file(self) -> None:
         path = open_file(self, "precintos_txt_ax/input", "Selecciona un archivo TXT", "Archivos TXT (*.txt);;Todos (*.*)")
@@ -332,20 +322,23 @@ class PrecintosTxtAxWindow(QMainWindow):
 
     def save_path(self, path: Path) -> None:
         path = ensure_csv_extension(path)
-        try:
-            LOGGER.info("Escritura de CSV solicitada en: %s", path)
-            write_ax_csv(path, self.result.precintos)
+        precintos = list(self.result.precintos)
+        self.status.setText("Guardando CSV…")
+        def operation():
+            write_ax_csv(path, precintos)
             if not path.is_file():
                 raise OSError("El archivo CSV no se creó en la ruta indicada")
-        except (OSError, UnicodeError):
-            LOGGER.exception("No se pudo generar el CSV de precintos: %s", path)
-            self.status.setText("No se ha podido generar el CSV seleccionado.")
+        def completed(_value):
+            self.output_path = path
+            show_inline_message(self, "success", f"CSV guardado: {path.name}")
+            self.status.setText(f"CSV generado correctamente: {path}")
             self._refresh()
-            return
-        self.output_path = path
-        show_inline_message(self, "success", f"CSV guardado: {path.name}")
-        self.status.setText(f"CSV generado correctamente: {path}")
-        self._refresh()
+        def failed(message):
+            LOGGER.error("No se pudo generar el CSV de precintos")
+            show_inline_message(self, "error", "Conservas los datos para reintentar el guardado.")
+            self.status.setText(f"No se ha podido generar el CSV seleccionado: {message}")
+            self._refresh()
+        run_background(self, operation, completed, failed)
 
     def clear(self) -> None:
         if self.source_path is not None and not confirm_discard_work(self, "Seleccionar otro archivo"):
@@ -357,6 +350,10 @@ class PrecintosTxtAxWindow(QMainWindow):
         self._refresh()
 
     def _refresh(self) -> None:
+        if getattr(self, '_summary_result', None) is not self.result:
+            self._summary_result = self.result
+            self._duplicate_count = self.result.duplicate_count
+            self._result_summary = self.result.summary()
         self.file_name.setText(
             f"Archivo seleccionado: {self.source_path.name}" if self.source_path else "Sin archivo seleccionado"
         )
@@ -364,23 +361,25 @@ class PrecintosTxtAxWindow(QMainWindow):
         self.metric_exported.setText(str(self.result.exported_count))
         self.metric_valid.setText(str(self.result.valid_lines))
         self.metric_skipped.setText(str(self.result.skipped_lines))
-        self.metric_duplicates.setText(str(self.result.duplicate_count))
+        self.metric_duplicates.setText(str(self._duplicate_count))
         for label, value in (
             (self.metric_lines, self.result.lines_read),
             (self.metric_exported, self.result.exported_count),
             (self.metric_valid, self.result.valid_lines),
             (self.metric_skipped, self.result.skipped_lines),
-            (self.metric_duplicates, self.result.duplicate_count),
+            (self.metric_duplicates, self._duplicate_count),
         ):
             label.setAccessibleDescription(f"{label.accessibleName()}: {value}")
-        self.precintos_list.setPlainText("\n".join(self.result.precintos))
-        self._refresh_ignored_lines()
+        if getattr(self, "_displayed_result", None) is not self.result:
+            self._displayed_result = self.result
+            self.precintos_list.setPlainText("\n".join(self.result.precintos))
+            self._refresh_ignored_lines()
         if self.source_path is None:
             self.summary.setText("El CSV incluirá una única columna, sin cabecera.")
         elif self.output_path is not None:
-            self.summary.setText(f"{self.result.summary()}\nCSV generado: {self.output_path}")
+            self.summary.setText(f"{self._result_summary}\nCSV generado: {self.output_path}")
         else:
-            self.summary.setText(self.result.summary())
+            self.summary.setText(self._result_summary)
         state, detail = self._state_text()
         self.rail_state.setText(state)
         self.rail_detail.setText(detail)
@@ -389,6 +388,9 @@ class PrecintosTxtAxWindow(QMainWindow):
         self.command_hint.setText(next_action)
         self.convert_button.setEnabled(bool(self.result.precintos) and not self.is_processing)
         self.clear_button.setEnabled(self.source_path is not None)
+        # Antes de cargar un TXT no hay nada que sustituir. Ocultar esta acción
+        # evita un segundo botón bloqueado junto a la única acción posible.
+        self.clear_button.setVisible(self.source_path is not None)
         sync_recommended_action(
             self,
             next_action,
@@ -404,17 +406,8 @@ class PrecintosTxtAxWindow(QMainWindow):
         ignored_lines = self.result.ignored_lines
         self.ignored_empty.setVisible(not ignored_lines)
         self.ignored_table.setVisible(bool(ignored_lines))
-        self.ignored_table.setRowCount(len(ignored_lines))
-        for row, ignored_line in enumerate(ignored_lines):
-            line_number = QTableWidgetItem(str(ignored_line.line_number))
-            line_number.setTextAlignment(Qt.AlignCenter)
-            original_content = QTableWidgetItem(ignored_line.original_content)
-            original_content.setToolTip(ignored_line.original_content or "Línea vacía")
-            reason = QTableWidgetItem(ignored_line.reason)
-            reason.setToolTip(ignored_line.reason)
-            self.ignored_table.setItem(row, 0, line_number)
-            self.ignored_table.setItem(row, 1, original_content)
-            self.ignored_table.setItem(row, 2, reason)
+        self.ignored_table.set_records([item.line_number for item in ignored_lines],
+            [(str(item.line_number), item.original_content, item.reason) for item in ignored_lines])
         if self.result.skipped_lines > len(ignored_lines):
             self.summary.setText(
                 f"Se muestran las primeras {len(ignored_lines):,} incidencias de {self.result.skipped_lines:,}; "

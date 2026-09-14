@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from .record_table import RecordTable
+
 from decimal import Decimal
+from suite_pyside6.core.fac_cache import FACAnalysisCache
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QFrame,
@@ -62,6 +65,7 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         self.export_path: Path | None = None
         self.state = "Inicial"
         self.fac_state = "Inicial"
+        self._fac_cache = FACAnalysisCache()
         self.fac_export_path: Path | None = None
         self.setWindowTitle("Precintos Deshuesado")
         self.resize(1160, 740)
@@ -278,41 +282,53 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         subtitle = QLabel("Elige el origen de los datos para preparar el CSV compatible con AX.")
         subtitle.setObjectName("WindowSubtitle")
         subtitle.setWordWrap(True)
-        layout.addStretch(1)
-        layout.addWidget(title, 0, Qt.AlignHCenter)
-        layout.addWidget(subtitle, 0, Qt.AlignHCenter)
+        layout.addWidget(title)
+        layout.addWidget(subtitle)
+        guidance = QLabel("Selecciona el origen de los datos")
+        guidance.setObjectName("PanelTitle")
+        layout.addWidget(guidance)
         cards = QHBoxLayout()
         cards.setSpacing(14)
-        self.pda_mode_button = self._mode_card(
+        pda_card, self.pda_mode_button = self._mode_card(
             "PDA",
             "Cargar una lista de precintos y repartir el peso final.",
             self.show_pda,
         )
-        self.fac_mode_button = self._mode_card(
+        fac_card, self.fac_mode_button = self._mode_card(
             "FAC",
             "Procesar uno o varios ficheros de deshuesado procedentes de FAC.",
             self.show_fac,
         )
-        cards.addWidget(self.pda_mode_button)
-        cards.addWidget(self.fac_mode_button)
+        cards.addWidget(pda_card, 1)
+        cards.addWidget(fac_card, 1)
         layout.addLayout(cards)
         register_adaptive_layout(self, cards, breakpoint_width=720)
         layout.addStretch(2)
         return page
 
     @staticmethod
-    def _mode_card(title: str, description: str, callback) -> QPushButton:
-        button = QPushButton(f"{title}\n\n{description}")
-        button.setObjectName("PrimaryButton")
-        button.setProperty("primary", True)
-        button.setMinimumSize(240, 128)
-        button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+    def _mode_card(title: str, description: str, callback) -> tuple[QFrame, QPushButton]:
+        card = QFrame()
+        card.setObjectName('ModeChoiceCard')
+        card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(8)
+        label = QLabel(title)
+        label.setObjectName('ModuleTitle')
+        detail = QLabel(description)
+        detail.setObjectName('ModuleDescription')
+        detail.setWordWrap(True)
+        layout.addWidget(label)
+        layout.addWidget(detail, 1)
+        button = QPushButton(f"Abrir {title}")
+        layout.addWidget(button, 0, Qt.AlignLeft)
         button.setAccessibleName(f"Abrir modo {title}")
         button.setAccessibleDescription(description)
         button.setToolTip(f"Abrir modo {title}")
         button.setFocusPolicy(Qt.StrongFocus)
         button.clicked.connect(callback)
-        return button
+        return card, button
 
     def _build_fac_page(self) -> QWidget:
         page = QWidget()
@@ -430,8 +446,8 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         self.fac_metric_excluded = control_metric_pair(fac_metrics_layout, 2, "Filas NO", "0")
         self.fac_metric_weight = control_metric_pair(fac_metrics_layout, 3, "Peso FAC", "-")
         files_layout.addWidget(self.fac_metrics_strip)
-        self.fac_files_table = QTableWidget(0, 3)
-        self.fac_files_table.setHorizontalHeaderLabels(["Archivo", "Estado de lectura", "Acción"])
+        self.fac_files_table = RecordTable(["Archivo", "Estado de lectura", "Acción"], self)
+        self.fac_files_table.set_action(2, self.remove_fac_path)
         self.fac_files_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.fac_files_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         self.fac_files_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
@@ -549,31 +565,27 @@ class RepartoMermaPrecintosWindow(QMainWindow):
             return
         self.fac_state = "Analizando"
         self._refresh_fac()
-        self.fac_result = read_fac_files(self.fac_paths)
-        self.fac_export_path = None
-        self._set_fac_state_from_data()
-        self._refresh_fac()
+        paths = list(self.fac_paths)
+        def completed(result):
+            self.fac_result = result
+            self.fac_export_path = None
+            self._set_fac_state_from_data()
+            self._refresh_fac()
+        def failed(message):
+            self.fac_state = "Error de lectura"
+            self.status.setText(message)
+            self._refresh_fac()
+        run_background(self, lambda: self._fac_cache.read(paths, read_fac_files), completed, failed)
 
     def _refresh_fac(self) -> None:
         result = self.fac_result
-        with bulk_table_update(self.fac_files_table):
-            self.fac_files_table.setRowCount(len(self.fac_paths))
-            for row, path in enumerate(self.fac_paths):
-                name = QTableWidgetItem(path.name)
-                name.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-                has_path_issues = result is not None and any(path.name in issue.message for issue in result.issues)
-                status = "Pendiente" if result is None else ("Con incidencias" if has_path_issues else "Leído correctamente")
-                status_item = QTableWidgetItem(status)
-                status_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-                remove = QPushButton("Eliminar")
-                remove.setMinimumWidth(96)
-                remove.setToolTip(f"Quitar {path.name} de la operación FAC")
-                remove.setAccessibleName(f"Eliminar {path.name}")
-                remove.setAccessibleDescription(f"Elimina {path.name} de la selección FAC.")
-                remove.clicked.connect(lambda _checked=False, selected=path: self.remove_fac_path(selected))
-                self.fac_files_table.setItem(row, 0, name)
-                self.fac_files_table.setItem(row, 1, status_item)
-                self.fac_files_table.setCellWidget(row, 2, remove)
+        signature = (tuple(self.fac_paths), id(result))
+        if getattr(self, "_fac_table_signature", None) != signature:
+            self._fac_table_signature = signature
+            issue_paths = {issue.source_path for issue in result.issues} if result is not None else set()
+            self.fac_files_table.set_records(self.fac_paths, [
+                (path.name, "Pendiente" if result is None else "Con incidencias" if str(path) in issue_paths else "Leído correctamente", "Eliminar")
+                for path in self.fac_paths])
         self.fac_clear_button.setEnabled(bool(self.fac_paths) or bool(self.fac_work_order.text().strip()))
         work_order = validate_work_order(self.fac_work_order.text())
         can_export = self.fac_state in {"Listo para exportar", "Error de exportación"} and bool(result and result.is_valid and work_order.is_valid)
@@ -638,16 +650,16 @@ class RepartoMermaPrecintosWindow(QMainWindow):
             return
         self.fac_state = "Generando CSV AX"
         self._refresh_fac()
-        try:
-            write_ax_csv_records(path, [record.as_ax_record() for record in self.fac_result.records], validation.value)
-        except (OSError, DomainValidationError, ValueError) as exc:
-            self.fac_state = "Error de exportación"
-            self.fac_status.setText(f"No se pudo generar el CSV AX: {exc}")
-            self._refresh_fac()
-        else:
+        records = [record.as_ax_record() for record in self.fac_result.records]
+        def completed(_value):
             self.fac_export_path = path
             self.fac_state = "Exportación completada"
             self._refresh_fac()
+        def failed(message):
+            self.fac_state = "Error de exportación"
+            self.fac_status.setText(f"No se pudo generar el CSV AX: {message}")
+            self._refresh_fac()
+        run_background(self, lambda: write_ax_csv_records(path, records, validation.value), completed, failed)
 
     def _set_fac_state_from_data(self) -> None:
         """Deriva la etapa FAC sin alterar su lectura ni su exportación."""
@@ -777,13 +789,26 @@ class RepartoMermaPrecintosWindow(QMainWindow):
 
     def _on_final_weight_changed(self, _text: str) -> None:
         self.export_path = None
-        self._recalculate()
+        self.adjustment = None
+        self.export_button.setEnabled(False)
+        if not hasattr(self, "_weight_timer"):
+            self._weight_timer = QTimer(self)
+            self._weight_timer.setSingleShot(True)
+            self._weight_timer.timeout.connect(self._recalculate)
+        self._weight_timer.start(150)
 
     def _on_work_order_changed(self, _text: str) -> None:
         self.export_path = None
-        self._recalculate()
+        if self.adjustment is not None:
+            self.state = "Listo para exportar" if validate_work_order(self.work_order.text()).is_valid else "Orden de trabajo pendiente"
+            self._refresh()
+        else:
+            self._recalculate()
 
     def _recalculate(self) -> None:
+        timer = getattr(self, "_weight_timer", None)
+        if timer is not None:
+            timer.stop()
         self.adjustment = None
         self.final_issues = ()
         if self.source_result is None:
@@ -821,6 +846,10 @@ class RepartoMermaPrecintosWindow(QMainWindow):
             self.save_path(path)
 
     def save_path(self, path: Path, work_order: str | None = None) -> None:
+        timer = getattr(self, "_weight_timer", None)
+        if timer is not None and timer.isActive():
+            timer.stop()
+            self._recalculate()
         if self.adjustment is None:
             return
         if work_order is None:
@@ -834,19 +863,20 @@ class RepartoMermaPrecintosWindow(QMainWindow):
             return
         self.state = "Generando archivo"
         self._refresh()
-        try:
-            write_ax_csv(path, self.adjustment, work_order_validation.value)
-        except (OSError, DomainValidationError, ValueError) as exc:
-            self.state = "Error de exportación"
-            self.final_issues = (ValidationIssue("EXPORT_ERROR", f"No se pudo generar el CSV: {exc}"),)
-            self.status.setText(f"Error de exportación: {exc}")
-            show_inline_message(self, "error", str(exc))
-        else:
+        adjustment = self.adjustment
+        def completed(_value):
             self.export_path = path
             self.state = "Exportación completada"
             self.status.setText(f"CSV AX guardado: {path.name}")
             show_inline_message(self, "success", f"CSV AX guardado: {path.name}")
-        self._refresh()
+            self._refresh()
+        def failed(message):
+            self.state = "Error de exportación"
+            self.final_issues = (ValidationIssue("EXPORT_ERROR", f"No se pudo generar el CSV: {message}"),)
+            self.status.setText(f"Error de exportación: {message}")
+            show_inline_message(self, "error", message)
+            self._refresh()
+        run_background(self, lambda: write_ax_csv(path, adjustment, work_order_validation.value), completed, failed)
 
     def clear(self) -> None:
         if not confirm_discard_work(self, "Limpiar reparto"):

@@ -15,6 +15,7 @@ from suite_pyside6.core.apps import app_by_key
 from suite_pyside6.core.mermas import process_mermas
 from suite_pyside6.ui.main_window import MainWindow
 from suite_pyside6.ui.mermas_window import MermasWindow
+from verify_helpers import wait_for
 
 
 def main() -> int:
@@ -65,10 +66,11 @@ def main() -> int:
 
         window = MermasWindow()
         window.show_dialogs = False
+        window.filter_combo.setCurrentText("SI")
         window.set_final_files([final_csv])
         window.set_origin_file(origin_csv)
         window.process_files()
-        app.processEvents()
+        wait_for(app, lambda: len(window.result.dataframe) == 1)
         assert len(window.result.dataframe) == 1
         window.save_path(excel_path)
         assert excel_path.exists()

@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 from collections.abc import Callable
+from ..jobs import checkpoint
 
 from .models import ComparisonOptions, ComparisonResult, Difference
 
@@ -18,6 +19,7 @@ def sha256_and_size(
     total = 0
     with path.open("rb") as stream:
         while chunk := stream.read(block_size):
+            checkpoint()
             if cancelled and cancelled():
                 raise ComparisonCancelled()
             digest.update(chunk)
@@ -39,20 +41,32 @@ def compare_binary(
     cancelled: Callable[[], bool] | None = None,
 ) -> None:
     """Comparacion exacta por bloques; nunca carga el archivo completo."""
+    left_hash, right_hash = hashlib.sha256(), hashlib.sha256()
+    left_size = right_size = 0
     offset = 0
     changed_ranges: list[tuple[int, int]] = []
     active_start: int | None = None
     previous_changed = -2
     with left.open("rb") as left_stream, right.open("rb") as right_stream:
         while True:
+            checkpoint()
             if cancelled and cancelled():
                 raise ComparisonCancelled()
             left_chunk = left_stream.read(options.block_size)
             right_chunk = right_stream.read(options.block_size)
             if not left_chunk and not right_chunk:
                 break
+            left_hash.update(left_chunk)
+            right_hash.update(right_chunk)
+            left_size += len(left_chunk)
+            right_size += len(right_chunk)
             length = max(len(left_chunk), len(right_chunk))
+            if left_chunk == right_chunk:
+                offset += length
+                continue
             for index in range(length):
+                if index % 8192 == 0:
+                    checkpoint()
                 # Checking once per block is normally enough, but a very large custom
                 # block size must not make the Cancel button appear ineffective.
                 if index % 8192 == 0 and cancelled and cancelled():
@@ -69,6 +83,10 @@ def compare_binary(
                 if active_start is None:
                     active_start = position
                 previous_changed = position
+                if len(result.differences) >= options.max_differences:
+                    result.total_differences += 1
+                    result.truncated = True
+                    continue
                 result.add_difference(
                     Difference(
                         kind="byte",
@@ -84,6 +102,8 @@ def compare_binary(
                     changed_ranges.append((active_start, offset + length - 1))
                 active_start = None
             offset += length
+    result.left_sha256, result.right_sha256 = left_hash.hexdigest(), right_hash.hexdigest()
+    result.left_size, result.right_size = left_size, right_size
     result.metadata["changed_ranges"] = [f"{start}-{end}" for start, end in changed_ranges[:options.max_differences]]
     result.strict_equal = result.total_differences == 0
     result.method = "SHA-256 y comparacion binaria por bloques"

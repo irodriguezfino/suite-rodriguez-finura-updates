@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from suite_pyside6.core.paths import resource_path
-from suite_pyside6.ui.background import run_background
+from suite_pyside6.ui.background import run_background, run_export
 from suite_pyside6.core.precintos_expedicion import (
     ExcelDetectado,
     ExpedicionCarga,
@@ -403,23 +403,18 @@ class PrecintosExpedicionWindow(QMainWindow):
         if folder:
             self.save_to_directory(folder)
 
-    def save_to_directory(self, folder: Path) -> list[Path]:
+    def save_to_directory(self, folder: Path) -> None:
         if self.result is None:
             raise ValueError("Genera primero los TXT.")
         manual_names = self._manual_names()
         self._validate_output_names(manual_names)
-        try:
-            saved = guardar_txts_expedicion(self.result, folder, manual_names)
-        except Exception as exc:
-            self.status.setText(f"No se pudieron guardar los TXT: {exc}")
-            if self.show_dialogs:
-                show_inline_message(self, "error", str(exc))
-            return []
-        self.status.setText(f"TXT guardados: {', '.join(path.name for path in saved)}")
-        show_inline_message(self, "success", f"TXT guardados: {', '.join(path.name for path in saved)}")
-        self._refresh_pilot_state()
-        self._sync_recommended_action()
-        return saved
+        result = self.result
+        def completed(saved):
+            self.status.setText(f"TXT guardados: {', '.join(path.name for path in saved)}")
+            show_inline_message(self, "success", f"TXT guardados: {', '.join(path.name for path in saved)}")
+            self._refresh_pilot_state()
+            self._sync_recommended_action()
+        run_export(self, lambda: guardar_txts_expedicion(result, folder, manual_names), completed)
 
     def clear(self) -> None:
         if self.property("operationActive"):

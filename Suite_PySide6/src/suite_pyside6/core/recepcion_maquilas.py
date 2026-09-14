@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .jobs import checkpoint, checked, report_progress, begin_commit
+
 import csv
 from functools import lru_cache
 import importlib
@@ -12,7 +14,6 @@ import re
 import sys
 import unicodedata
 
-import openpyxl
 
 from suite_pyside6.core.paths import LEGACY_SOURCE_DIR, resource_path
 
@@ -170,19 +171,16 @@ def decimal_a_es(valor: Decimal, decimales: int = 2) -> str:
     return ".".join(grupos or ["0"]) + ("," + decimal if decimales else "")
 
 
-def leer_texto_lineas(ruta: Path) -> list[str]:
-    for encoding in ("utf-8-sig", "cp1252", "latin-1"):
-        try:
-            return ruta.read_text(encoding=encoding).splitlines()
-        except UnicodeDecodeError:
-            continue
-    return ruta.read_text(encoding="utf-8-sig", errors="replace").splitlines()
+def leer_texto_lineas(ruta: Path):
+    from .text_stream import iter_text_lines
+    return iter_text_lines(ruta)
 
 
 def leer_txt_maquila(ruta: Path) -> tuple[list[RegistroMaquila], list[str]]:
     registros: list[RegistroMaquila] = []
     incidencias: list[str] = []
     for numero, linea in enumerate(leer_texto_lineas(ruta), start=1):
+        checkpoint()
         if not linea.strip():
             continue
         try:
@@ -219,6 +217,7 @@ def leer_txt_maquila(ruta: Path) -> tuple[list[RegistroMaquila], list[str]]:
 
 
 def leer_seals_report(ruta: Path) -> list[RegistroOficial]:
+    import openpyxl
     wb = openpyxl.load_workbook(ruta, data_only=True, read_only=True)
     try:
         alias = {
@@ -229,7 +228,8 @@ def leer_seals_report(ruta: Path) -> list[RegistroOficial]:
             "numero del precinto": "precinto",
         }
         for ws in wb.worksheets:
-            rows = list(ws.iter_rows(values_only=True))
+            checkpoint()
+            rows = checked(ws.iter_rows(values_only=True), phase='Leyendo Excel')
             cabecera_idx = -1
             mapa: dict[str, int] = {}
             for row_index, row in enumerate(rows):
@@ -246,7 +246,7 @@ def leer_seals_report(ruta: Path) -> list[RegistroOficial]:
                 continue
             registros: list[RegistroOficial] = []
             vistos: set[str] = set()
-            for row in rows[cabecera_idx + 1:]:
+            for row in rows:
                 precinto = normalizar_precinto(str(row[mapa["precinto"]] if mapa["precinto"] < len(row) else ""))
                 if not precinto or precinto in vistos:
                     continue
@@ -288,6 +288,7 @@ def leer_config_articulos(ruta: Path) -> tuple[dict[str, list[RangoArticulo]], l
     incidencias: list[str] = []
     reader = csv.reader(leer_texto_lineas(ruta), delimiter=";")
     for index, row in enumerate(reader, start=1):
+        checkpoint()
         if index == 1 and row and normalizar_texto(row[0]).startswith("codigo"):
             continue
         if len(row) < 2 or not row[0].strip() or not row[1].strip():
@@ -301,6 +302,7 @@ def leer_config_articulos(ruta: Path) -> tuple[dict[str, list[RangoArticulo]], l
             continue
         rangos[codigo].append(RangoArticulo(codigo, nombre, rango_original, minimo, maximo, index))
     for lista in rangos.values():
+        checkpoint()
         lista.sort(key=lambda item: (Decimal("-999") if item.minimo is None else item.minimo, item.orden))
     return dict(rangos), incidencias
 
@@ -336,15 +338,18 @@ def agrupar_por_rangos(
     filas: list[FilaRango] = []
     incidencias: list[str] = []
     por_codigo: dict[str, list[RegistroMaquila]] = defaultdict(list)
-    for registro in registros:
+    for registro in checked(registros):
+        checkpoint()
         por_codigo[registro.codigo_fac].append(registro)
     for codigo in sorted(por_codigo):
+        checkpoint()
         rangos = rangos_por_codigo.get(codigo)
         if not rangos:
             incidencias.append(f"Sin configuracion de rangos para codigo FAC {codigo}.")
             continue
         usados: set[tuple[str, int]] = set()
         for rango in rangos:
+            checkpoint()
             seleccion = [registro for registro in por_codigo[codigo] if rango.contiene(registro.peso)]
             for registro in seleccion:
                 usados.add((registro.precinto, registro.linea))
@@ -379,6 +384,7 @@ def agrupar_por_rangos(
 def valor_mayoritario(valores) -> str:
     conteo: dict[str, int] = defaultdict(int)
     for valor in valores:
+        checkpoint()
         if valor:
             conteo[valor] += 1
     if not conteo:
@@ -390,6 +396,7 @@ def unir_valores_unicos(valores) -> str:
     vistos: set[str] = set()
     resultado: list[str] = []
     for valor in valores:
+        checkpoint()
         texto = str(valor or "").strip()
         if texto and texto not in vistos:
             vistos.add(texto)
@@ -427,6 +434,7 @@ def unir_nombres_articulo_unicos(valores) -> str:
     vistos: set[str] = set()
     resultado: list[str] = []
     for valor in valores:
+        checkpoint()
         texto = nombre_base_articulo(str(valor or ""))
         clave = normalizar_texto(texto)
         if texto and clave not in vistos:
@@ -475,6 +483,7 @@ def tiene_certificado_welfair(registros: list[RegistroOficial]) -> bool:
 def resumen_lotes_origen(registros_oficiales: list[RegistroOficial]) -> list[list[str]]:
     conteo: dict[str, int] = defaultdict(int)
     for registro in registros_oficiales:
+        checkpoint()
         lote = registro.lote.strip() if registro.lote else "Sin lote"
         conteo[lote] += 1
     return [[lote, str(piezas)] for lote, piezas in sorted(conteo.items())]
@@ -486,8 +495,10 @@ def lotes_origen_en_columnas(lotes_origen: list[list[str]], grupos: int = 3) -> 
     alto = (len(lotes_origen) + grupos - 1) // grupos
     filas: list[list[str]] = []
     for i in range(alto):
+        checkpoint()
         fila: list[str] = []
         for grupo in range(grupos):
+            checkpoint()
             idx = i + grupo * alto
             if idx < len(lotes_origen):
                 fila.extend(lotes_origen[idx])
@@ -540,6 +551,7 @@ class SimplePdf:
         content = ["BT /F1 11 Tf 50 790 Td"]
         first = True
         for line in self.lines[:58]:
+            checkpoint()
             escaped = line.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
             if first:
                 content.append(f"({escaped}) Tj")
@@ -558,6 +570,7 @@ class SimplePdf:
         output = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
         offsets = [0]
         for index, obj in enumerate(objects, start=1):
+            checkpoint()
             offsets.append(len(output))
             output.extend(f"{index} 0 obj\n".encode("ascii"))
             output.extend(obj)
@@ -565,6 +578,7 @@ class SimplePdf:
         xref = len(output)
         output.extend(f"xref\n0 {len(objects) + 1}\n0000000000 65535 f \n".encode("ascii"))
         for offset in offsets[1:]:
+            checkpoint()
             output.extend(f"{offset:010d} 00000 n \n".encode("ascii"))
         output.extend(f"trailer << /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF".encode("ascii"))
         path.write_bytes(bytes(output))
@@ -613,6 +627,7 @@ class PdfSimple:
             return [""]
         palabras_partidas: list[str] = []
         for palabra in palabras:
+            checkpoint()
             if len(palabra) <= max_chars:
                 palabras_partidas.append(palabra)
             else:
@@ -621,6 +636,7 @@ class PdfSimple:
         lineas: list[str] = []
         actual = ""
         for palabra in palabras_partidas:
+            checkpoint()
             candidato = palabra if not actual else f"{actual} {palabra}"
             if len(candidato) <= max_chars:
                 actual = candidato
@@ -667,6 +683,7 @@ class PdfSimple:
         if not filas:
             filas = [["Sin datos"] + [""] * (len(columnas) - 1)]
         for idx, fila in enumerate(filas):
+            checkpoint()
             lineas_por_col = [self.wrap(fila[i] if i < len(fila) else "", columnas[i][1] - 8, size) for i in range(len(columnas))]
             alto = max(18, 9 + max(len(lineas) for lineas in lineas_por_col) * (size + 2))
             if y + alto > self.alto - margen_inferior:
@@ -721,6 +738,7 @@ class PdfSimple:
         bold_id = add(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>")
         page_ids = []
         for pagina in self.paginas:
+            checkpoint()
             stream = "\n".join(pagina).encode("cp1252", errors="replace")
             content_id = add(b"<< /Length " + str(len(stream)).encode("ascii") + b" >>\nstream\n" + stream + b"\nendstream")
             page = (
@@ -735,6 +753,7 @@ class PdfSimple:
         salida = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
         offsets = [0]
         for i, obj in enumerate(objetos, start=1):
+            checkpoint()
             offsets.append(len(salida))
             salida.extend(f"{i} 0 obj\n".encode("ascii"))
             salida.extend(obj)
@@ -742,6 +761,7 @@ class PdfSimple:
         xref = len(salida)
         salida.extend(f"xref\n0 {len(objetos) + 1}\n0000000000 65535 f \n".encode("ascii"))
         for offset in offsets[1:]:
+            checkpoint()
             salida.extend(f"{offset:010d} 00000 n \n".encode("ascii"))
         salida.extend(
             f"trailer << /Size {len(objetos) + 1} /Root {catalog_id} 0 R >>\nstartxref\n{xref}\n%%EOF".encode("ascii")
@@ -787,14 +807,17 @@ def generar_pdf_diferencias(path: Path, result: RecepcionResult) -> None:
     pdf.add(f"Informe diferencias {result.partida}")
     pdf.add("")
     for line in result.summary_lines():
+        checkpoint()
         pdf.add(line)
     pdf.add("")
     pdf.add("Recibidos fuera de albaran")
     for registro in result.solo_txt[:18]:
+        checkpoint()
         pdf.add(f"{registro.precinto} | {registro.codigo_fac} | {registro.lote} | {decimal_a_es(registro.peso, 2)} kg")
     pdf.add("")
     pdf.add("No recibidos del albaran")
     for registro in result.solo_oficial[:18]:
+        checkpoint()
         pdf.add(f"{registro.precinto} | {registro.albaran} | {registro.codigo_articulo} | {registro.lote}")
     pdf.save(path)
 

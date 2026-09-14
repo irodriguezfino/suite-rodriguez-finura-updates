@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QApplication
 from suite_pyside6.core.apps import app_by_key
 from suite_pyside6.ui.main_window import MainWindow
 from suite_pyside6.ui.precintos_excel_window import PrecintosExcelWindow
+from verify_helpers import wait_for
 
 from verify_phase1 import crear_xlsx_minimo
 
@@ -33,7 +34,7 @@ def main() -> int:
         window = PrecintosExcelWindow()
         window.set_files([xlsx, ignored])
         window.process_selected_files()
-        app.processEvents()
+        wait_for(app, lambda: bool(window.result.precintos))
         assert window.result.precintos == ["123456789012", "987654321000"]
         assert len(window.result.ignored_files) == 1
         assert "2 precintos" in window.status.text()

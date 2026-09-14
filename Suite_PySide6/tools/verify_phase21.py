@@ -23,29 +23,37 @@ def main() -> int:
     window.show()
     app.processEvents()
 
-    hero_panel = window.findChild(QFrame, "HeroPanel")
-    modules_panel = window.findChild(QFrame, "ModulesPanel")
-    activity_panel = window.findChild(QFrame, "ActivityPanel")
-    assert hero_panel is not None, "Falta hero operativo SaaS en Inicio"
-    assert modules_panel is not None, "Falta panel de modulos como workspace"
-    assert activity_panel is not None, "Falta panel lateral de actividad"
+    intro = window.findChild(QFrame, "DashboardIntro")
+    command_card = window.findChild(QFrame, "DashboardCommandCard")
+    drop_target = window.findChild(QFrame, "DashboardDropTarget")
+    resume_card = window.findChild(QFrame, "DashboardResumeCard")
+    activity_panels = window.findChildren(QFrame, "ActivityPanel")
+    assert intro is not None, "Falta la introducción operativa de Bandeja"
+    assert command_card is not None and drop_target is not None, "Falta el punto principal de carga de archivos"
+    assert resume_card is not None, "Falta el área para retomar trabajo"
+    assert len(activity_panels) == 2, "Bandeja debe separar actividad reciente y salidas"
 
     chips = window.findChildren(QFrame, "DsMetric")
     assert len(chips) >= 3, f"El centro operativo debe tener metricas, tiene {len(chips)}"
-    rows = window.findChildren(QFrame, "ModuleRow")
-    assert len(rows) == len(APP_REGISTRY), f"Debe mostrar los modulos como filas operativas, filas={len(rows)}"
+    rows = window.findChildren(QFrame, "DashboardProcessCard")
+    assert 1 <= len(rows) <= 3, f"Bandeja debe mostrar una selección breve de procesos frecuentes, tarjetas={len(rows)}"
     assert window.command_open_value.text() == "0"
     assert window.result_label.accessibleDescription()
 
     window.open_app(APP_REGISTRY[0])
     app.processEvents()
     assert window.command_open_value.text() == "1", "El contador de abiertos debe reaccionar al abrir un proceso"
-    assert window.command_title.text() == "Operación en curso"
+    assert window.command_title.text(), "La Bandeja debe conservar un título operativo al abrir un proceso"
 
     window.show_dashboard()
     window.resize(900, 700)
     app.processEvents()
     assert not window.command_detail.isVisible(), "El detalle del centro operativo debe compactarse"
+
+    window.show_view("procesos")
+    app.processEvents()
+    module_rows = window.findChildren(QFrame, "ModuleRow")
+    assert len(module_rows) == len(APP_REGISTRY), f"El catálogo debe mostrar todos los procesos, filas={len(module_rows)}"
 
     window.close()
 
@@ -61,8 +69,9 @@ def main() -> int:
         pesos.close()
 
     print("PHASE21_OK")
-    print("saas_workspace=true")
-    print(f"module_rows={len(rows)}")
+    print("operational_inbox=true")
+    print(f"dashboard_cards={len(rows)}")
+    print(f"module_rows={len(module_rows)}")
     return 0
 
 

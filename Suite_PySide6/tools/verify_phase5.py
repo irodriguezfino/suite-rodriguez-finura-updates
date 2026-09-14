@@ -14,6 +14,7 @@ from suite_pyside6.core.apps import app_by_key
 from suite_pyside6.core.palets import clean_and_dedupe, is_valid_code, process_palets_files, validate_corrected_codes
 from suite_pyside6.ui.main_window import MainWindow
 from suite_pyside6.ui.palets_window import PaletsWindow
+from verify_helpers import wait_for
 
 
 def main() -> int:
@@ -42,7 +43,7 @@ def main() -> int:
         window.show_dialogs = False
         window.set_files([txt])
         window.process_selected_files()
-        app.processEvents()
+        wait_for(app, lambda: window.result.pending_correction)
         assert window.result.pending_correction
         window.review.setPlainText("00481234567890123450")
         window.revalidate()

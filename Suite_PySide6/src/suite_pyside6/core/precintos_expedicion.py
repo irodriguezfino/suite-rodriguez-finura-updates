@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .jobs import checkpoint, checked, report_progress, begin_commit
+
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
@@ -9,7 +11,6 @@ from .atomic_io import write_text_atomically
 import re
 import unicodedata
 
-import openpyxl
 
 
 EXTENSIONES_EXCEL = {".xlsx", ".xlsm"}
@@ -65,6 +66,7 @@ class ResultadoGeneracion:
             return "No hay TXT generados."
         blocks: list[str] = []
         for salida in self.salidas:
+            checkpoint()
             sample = "\r\n".join(salida.lineas[:limit])
             if len(salida.lineas) > limit:
                 sample += f"\r\n... {len(salida.lineas) - limit} lineas mas"
@@ -150,6 +152,7 @@ def es_excel_salida(cabeceras: dict[str, int]) -> bool:
 
 
 def leer_excel(ruta: Path) -> ExcelDetectado:
+    import openpyxl
     wb = openpyxl.load_workbook(ruta, data_only=True, read_only=True)
     try:
         ws = wb.active
@@ -176,6 +179,7 @@ def leer_filas_entrada(ws, cabeceras: dict[str, int]) -> list[RegistroEntrada]:
 
     registros: list[RegistroEntrada] = []
     for row in ws.iter_rows(min_row=2, values_only=True):
+        checkpoint()
         precinto = limpiar_precinto(row[i_precinto])
         if not precinto:
             continue
@@ -209,6 +213,7 @@ def leer_filas_salida(ws, cabeceras: dict[str, int]) -> list[RegistroSalida]:
 
     registros: list[RegistroSalida] = []
     for row in ws.iter_rows(min_row=2, values_only=True):
+        checkpoint()
         unidades_valor = row[i_unidades]
         kilos_valor = row[i_kilos]
         if unidades_valor is None or kilos_valor is None:
@@ -237,6 +242,7 @@ def cargar_excels(rutas: list[Path]) -> ExpedicionCarga:
     detectados: list[ExcelDetectado] = []
     log: list[str] = []
     for ruta in rutas:
+        checkpoint()
         if ruta.suffix.lower() not in EXTENSIONES_EXCEL:
             log.append(f"- Ignorado {ruta.name}: no es XLSX/XLSM.")
             continue
@@ -262,7 +268,8 @@ def cargar_excels(rutas: list[Path]) -> ExpedicionCarga:
 def pallets_disponibles(registros: list[RegistroEntrada]) -> list[str]:
     vistos: set[str] = set()
     pallets: list[str] = []
-    for registro in registros:
+    for registro in checked(registros):
+        checkpoint()
         if registro.id_pallet and registro.id_pallet not in vistos:
             vistos.add(registro.id_pallet)
             pallets.append(registro.id_pallet)
@@ -278,7 +285,8 @@ def filtrar_precintos_por_pallets(registros: list[RegistroEntrada], pallets: lis
 
 def resumen_pivot_entrada(registros: list[RegistroEntrada]) -> list[tuple[str, str, int, Decimal]]:
     resumen: dict[tuple[str, str], tuple[int, Decimal]] = {}
-    for registro in registros:
+    for registro in checked(registros):
+        checkpoint()
         clave = (registro.codigo_articulo, registro.id_pallet)
         cuenta, peso = resumen.get(clave, (0, Decimal("0")))
         resumen[clave] = (cuenta + 1, peso + registro.peso_neto)
@@ -368,8 +376,10 @@ def buscar_combinacion_pallets_exacta(
         return []
     predecessors: dict[int, tuple[int, str]] = {0: (0, "")}
     for pallet, cuenta in candidatos:
+        checkpoint()
         # Snapshot keys so one pallet is never reused during this iteration.
         for total in tuple(predecessors):
+            checkpoint()
             next_total = total + cuenta
             if next_total > objetivo or next_total in predecessors:
                 continue
@@ -404,6 +414,7 @@ def generar_txts_expedicion(
     salidas_generadas: list[SalidaGenerada] = []
     todas_lineas: list[str] = []
     for salida_detectada in salidas_detectadas:
+        checkpoint()
         lineas_salida: list[str] = []
         salidas = salida_detectada.filas
         for salida in salidas:  # type: ignore[assignment]
@@ -472,6 +483,7 @@ def guardar_txts_expedicion(
     nombres_manual = nombres_manual or {}
     guardados: list[Path] = []
     for salida in resultado.salidas:
+        checkpoint()
         nombre_txt = salida.nombre_txt or nombres_manual.get(str(salida.ruta_origen))
         if not nombre_txt:
             raise ValueError(f"Falta nombre TXT para {salida.ruta_origen.name}.")

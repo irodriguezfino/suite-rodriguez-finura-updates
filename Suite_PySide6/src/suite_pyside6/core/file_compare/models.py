@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -64,8 +64,20 @@ class ComparisonResult:
         else:
             self.truncated = True
 
+    def status_text(self) -> str:
+        if self.metadata.get("cancelled"):
+            return "CANCELADO"
+        if self.errors:
+            return "ERROR / INCOMPLETO"
+        semantic = self.metadata.get("mode") in ("semantic", "auto")
+        value = self.semantic_equal if semantic else self.strict_equal
+        if value is None:
+            return "INCOMPLETO"
+        return ("IGUALES" if value else "DIFERENTES") + (" (semántica)" if semantic else " (bytes)")
+
     def to_dict(self) -> dict[str, Any]:
-        data = asdict(self)
+        public_metadata = {key: value for key, value in self.metadata.items() if not key.startswith("_")}
+        data = asdict(replace(self, metadata=public_metadata))
         data["left_path"] = str(Path(self.left_path))
         data["right_path"] = str(Path(self.right_path))
         return data

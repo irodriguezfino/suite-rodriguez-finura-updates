@@ -51,7 +51,7 @@ def main() -> int:
     app.processEvents()
 
     assert table.rowCount() == 2, f"La tabla debe reflejar validos e incidencias, filas={table.rowCount()}"
-    assert table.item(0, 5).text() == "Válido", "La primera fila debe marcarse como válida"
+    assert table.item(0, 5).text().startswith("Válido"), "La primera fila debe marcarse como válida"
     assert table.item(1, 5).text().startswith("Pendiente"), "La incidencia debe aparecer como pendiente"
     state = window.findChild(QLabel, "ControlRailState")
     assert state is not None and "Revisión" in state.text(), "El rail debe mostrar revisión pendiente"

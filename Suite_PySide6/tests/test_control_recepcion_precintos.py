@@ -356,12 +356,10 @@ class ControlRecepcionPrecintosTests(unittest.TestCase):
                 self.assertEqual(window.workspace_description.description_label.text(), app.description)
                 self.assertEqual(window.workspace_description.edit_button.text(), "Añadir descripción")
                 header_buttons = (
-                    window.workspace_description.edit_button,
-                    window.workspace_description.restore_button,
+                    window.workspace_description._actions_menu,
                     window.about_button,
                     window.home_button,
                 )
-                self.assertTrue(all(button.property("headerAction") for button in header_buttons))
                 self.assertEqual({button.minimumHeight() for button in header_buttons}, {header_buttons[0].minimumHeight()})
                 self.assertGreaterEqual(header_buttons[0].minimumHeight(), 36)
                 self.assertTrue(all(button.parentWidget() is window.header_actions for button in header_buttons))
@@ -375,7 +373,9 @@ class ControlRecepcionPrecintosTests(unittest.TestCase):
                 save_personal_description(header_description_key(app.key), "DescripciÃ³n personalizada")
                 window._set_workspace_description(app.description, header_description_key(app.key))
                 self.application.processEvents()
-                self.assertTrue(window.workspace_description.restore_button.isVisible())
+                self.assertFalse(window.workspace_description.restore_button.isVisible())
+                self.assertTrue(window.workspace_description._restore_action.isEnabled())
+                self.assertTrue(window.workspace_description._actions_menu.isVisible())
                 visible_buttons = tuple(button for button in header_buttons if button.isVisible())
                 self.assertEqual({button.height() for button in visible_buttons}, {visible_buttons[0].height()})
                 process_row = window._process_row(app)

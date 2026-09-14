@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from .jobs import checkpoint, checked, report_progress, begin_commit
+
 import re
 import unicodedata
 from pathlib import Path
 
-from .atomic_io import write_text_atomically
+from .atomic_io import write_text_atomically, atomic_text_writer
 from zipfile import BadZipFile, ZipFile
 from xml.etree import ElementTree as ET
 from dataclasses import dataclass, field
@@ -45,6 +47,7 @@ def columna_excel_a_indice(referencia: str) -> int:
     letras = re.sub(r"[^A-Z]", "", referencia.upper())
     indice = 0
     for letra in letras:
+        checkpoint()
         indice = indice * 26 + (ord(letra) - ord("A") + 1)
     return indice - 1
 
@@ -73,7 +76,8 @@ def hojas_visibles(workbook_xml: bytes) -> list[tuple[str, str]]:
     root = ET.fromstring(workbook_xml)
     hojas = []
     for sheet in root.findall(".//a:sheet", ns):
-        if sheet.attrib.get("state") == "hidden":
+        checkpoint()
+        if sheet.attrib.get("state", "visible") != "visible":
             continue
         hojas.append((sheet.attrib.get("name", "Hoja"), sheet.attrib.get(f"{{{ns['r']}}}id", "")))
     return hojas
@@ -84,6 +88,7 @@ def relaciones_workbook(rels_xml: bytes) -> dict[str, str]:
     root = ET.fromstring(rels_xml)
     rels = {}
     for rel in root.findall("r:Relationship", ns):
+        checkpoint()
         rid = rel.attrib.get("Id", "")
         target = rel.attrib.get("Target", "")
         if rid and target:
@@ -107,44 +112,44 @@ def leer_precintos_excel(ruta: Path) -> tuple[list[str], str]:
                 raise ValueError("no se encontro xl/workbook.xml")
             cadenas: list[str] = []
             if "xl/sharedStrings.xml" in nombres:
-                root_ss = ET.fromstring(zf.read("xl/sharedStrings.xml"))
-                for si in root_ss.findall("a:si", ns):
-                    cadenas.append("".join(t.text or "" for t in si.findall(".//a:t", ns)).strip())
+                if zf.getinfo("xl/sharedStrings.xml").file_size > 128 * 1024 * 1024:
+                    raise ValueError("La tabla de textos supera el límite seguro de 128 MiB")
+                with zf.open("xl/sharedStrings.xml") as stream:
+                    for _event, si in ET.iterparse(stream, events=("end",)):
+                        if si.tag == f"{{{ns['a']}}}si":
+                            cadenas.append("".join(t.text or "" for t in si.findall(".//a:t", ns)).strip())
+                            si.clear()
             rels = relaciones_workbook(zf.read("xl/_rels/workbook.xml.rels"))
             hojas = hojas_visibles(zf.read("xl/workbook.xml"))
             for nombre_hoja, rid in hojas:
                 ruta_hoja = rels.get(rid)
                 if not ruta_hoja or ruta_hoja not in nombres:
                     continue
-                root = ET.fromstring(zf.read(ruta_hoja))
-                filas: list[dict[int, str]] = []
-                for fila in root.findall(".//a:row", ns):
-                    celdas = {}
-                    for celda in fila.findall("a:c", ns):
-                        ref = celda.attrib.get("r", "")
-                        if ref:
-                            celdas[columna_excel_a_indice(ref)] = leer_valor_celda(celda, cadenas)
-                    if celdas:
-                        filas.append(celdas)
+                if zf.getinfo(ruta_hoja).file_size > 256 * 1024 * 1024:
+                    raise ValueError("La hoja supera el límite seguro de 256 MiB descomprimidos")
                 indice_columna = None
-                fila_cabecera = -1
-                for i, fila in enumerate(filas):
-                    for col, valor in fila.items():
-                        cabecera = normalizar_texto(valor)
-                        if cabecera in CABECERAS_IDENTIFICACION or cabecera == "identificacion":
-                            indice_columna = col
-                            fila_cabecera = i
-                            break
-                    if indice_columna is not None:
-                        break
-                if indice_columna is None:
-                    continue
                 precintos = []
-                for fila in filas[fila_cabecera + 1:]:
-                    valor = limpiar_precinto(fila.get(indice_columna, ""))
-                    if valor:
-                        precintos.append(valor)
-                return precintos, nombre_hoja
+                with zf.open(ruta_hoja) as stream:
+                    for event, fila in ET.iterparse(stream, events=("end",)):
+                        if fila.tag != f"{{{ns['a']}}}row":
+                            continue
+                        for celda in fila.findall("a:c", ns):
+                            ref = celda.attrib.get("r", "")
+                            if not ref:
+                                continue
+                            col = columna_excel_a_indice(ref)
+                            if indice_columna is None:
+                                valor = leer_valor_celda(celda, cadenas)
+                                if normalizar_texto(valor) in CABECERAS_IDENTIFICACION or normalizar_texto(valor) == "identificacion":
+                                    indice_columna = col
+                                    break
+                            elif col == indice_columna:
+                                value = limpiar_precinto(leer_valor_celda(celda, cadenas))
+                                if value:
+                                    precintos.append(value)
+                        fila.clear()
+                if indice_columna is not None:
+                    return precintos, nombre_hoja
     except BadZipFile as exc:
         raise ValueError("el archivo no parece un Excel XLSX/XLSM valido") from exc
     raise ValueError("no se encontro la columna 'Identificacion'")
@@ -187,7 +192,8 @@ class ProcessResult:
 
 def process_files(paths: list[Path]) -> ProcessResult:
     result = ProcessResult(selected_files=list(paths))
-    for path in paths:
+    for path in checked(paths, phase="Leyendo archivos", total=len(paths), unit="archivos"):
+        checkpoint()
         ext = path.suffix.lower()
         if ext not in EXTENSIONES_EXCEL_VALIDAS:
             result.ignored_files.append(path)
@@ -214,4 +220,5 @@ def process_files(paths: list[Path]) -> ProcessResult:
 
 
 def write_precintos_csv(path: Path, precintos: list[str]) -> None:
-    write_text_atomically(path, csv_precintos_windows(precintos), encoding="utf-8-sig")
+    with atomic_text_writer(path, encoding="utf-8-sig") as stream:
+        stream.writelines(value + "\r\n" for value in precintos)

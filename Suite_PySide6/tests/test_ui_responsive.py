@@ -88,7 +88,7 @@ class ResponsiveSuiteTests(unittest.TestCase):
         window._apply_responsive_state()
         self.assertFalse(window.context_rail.isVisible())
         self.assertTrue(window.compact_context_bar.isVisible())
-        self.assertEqual(window.header_layout.direction(), QBoxLayout.TopToBottom)
+        self.assertEqual(window.header_layout.direction(), QBoxLayout.LeftToRight)
         window.resize(1500, 800)
         window._apply_responsive_state()
         self.assertTrue(window.context_rail.isVisible())

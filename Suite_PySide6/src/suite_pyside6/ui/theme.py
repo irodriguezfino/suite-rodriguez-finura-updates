@@ -13,7 +13,7 @@ LIGHT = {
     "border_strong": "#B8C5D8",
     "text_primary": "#162033",
     "text_secondary": "#536174",
-    "text_muted": "#8491A3",
+    "text_muted": "#626F82",
     "primary": "#123283",
     "primary_hover": "#1B3891",
     "primary_active": "#0B266D",
@@ -40,7 +40,7 @@ LIGHT = {
     "surface_3": "#E8EDF5",
     "ink": "#162033",
     "muted": "#536174",
-    "subtle": "#8491A3",
+    "subtle": "#626F82",
     "brand": "#C32421",
     "brand_soft": "#FDEDEC",
     "brand_dark": "#9A1917",
@@ -124,6 +124,7 @@ def palette() -> dict[str, str]:
 
 
 def base_qss() -> str:
+    from .design_tokens import CONTROL_HEIGHT, CONTROL_RADIUS, FONT_BODY, FONT_TITLE
     p = palette()
     tooltip_bg = p["surface_elevated"] if is_dark_mode() else p["text_primary"]
     tooltip_fg = p["text_primary"] if is_dark_mode() else p["surface"]
@@ -135,15 +136,15 @@ def base_qss() -> str:
     sidebar_border = p.get("sidebar_border", p["primary_active"])
     drop_active_border = p.get("drop_active_border", p["primary"])
     return f"""
-    * {{
-        outline: 0;
-    }}
     QWidget {{
         color: {p["ink"]};
-        font-family: Inter, Segoe UI, Arial, sans-serif;
-        font-size: 10pt;
+        /* Segoe UI is installed on supported Windows workstations.  Keep the
+           declaration singular: Qt style sheets do not implement the CSS
+           comma-separated fallback stack consistently. */
+        font-family: "Segoe UI";
+        font-size: {FONT_BODY}pt;
     }}
-    QMainWindow, QWidget#SuiteShell, QWidget#MainWorkspace, QWidget#DashboardPage, QWidget#ConsolePage {{
+    QMainWindow, QWidget#SuiteShell, QWidget#MainWorkspace, QWidget#DashboardPage, QWidget#ConsolePage, QWidget#OperationalPage {{
         background: {p["bg"]};
     }}
     QLabel {{
@@ -159,7 +160,7 @@ def base_qss() -> str:
 
     QLabel#WindowTitle, QLabel#ShellTitle {{
         color: {p["ink"]};
-        font-size: 18pt;
+        font-size: {FONT_TITLE}pt;
         font-weight: 700;
     }}
     QLabel#WindowSubtitle, QLabel#ShellSubtitle, QLabel#PanelSubtitle, QLabel#MutedText {{
@@ -195,6 +196,14 @@ def base_qss() -> str:
         background: {p["surface"]};
         border: 1px solid {p["border"]};
         border-radius: 10px;
+    }}
+    QFrame#CompactContextBar {{
+        background: transparent;
+        border: 0;
+    }}
+    QScrollArea#ActiveJobsScroll, QWidget#ActiveJobsContent {{
+        background: transparent;
+        border: 0;
     }}
     QDialog#AppHelpDialog {{
         background: {p["bg"]};
@@ -266,7 +275,7 @@ def base_qss() -> str:
         background: {p["surface"]};
         border-left: 1px solid {p["border"]};
     }}
-    QFrame#Panel, QFrame#DsPanel, QFrame#DsMetric, QFrame#AppCard, QFrame#FormPanel, QFrame#MailPanel,
+    QFrame#ModeChoiceCard, QFrame#Panel, QFrame#DsPanel, QFrame#DsMetric, QFrame#AppCard, QFrame#FormPanel, QFrame#MailPanel,
     QFrame#ControlPreviewPanel, QFrame#ControlIssuesPanel, QFrame#OutputPanel,
     QFrame#ControlStatusRail, QFrame#Dropzone, QFrame#WorkItem, QFrame#MetricCard, QFrame#ContextCard,
     QFrame#ModuleRow, QFrame#ContinuePanel, QFrame#HeroPanel, QFrame#ActivityPanel,
@@ -486,9 +495,9 @@ def base_qss() -> str:
     }}
 
     QPushButton {{
-        min-height: 34px;
+        min-height: {CONTROL_HEIGHT - 2}px;
         padding: 0 12px;
-        border-radius: 6px;
+        border-radius: {CONTROL_RADIUS}px;
         border: 1px solid {p["border"]};
         background: {p["surface"]};
         color: {p["ink"]};
@@ -499,10 +508,8 @@ def base_qss() -> str:
         border-color: {p["border_strong"]};
     }}
     QPushButton:focus {{
-        border-width: 2px;
         border-color: {p["focus_ring"]};
         background: {p["primary_soft"]};
-        padding: 0 11px;
     }}
     QPushButton:pressed {{
         background: {p["surface_3"]};
@@ -514,6 +521,8 @@ def base_qss() -> str:
         border-color: {p["border"]};
     }}
     QCheckBox {{
+        border: 0;
+        background: transparent;
         color: {p["ink"]};
         spacing: 7px;
         padding: 3px 2px;
@@ -533,7 +542,11 @@ def base_qss() -> str:
         border-color: {p["primary"]};
         background: {p["primary"]};
     }}
-    QCheckBox:focus::indicator {{
+    QCheckBox::indicator:indeterminate {{
+        border-color: {p["primary"]};
+        background: {p["primary"]};
+    }}
+    QCheckBox::indicator:focus {{
         border: 2px solid {p["focus_ring"]};
     }}
     /* Embedded controls in the result table keep a compact focus cue on
@@ -602,7 +615,7 @@ def base_qss() -> str:
         font-weight: 750;
     }}
 
-    QLineEdit, QComboBox {{
+    QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {{
         min-height: 36px;
         padding: 0 10px;
         border: 1px solid {p["border"]};
@@ -612,16 +625,16 @@ def base_qss() -> str:
         selection-background-color: {p["primary"]};
         selection-color: {selection_fg};
     }}
-    QLineEdit:hover, QComboBox:hover {{
+    QLineEdit:hover, QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover {{
         border-color: {p["border_strong"]};
     }}
-    QLineEdit:focus, QComboBox:focus {{
+    QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus {{
         border-width: 2px;
         border-color: {p["focus_ring"]};
         background: {p["surface"]};
         padding: 0 9px;
     }}
-    QLineEdit:disabled, QComboBox:disabled {{
+    QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled {{
         color: {p["subtle"]};
         background: {p["surface_2"]};
     }}
@@ -693,10 +706,10 @@ def base_qss() -> str:
         color: {p["subtle"]};
     }}
     QToolButton#ActionMenuButton {{
-        min-height: 38px;
+        min-height: {CONTROL_HEIGHT - 2}px;
         padding: 0 10px;
         border: 1px solid {p["border"]};
-        border-radius: 8px;
+        border-radius: {CONTROL_RADIUS}px;
         background: {p["surface_elevated"]};
         color: {p["ink"]};
         font-weight: 600;
@@ -706,9 +719,21 @@ def base_qss() -> str:
         background: {p["primary_soft"]};
     }}
     QToolButton#ActionMenuButton:focus {{
-        border: 2px solid {p["focus_ring"]};
-        padding: 0 9px;
+        border-color: {p["focus_ring"]};
     }}
+    QSpinBox[modernSpin="true"], QDoubleSpinBox[modernSpin="true"] {{ padding-right: 32px; }}
+    QSpinBox[modernSpin="true"]::up-button, QSpinBox[modernSpin="true"]::down-button,
+    QDoubleSpinBox[modernSpin="true"]::up-button, QDoubleSpinBox[modernSpin="true"]::down-button {{
+        subcontrol-origin: border;
+        width: 26px;
+        border: 0;
+        border-left: 1px solid {p["border"]};
+        background: {p["surface_muted"]};
+    }}
+    QSpinBox[modernSpin="true"]::up-button, QDoubleSpinBox[modernSpin="true"]::up-button {{ subcontrol-position: top right; border-top-right-radius: 6px; }}
+    QSpinBox[modernSpin="true"]::down-button, QDoubleSpinBox[modernSpin="true"]::down-button {{ subcontrol-position: bottom right; border-bottom-right-radius: 6px; }}
+    QSpinBox[modernSpin="true"]::up-arrow, QSpinBox[modernSpin="true"]::down-arrow,
+    QDoubleSpinBox[modernSpin="true"]::up-arrow, QDoubleSpinBox[modernSpin="true"]::down-arrow {{ image: none; }}
     QToolButton#ActionMenuButton::menu-indicator {{
         image: none;
         width: 0;
@@ -749,7 +774,7 @@ def base_qss() -> str:
         background: {p["surface"]};
         color: {p["ink"]};
         padding: 10px;
-        font-family: Consolas, JetBrains Mono, monospace;
+        font-family: Consolas;
         font-size: 9.5pt;
         selection-background-color: {p["primary"]};
         selection-color: {selection_fg};
@@ -763,7 +788,7 @@ def base_qss() -> str:
         border-color: {p["focus_ring"]};
     }}
 
-    QTableWidget {{
+    QTableWidget, QTableView {{
         gridline-color: transparent;
         alternate-background-color: {table_alt};
         background: {p["surface"]};
@@ -772,18 +797,18 @@ def base_qss() -> str:
         selection-background-color: {p["primary_soft"]};
         selection-color: {p["ink"]};
     }}
-    QTableWidget:focus {{
+    QTableWidget:focus, QTableView:focus {{
         border-color: {p["border_strong"]};
     }}
-    QTableWidget::item {{
+    QTableWidget::item, QTableView::item {{
         min-height: 34px;
         padding: 6px 8px;
         border-bottom: 1px solid {p["border"]};
     }}
-    QTableWidget::item:hover {{
+    QTableWidget::item:hover, QTableView::item:hover {{
         background: {p["surface_2"]};
     }}
-    QTableWidget::item:selected {{
+    QTableWidget::item:selected, QTableView::item:selected {{
         background: {p["primary_soft"]};
         color: {p["ink"]};
     }}
@@ -1014,6 +1039,15 @@ def base_qss() -> str:
         color: transparent;
     }}
     QProgressBar#ControlProgress::chunk {{
+        border-radius: 4px;
+        background: {p["primary"]};
+    }}
+    QProgressBar#JobProgressBar {{
+        border: 1px solid {p["border_strong"]};
+        border-radius: 5px;
+        background: {p["surface_3"]};
+    }}
+    QProgressBar#JobProgressBar::chunk {{
         border-radius: 4px;
         background: {p["primary"]};
     }}

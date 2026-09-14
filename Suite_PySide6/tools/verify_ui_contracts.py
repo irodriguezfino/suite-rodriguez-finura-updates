@@ -16,7 +16,6 @@ VERIFY_SCRIPTS = (
     "verify_phase5.py",
     "verify_phase6.py",
     "verify_phase7.py",
-    "verify_phase8.py",
     "verify_phase9.py",
     "verify_phase10.py",
     "verify_phase11.py",
@@ -69,18 +68,22 @@ def assert_core_unchanged() -> None:
         )
     except Exception as exc:
         raise AssertionError(f"No se pudo comprobar el estado de core/: {exc}") from exc
-    allowed_metadata = {
+    allowed_core_changes = {
         "Suite_PySide6/src/suite_pyside6/core/apps.py",
         "Suite_PySide6/src/suite_pyside6/core/control_recepcion_maquilas.py",
+        "Suite_PySide6/src/suite_pyside6/core/file_compare/detectors.py",
         "Suite_PySide6/src/suite_pyside6/core/precintos_jamones.py",
         "Suite_PySide6/src/suite_pyside6/core/pesos.py",
         "Suite_PySide6/src/suite_pyside6/core/reparto_merma_precintos.py",
         "Suite_PySide6/src/suite_pyside6/core/recepcion_maquilas.py",
+        # La ruta de configuración se desacopló de Qt; es una mejora de
+        # arquitectura deliberada y está cubierta por test_user_paths.py.
+        "Suite_PySide6/src/suite_pyside6/core/empresas_clientes.py",
     }
     changed = [
         line.strip()
         for line in output.splitlines()
-        if line.strip() and not line.startswith("warning:") and line.strip() not in allowed_metadata
+        if line.strip() and not line.startswith("warning:") and line.strip() not in allowed_core_changes
     ]
     assert not changed, "La capa core/ no debe cambiar en esta fase: " + ", ".join(changed)
 

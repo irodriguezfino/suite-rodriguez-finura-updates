@@ -7,6 +7,7 @@ from PySide6.QtGui import QAction, QFont, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QBoxLayout,
+    QCheckBox,
     QFileDialog,
     QFrame,
     QHBoxLayout,
@@ -27,6 +28,7 @@ from PySide6.QtWidgets import (
 )
 
 from suite_pyside6 import __version__
+from suite_pyside6.ui.visual_controls import ModernCheckBox as QCheckBox
 from suite_pyside6.core.app_organization import CategoryDefinition
 from suite_pyside6.core.apps import APP_REGISTRY, AppDefinition, app_by_key, categories
 from suite_pyside6.core.paths import resource_path
@@ -66,7 +68,7 @@ from suite_pyside6.ui.session import (
 from suite_pyside6.ui.theme import base_qss, current_theme_preference
 
 
-NAVIGATION_LOADING_DELAY_MS = 120
+NAVIGATION_LOADING_DELAY_MS = 16
 
 
 class MainWindow(QMainWindow):
@@ -84,6 +86,13 @@ class MainWindow(QMainWindow):
         self._current_app_key = ""
         self._opening_app_key = ""
         self._continue_app_key = ""
+        self._open_request_id = 0
+        self._pending_open_paths: list[Path] = []
+        self._pending_open_buttons: list[tuple[QPushButton, str]] = []
+        self._process_catalog_signature = None
+        self._process_filter_text = None
+        self._process_rows: dict[str, QWidget] = {}
+        self._process_groups = []
         self._closing = False
         self.app_organization = load_app_organization(APP_REGISTRY)
         self._organization_updating = False
@@ -98,9 +107,12 @@ class MainWindow(QMainWindow):
         self._build_actions()
         self._build_ui()
         self._refresh_all()
+        apply_premium_depth(self)
 
         self.context_timer = QTimer(self)
-        self.context_timer.setInterval(700)
+        # El contexto es información auxiliar; una cadencia moderada evita
+        # recorrer el árbol de widgets repetidamente mientras el usuario lee.
+        self.context_timer.setInterval(1200)
         self.context_timer.timeout.connect(self._update_context)
         self.context_timer.start()
 
@@ -170,23 +182,29 @@ class MainWindow(QMainWindow):
         body.addWidget(self.context_rail)
         workspace_layout.addLayout(body, 1)
 
+        # Bandeja es la única vista necesaria para el primer renderizado. Las
+        # demás crean controles y modelos propios, por lo que se materializan
+        # sólo al abrir su apartado de navegación.
         self.dashboard_page = self._scroll_page(self._build_dashboard())
-        self.processes_page = self._scroll_page(self._build_processes_page())
-        self.outputs_page = self._scroll_page(self._build_outputs_page())
-        self.history_page = self._scroll_page(self._build_history_page())
-        self.settings_page = self._scroll_page(self._build_settings_page())
-
-        self.page_indexes = {
-            "bandeja": self.stack.addWidget(self.dashboard_page),
-            "procesos": self.stack.addWidget(self.processes_page),
-            "salidas": self.stack.addWidget(self.outputs_page),
-            "historial": self.stack.addWidget(self.history_page),
-            "ajustes": self.stack.addWidget(self.settings_page),
+        self._lazy_page_builders = {
+            "procesos": self._build_processes_page,
+            "salidas": self._build_outputs_page,
+            "historial": self._build_history_page,
+            "ajustes": self._build_settings_page,
         }
+        self._lazy_page_placeholders: dict[str, QWidget] = {}
+        self.page_indexes = {"bandeja": self.stack.addWidget(self.dashboard_page)}
+        for view in self._lazy_page_builders:
+            placeholder = QWidget()
+            placeholder.setObjectName("DeferredConsolePage")
+            self._lazy_page_placeholders[view] = placeholder
+            self.page_indexes[view] = self.stack.addWidget(placeholder)
         self.navigation_loading_page = self._build_navigation_loading_page()
         self.stack.addWidget(self.navigation_loading_page)
         self.setCentralWidget(root)
         self.result_label = QLabel()
+        self.result_label.setText(f"{len(APP_REGISTRY)} procesos disponibles en Todas")
+        self.result_label.setAccessibleDescription(self.result_label.text())
         self.result_label.setVisible(False)
         for category in categories():
             button = QPushButton(category)
@@ -210,6 +228,7 @@ class MainWindow(QMainWindow):
         brand = QVBoxLayout()
         brand.setSpacing(5)
         logo = self._brand_logo("RODRIGUEZ.png", 166, 48, "Rodríguez")
+        self.sidebar_logo = logo
         if logo is not None:
             brand.addWidget(logo)
         self.nav_title = QLabel("Rodríguez")
@@ -245,10 +264,20 @@ class MainWindow(QMainWindow):
             layout.addWidget(button)
 
         layout.addWidget(self._nav_label("Trabajos abiertos"))
-        self.active_jobs_box = QVBoxLayout()
+        jobs_content = QWidget()
+        jobs_content.setObjectName('ActiveJobsContent')
+        self.active_jobs_box = QVBoxLayout(jobs_content)
+        self.active_jobs_box.setContentsMargins(0, 0, 0, 0)
         self.active_jobs_box.setSpacing(6)
-        layout.addLayout(self.active_jobs_box)
-        layout.addStretch(1)
+        self.active_jobs_box.setAlignment(Qt.AlignTop)
+        self.active_jobs_scroll = QScrollArea()
+        self.active_jobs_scroll.setObjectName('ActiveJobsScroll')
+        self.active_jobs_scroll.setFrameShape(QFrame.NoFrame)
+        self.active_jobs_scroll.setWidgetResizable(True)
+        self.active_jobs_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.active_jobs_scroll.setMinimumHeight(64)
+        self.active_jobs_scroll.setWidget(jobs_content)
+        layout.addWidget(self.active_jobs_scroll, 1)
 
         self.sidebar_footer = QLabel(f"v{__version__}  |  Ctrl+F buscar  |  Alt+1-9 abrir  |  Ctrl+Enter siguiente")
         self.sidebar_footer.setObjectName("ModuleDescription")
@@ -259,27 +288,30 @@ class MainWindow(QMainWindow):
     def _build_header(self) -> QFrame:
         header = QFrame()
         header.setObjectName("ConsoleHeader")
-        layout = QBoxLayout(QBoxLayout.LeftToRight, header)
-        self.header_layout = layout
-        layout.setContentsMargins(16, 12, 16, 12)
-        layout.setSpacing(12)
+        layout = QVBoxLayout(header)
+        layout.setContentsMargins(16, 10, 16, 10)
+        layout.setSpacing(8)
+        self.header_layout = QHBoxLayout()
+        self.header_layout.setSpacing(12)
+        layout.addLayout(self.header_layout)
 
         title_box = QVBoxLayout()
         title_box.setSpacing(2)
         self.workspace_title = QLabel("Bandeja")
         self.workspace_title.setObjectName("ShellTitle")
+        self.workspace_title.setWordWrap(True)
         self.workspace_description = PersonalizedDescriptionControl(
             "Carga archivos, detecta procesos y continúa trabajos activos.",
             label_object_name="ShellSubtitle",
         )
         self.workspace_subtitle = self.workspace_description.description_label
         title_box.addWidget(self.workspace_title)
-        title_box.addWidget(self.workspace_description)
-        layout.addLayout(title_box, 1)
+        self.header_layout.addLayout(title_box, 1)
+        layout.addWidget(self.workspace_description)
 
         self.compact_context_bar = self._build_compact_context_bar()
         self.compact_context_bar.setVisible(False)
-        layout.addWidget(self.compact_context_bar, 2)
+        layout.addWidget(self.compact_context_bar)
 
         self.search = QLineEdit()
         self.search.setPlaceholderText("Buscar proceso, salida o archivo (Ctrl+F)")
@@ -287,7 +319,7 @@ class MainWindow(QMainWindow):
         self.search.textChanged.connect(self._on_search_changed)
         self.search.setAccessibleName("Buscar en la consola")
         self.search.setAccessibleDescription("Busca procesos por nombre, categoría o descripción. Atajo: Ctrl+F.")
-        layout.addWidget(self.search, 1)
+        layout.addWidget(self.search)
 
         self.header_actions = QWidget()
         self.header_actions.setObjectName("HeaderActions")
@@ -321,14 +353,14 @@ class MainWindow(QMainWindow):
         self.home_button.clicked.connect(self.show_dashboard)
         self.home_button.setVisible(False)
         actions_layout.addWidget(self.home_button)
-        layout.addWidget(self.header_actions, 0, Qt.AlignRight | Qt.AlignVCenter)
+        self.header_layout.addWidget(self.header_actions, 0, Qt.AlignRight | Qt.AlignVCenter)
         return header
 
     def _build_compact_context_bar(self) -> QFrame:
         bar = QFrame()
         bar.setObjectName("CompactContextBar")
         layout = QHBoxLayout(bar)
-        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setContentsMargins(0, 3, 0, 3)
         layout.setSpacing(10)
 
         self.compact_context_state = QLabel("Pendiente")
@@ -525,9 +557,6 @@ class MainWindow(QMainWindow):
         quick_copy.addWidget(quick_title)
         quick_copy.addWidget(quick_detail)
         quick_header.addLayout(quick_copy, 1)
-        quick_catalog_button = QPushButton("Ver catálogo")
-        quick_catalog_button.clicked.connect(lambda: self.show_view("procesos"))
-        quick_header.addWidget(quick_catalog_button, 0, Qt.AlignVCenter)
         quick_layout.addLayout(quick_header)
         quick_cards = QHBoxLayout()
         self.dashboard_frequent_layout = quick_cards
@@ -549,7 +578,17 @@ class MainWindow(QMainWindow):
     def _build_processes_page(self) -> QWidget:
         page = QWidget()
         page.setObjectName("ConsolePage")
-        self.processes_layout = QVBoxLayout(page)
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.compact_catalog = QCheckBox("Vista compacta")
+        self.compact_catalog.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
+        self.compact_catalog.setChecked(True)
+        self.compact_catalog.setToolTip("Reduce las tarjetas; las descripciones se personalizan desde Opciones.")
+        self.compact_catalog.toggled.connect(self._set_catalog_compact)
+        layout.addWidget(self.compact_catalog)
+        content = QWidget(page)
+        layout.addWidget(content)
+        self.processes_layout = QVBoxLayout(content)
         self.processes_layout.setContentsMargins(0, 0, 0, 0)
         self.processes_layout.setSpacing(12)
         self._render_processes()
@@ -839,6 +878,9 @@ class MainWindow(QMainWindow):
         if pixmap.isNull():
             return None
         label = QLabel()
+        label._brand_source = pixmap
+        label.setMinimumWidth(0)
+        label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
         label.setObjectName("SidebarBrandLogo")
         label.setAccessibleName(accessible_name)
         label.setPixmap(pixmap.scaled(width, height, Qt.KeepAspectRatio, Qt.SmoothTransformation))
@@ -869,6 +911,11 @@ class MainWindow(QMainWindow):
         self.navigation_loading_detail.setWordWrap(True)
         layout.addWidget(self.navigation_loading_title)
         layout.addWidget(self.navigation_loading_detail)
+        self._failed_app_key = ""
+        self.navigation_retry_button = QPushButton("Reintentar")
+        self.navigation_retry_button.clicked.connect(lambda: self.open_app(app_by_key(self._failed_app_key)))
+        self.navigation_retry_button.hide()
+        layout.addWidget(self.navigation_retry_button)
         for width in (100, 76, 88):
             skeleton = QFrame()
             skeleton.setObjectName("NavigationSkeleton")
@@ -932,32 +979,67 @@ class MainWindow(QMainWindow):
             process_description_key(app.key),
             label_object_name="ModuleDescription",
         )
-        return module_row(app.title, app.description, self._category_name_for(app), "Disponible", app.shortcut, button, description)
+        row = module_row(app.title, app.description, self._category_name_for(app), "Disponible", app.shortcut, button, description)
+        compact = self.compact_catalog.isChecked() if hasattr(self, "compact_catalog") else True
+        row.catalog_metadata.setVisible(not compact)
+        description.set_compact(compact)
+        return row
+
+    def _set_catalog_compact(self, compact: bool) -> None:
+        for row in self._process_rows.values():
+            row.catalog_metadata.setVisible(not compact)
+            for description in row.findChildren(PersonalizedDescriptionControl):
+                description.set_compact(compact)
 
     def _render_processes(self) -> None:
         if not hasattr(self, "processes_layout"):
             return
-        self._clear_layout(self.processes_layout)
-        apps = self._filtered_apps()
-        if hasattr(self, "result_label"):
-            suffix = "en Todas"
-            if self.search_text:
-                self.result_label.setText(f"{len(apps)} procesos encontrados {suffix}")
-            else:
-                self.result_label.setText(f"{len(apps)} procesos disponibles {suffix}")
-            self.result_label.setAccessibleDescription(self.result_label.text())
-        if not apps:
-            self.processes_layout.addWidget(empty_state("Sin procesos", "Ajusta la busqueda para encontrar el proceso."))
+        categories = self.app_organization.categories(APP_REGISTRY)
+        signature = tuple(
+            (category.id, category.name, tuple(
+                app.key for app in APP_REGISTRY
+                if self.app_organization.category_for(app, APP_REGISTRY) == category.id
+            )) for category in categories
+        )
+        # Cache rows and controls. Filtering changes visibility, not ownership.
+        if signature != self._process_catalog_signature:
+            self._clear_layout(self.processes_layout)
+            self._process_rows = {}
+            self._process_groups = []
+            for category_id, name, keys in signature:
+                if not keys:
+                    continue
+                group_panel, group_layout = panel(name, f"{len(keys)} procesos disponibles")
+                for key in keys:
+                    row = self._process_row(app_by_key(key))
+                    self._process_rows[key] = row
+                    group_layout.addWidget(row)
+                self.processes_layout.addWidget(group_panel)
+                self._process_groups.append((group_panel, keys))
+            self._process_empty = empty_state("Sin procesos", "Ajusta la busqueda para encontrar el proceso.")
+            self.processes_layout.addWidget(self._process_empty)
+            self.processes_layout.addStretch(1)
+            self._process_catalog_signature = signature
+            self._process_filter_text = None
+            apply_premium_depth(self.processes_layout.parentWidget())
+        if self._process_filter_text == self.search_text:
             return
-        for category in self.app_organization.categories(APP_REGISTRY):
-            group = [app for app in apps if self.app_organization.category_for(app, APP_REGISTRY) == category.id]
-            if not group:
-                continue
-            group_panel, group_layout = panel(category.name, f"{len(group)} procesos disponibles")
-            for app in group:
-                group_layout.addWidget(self._process_row(app))
-            self.processes_layout.addWidget(group_panel)
-        self.processes_layout.addStretch(1)
+        apps = self._filtered_apps()
+        visible_keys = {app.key for app in apps}
+        label = (f"{len(apps)} procesos encontrados en Todas" if self.search_text
+                 else f"{len(apps)} procesos disponibles en Todas")
+        self.result_label.setText(label)
+        self.result_label.setAccessibleDescription(label)
+        for key, row in self._process_rows.items():
+            row.setVisible(key in visible_keys)
+        for group, keys in self._process_groups:
+            count = sum(key in visible_keys for key in keys)
+            group.setVisible(count > 0)
+            subtitle = group.findChild(QLabel, "PanelSubtitle")
+            if subtitle is not None:
+                subtitle.setText(f"{count} procesos disponibles")
+        self._process_empty.setVisible(not apps)
+        self._process_filter_text = self.search_text
 
     def _refresh_outputs(self) -> None:
         for layout in (getattr(self, "outputs_layout", None), getattr(self, "dashboard_outputs_layout", None)):
@@ -1020,6 +1102,8 @@ class MainWindow(QMainWindow):
             )
 
     def _refresh_history(self) -> None:
+        if not hasattr(self, "history_layout"):
+            return
         self._clear_layout(self.history_layout)
         recent_apps = recent_app_keys()
         if not recent_apps:
@@ -1045,13 +1129,14 @@ class MainWindow(QMainWindow):
             app = self._app_from_key(key)
             if app is None:
                 continue
-            button = self._nav_button(self._compact_nav_text(app.title, narrow=self.width() < 980))
+            button = self._nav_button(app.title)
             button.setToolTip(app.title)
             button.setAccessibleName(app.title)
             button.setChecked(key == self._current_app_key)
             self._wire_app_button(button, app)
             self.active_job_buttons[key] = button
             self.active_jobs_box.addWidget(button)
+        self._apply_responsive_state()
 
     def _refresh_metrics(self) -> None:
         open_count = len(self.app_pages)
@@ -1078,6 +1163,7 @@ class MainWindow(QMainWindow):
         candidate_key = (recent_keys[:1] or open_keys[:1] or [""])[0]
         app = self._app_from_key(candidate_key) if candidate_key else None
         has_activity = app is not None
+        self.continue_strip.setVisible(has_activity)
         if not has_activity:
             self._continue_app_key = ""
             self.continue_title.setText("Aún no hay actividad")
@@ -1109,13 +1195,18 @@ class MainWindow(QMainWindow):
         self._refresh_outputs()
         self._refresh_dashboard_activity()
         self._refresh_dashboard_frequent()
-        self._refresh_history()
         self._refresh_active_jobs()
-        self._render_processes()
-        self._refresh_organization_controls()
+        # Las vistas diferidas sólo se reconstruyen cuando están activas. Al
+        # abrir una herramienta no hay motivo para recrear el catálogo, el
+        # historial y los controles de organización que el usuario no ve.
+        if self.current_view == "procesos":
+            self._render_processes()
+        elif self.current_view == "historial":
+            self._refresh_history()
+        elif self.current_view == "ajustes":
+            self._refresh_organization_controls()
         self._update_nav_state()
         self._update_context()
-        apply_premium_depth(self)
 
     def _filtered_apps(self) -> list[AppDefinition]:
         text = self.search_text
@@ -1128,8 +1219,29 @@ class MainWindow(QMainWindow):
                 result.append(app)
         return result
 
+    def _ensure_view(self, view: str) -> None:
+        """Construye una vista diferida conservando su posición en el stack."""
+
+        builder = self._lazy_page_builders.pop(view, None)
+        if builder is None:
+            return
+        placeholder = self._lazy_page_placeholders.pop(view)
+        index = self.page_indexes[view]
+        page = self._scroll_page(builder())
+        self.stack.removeWidget(placeholder)
+        placeholder.deleteLater()
+        self.stack.insertWidget(index, page)
+        page_attribute = {
+            "procesos": "processes_page",
+            "salidas": "outputs_page",
+            "historial": "history_page",
+            "ajustes": "settings_page",
+        }[view]
+        setattr(self, page_attribute, page)
+
     def show_view(self, view: str) -> None:
-        self._opening_app_key = ""
+        self._cancel_app_open()
+        self._ensure_view(view)
         self.current_view = view
         self._current_app_key = ""
         self.stack.setCurrentIndex(self.page_indexes[view])
@@ -1158,33 +1270,48 @@ class MainWindow(QMainWindow):
         self.search.setVisible(True)
         self.tabs.setCurrentIndex(0)
 
-    def open_app(self, app: AppDefinition) -> None:
-        remember_app_open(app.key)
-        window = self.app_pages.get(app.key)
-        if window is None:
-            if self._opening_app_key == app.key:
-                return
-            self._opening_app_key = app.key
-            self.workspace_title.setText(app.title)
-            self._set_workspace_description(app.description, header_description_key(app.key))
-            self.search.setVisible(False)
-            self.home_button.setVisible(True)
-            self.help_button.setVisible(True)
-            self.context_rail.setVisible(False)
-            self.compact_context_bar.setVisible(False)
-            self._update_nav_state()
-            preload_window_class(app.key)
-            QTimer.singleShot(0, lambda item=app: self._complete_app_open(item))
-            QTimer.singleShot(NAVIGATION_LOADING_DELAY_MS, lambda item=app: self._show_app_preparing_if_needed(item))
-            return
+    def _cancel_app_open(self) -> None:
+        self._open_request_id += 1
+        self._opening_app_key = ""
+        self._pending_open_paths.clear()
+        for button, text in self._pending_open_buttons:
+            try:
+                button.setText(text)
+                button.setEnabled(True)
+            except RuntimeError:
+                pass
+        self._pending_open_buttons.clear()
 
-        self._activate_app_page(app, window)
+    def open_app(self, app: AppDefinition) -> None:
+        if self._closing or self._opening_app_key == app.key:
+            return
+        window = self.app_pages.get(app.key)
+        if window is not None and self._current_app_key == app.key and not self._opening_app_key:
+            return
+        self._cancel_app_open()
+        request_id = self._open_request_id
+        if window is not None:
+            remember_app_open(app.key)
+            self._activate_app_page(app, window)
+            return
+        self._opening_app_key = app.key
+        for button in self.findChildren(QPushButton):
+            if button.property("appKey") == app.key and button.isEnabled():
+                self._pending_open_buttons.append((button, button.text()))
+                button.setText("Abriendo…")
+                button.setEnabled(False)
+        self._show_app_preparing(app)
+        # Paint acknowledgement before light GUI construction. Heavy libraries
+        # are imported by processing functions, never by this catalogue.
+        QTimer.singleShot(NAVIGATION_LOADING_DELAY_MS,
+                          lambda: self._complete_app_open(app, request_id))
 
     def _show_app_preparing(self, app: AppDefinition) -> None:
         self.current_view = "trabajo"
         self._current_app_key = ""
         self.navigation_loading_title.setText(f"Abriendo {app.title}")
-        self.navigation_loading_detail.setText("Preparando la herramienta sin bloquear la consola…")
+        self.navigation_retry_button.hide()
+        self.navigation_loading_detail.setText("Preparando la interfaz. Puedes volver a Procesos mientras se abre.")
         self.stack.setCurrentWidget(self.navigation_loading_page)
         self.workspace_title.setText(app.title)
         self._set_workspace_description(app.description, header_description_key(app.key))
@@ -1195,41 +1322,45 @@ class MainWindow(QMainWindow):
         self.compact_context_bar.setVisible(False)
         self._update_nav_state()
 
-    def _show_app_preparing_if_needed(self, app: AppDefinition) -> None:
-        if self._opening_app_key == app.key and app.key not in self.app_pages:
-            self._show_app_preparing(app)
-
-    def _complete_app_open(self, app: AppDefinition) -> None:
-        if self._opening_app_key != app.key:
+    def _complete_app_open(self, app: AppDefinition, request_id: int | None = None) -> None:
+        request_id = self._open_request_id if request_id is None else request_id
+        if self._closing or request_id != self._open_request_id or self._opening_app_key != app.key:
             return
+        window = None
         try:
             window_class = preloaded_window_class(app.key)
-        except Exception as exc:
-            self._opening_app_key = ""
-            self.navigation_loading_detail.setText(f"No se pudo abrir la aplicación: {exc}")
-            return
-        if window_class is None:
-            # Un sondeo espaciado deja tiempo al importador de Python para avanzar.
-            QTimer.singleShot(250, lambda item=app: self._complete_app_open(item))
-            return
-        try:
+            if window_class is None:
+                raise ValueError("No hay una ventana registrada para esta aplicación.")
             window = window_class()
+            if self._closing or request_id != self._open_request_id:
+                window.deleteLater()
+                return
             window.setObjectName("EmbeddedAppWindow")
             prepare_embedded_window(window)
             window.setParent(self.stack)
             window.setWindowFlags(Qt.Widget)
-            window.destroyed.connect(lambda _obj=None, key=app.key: self._forget_app_page(key))
             self.app_pages[app.key] = window
             self.open_windows[app.key] = window
             self.app_page_indexes[app.key] = self.stack.addWidget(window)
             self.tabs.addTab(QWidget(), app.title)
             self.tab_keys.append(app.key)
+            window.destroyed.connect(lambda _obj=None, key=app.key: self._forget_app_page(key))
         except Exception as exc:
-            self._opening_app_key = ""
-            self.navigation_loading_detail.setText(f"No se pudo preparar la aplicación: {exc}")
+            if window is not None:
+                window.deleteLater()
+            if request_id == self._open_request_id and not self._closing:
+                self._cancel_app_open()
+                self.navigation_loading_title.setText(f"No se pudo abrir {app.title}")
+                self.navigation_loading_detail.setText(str(exc))
+                self._failed_app_key = app.key
+                self.navigation_retry_button.show()
             return
-        self._opening_app_key = ""
+        paths = list(self._pending_open_paths)
+        self._cancel_app_open()
+        remember_app_open(app.key)
         self._activate_app_page(app, window)
+        if paths:
+            self._deliver_dropped_paths(app, window, paths)
 
     def _activate_app_page(self, app: AppDefinition, window: QMainWindow) -> None:
         self._current_app_key = app.key
@@ -1316,32 +1447,6 @@ class MainWindow(QMainWindow):
         return clean[: max(0, limit - 3)].rstrip() + "..."
 
     @staticmethod
-    def _compact_nav_text(text: str, *, narrow: bool = False) -> str:
-        narrow_mapping = {
-            "Merma Jamones FAC": "M",
-            "Procesador TXT a CSV": "TXT",
-            "Palets PDA": "PDA",
-            "Precintos Jamones": "PJ",
-            "Precintos Expedición": "PE",
-            "Precintos Excel a CSV": "XL",
-            "Control y Recepción Precintos": "CTL",
-            "Pesos": "P",
-            "Precintos Deshuesado": "PD",
-            "Numerador de Etiquetas": "NE",
-        }
-        compact_mapping = {
-            "Merma Jamones FAC": "Merma FAC",
-            "Procesador TXT a CSV": "TXT a CSV",
-            "Precintos Jamones": "P. Jamones",
-            "Precintos Expedición": "P. Exped.",
-            "Precintos Excel a CSV": "Excel",
-            "Control y Recepción Precintos": "Control",
-            "Precintos Deshuesado": "Deshuesado",
-            "Numerador de Etiquetas": "Etiquetas",
-        }
-        return (narrow_mapping if narrow else compact_mapping).get(text, text)
-
-    @staticmethod
     def _set_context_value(card: QFrame, value: str) -> None:
         label = card.property("valueLabel")
         if isinstance(label, QLabel):
@@ -1391,6 +1496,11 @@ class MainWindow(QMainWindow):
 
     def _on_search_changed(self, text: str) -> None:
         self.search_text = " ".join(text.lower().split())
+        if not hasattr(self, "processes_layout"):
+            count = len(self._filtered_apps())
+            label = f"{count} procesos encontrados en Todas" if self.search_text else f"{len(APP_REGISTRY)} procesos disponibles en Todas"
+            self.result_label.setText(label)
+            self.result_label.setAccessibleDescription(label)
         self._render_processes()
 
     def _focus_search(self) -> None:
@@ -1450,7 +1560,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt API
         self._closing = True
-        self._opening_app_key = ""
+        self._cancel_app_open()
         for key, window in list(self.open_windows.items()):
             if not window.close():
                 self._closing = False
@@ -1464,10 +1574,9 @@ class MainWindow(QMainWindow):
     def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API
         super().resizeEvent(event)
         if hasattr(self, "header_layout"):
-            # The compact context is a complete row in the header.  Keeping
-            # the header horizontal while it is present made the title and
-            # search field compete for the same narrow strip of space.
-            direction = QBoxLayout.TopToBottom if self.width() < 1440 else QBoxLayout.LeftToRight
+            # Only title/actions share this row; description, state and search
+            # have their own rows and no longer force the whole header to stack.
+            direction = QBoxLayout.TopToBottom if self.width() < 900 else QBoxLayout.LeftToRight
             self.header_layout.setDirection(direction)
         self._apply_responsive_state()
 
@@ -1476,6 +1585,15 @@ class MainWindow(QMainWindow):
         narrow = self.width() < 980
         self.sidebar.setMaximumWidth(112 if narrow else 176 if compact else 240)
         self.sidebar.setMinimumWidth(96 if narrow else 164 if compact else 220)
+        if self.sidebar_logo is not None:
+            logo = self.sidebar_logo
+            dimensions = (68 if narrow else 132 if compact else 166, logo.devicePixelRatioF())
+            if getattr(logo, '_rendered_size', None) != dimensions:
+                width, dpr = dimensions
+                pixmap = logo._brand_source.scaled(round(width*dpr), round(48*dpr), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                pixmap.setDevicePixelRatio(dpr)
+                logo.setPixmap(pixmap)
+                logo._rendered_size = dimensions
         self.nav_title.setText("SRF" if compact else "Rodriguez Finura")
         # At medium sizes the long keyboard-help paragraph competed with the
         # actual navigation.  Its shortcuts remain available in tooltips and
@@ -1503,6 +1621,10 @@ class MainWindow(QMainWindow):
             wide_context = self.width() >= 1440
             self.context_rail.setVisible(wide_context)
             self.compact_context_bar.setVisible(not wide_context)
+            # The embedded application owns the primary action. Keep only the
+            # short status in this fixed header, without duplicating its button.
+            self.compact_next_button.hide()
+            self.compact_context_next.hide()
             self.workspace_description.setVisible(True)
             self.header_actions.setVisible(True)
         elif hasattr(self, "compact_context_bar"):
@@ -1529,7 +1651,10 @@ class MainWindow(QMainWindow):
         for key, button in self.active_job_buttons.items():
             app = self._app_from_key(key)
             if app is not None:
-                button.setText(self._compact_nav_text(app.title, narrow=narrow))
+                available = max(40, self.sidebar.width() - 44)
+                button.setText(button.fontMetrics().elidedText(app.title, Qt.ElideRight, available))
+                button.setToolTip(app.title)
+                button.setAccessibleName(app.title)
 
     def _column_count(self) -> int:
         available = self.width()
@@ -1608,7 +1733,13 @@ class MainWindow(QMainWindow):
         self.open_app(app)
         window = self.app_pages.get(app.key)
         if window is None:
+            if self._opening_app_key == app.key:
+                self._pending_open_paths = list(dict.fromkeys(self._pending_open_paths + paths))
+                return True
             return False
+        return self._deliver_dropped_paths(app, window, paths)
+
+    def _deliver_dropped_paths(self, app: AppDefinition, window: QMainWindow, paths: list[Path]) -> bool:
         if not handle_dropped_paths(window, paths):
             self.command_detail.setText(f"No se pudieron cargar los archivos en {app.title}. Usa los botones de carga del proceso.")
             return False

@@ -68,7 +68,10 @@ def detect_type(path: Path) -> str:
 
 
 def detect_delimiter(path: Path, encoding: str) -> str:
-    sample = path.read_text(encoding=encoding, errors="replace")[:65536]
+    # Leer únicamente la muestra necesaria. La variante anterior cargaba todo
+    # el CSV en memoria antes de recortarlo, penalizando comparaciones grandes.
+    with path.open("r", encoding=encoding, errors="replace") as stream:
+        sample = stream.read(65536)
     try:
         return csv.Sniffer().sniff(sample, delimiters=",;\t|").delimiter
     except csv.Error:

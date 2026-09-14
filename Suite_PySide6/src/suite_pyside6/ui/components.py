@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QPoint, Qt
+from PySide6.QtCore import QPoint, Qt, QEvent, QSize
 from PySide6.QtGui import QAction, QGuiApplication, QPainter, QPalette, QPen, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
     QComboBox,
@@ -19,6 +19,64 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+
+# Logical pixels: Qt scales these with the display, while larger user fonts
+# increase control heights. Keep the same geometry in normal/focus states.
+from .design_tokens import CONTROL_HEIGHT, SPACE_SM, SPACE_MD, SPACE_LG, SPACE_XS
+
+
+def action_height(widget: QWidget) -> int:
+    return max(CONTROL_HEIGHT, widget.fontMetrics().height() + 14)
+
+
+class ProcessIcon(QLabel):
+    def __init__(self, title: str):
+        super().__init__()
+        self.setAccessibleName(title)
+        lower = title.lower()
+        self.symbol = ('scale' if 'peso' in lower or 'merma' in lower else
+                       'compare' if 'comparador' in lower else
+                       'grid' if 'palet' in lower else
+                       'tag' if 'precinto' in lower or 'etiqueta' in lower else 'file')
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        from .vector_icons import vector_icon
+        painter = QPainter(self)
+        rect = self.rect()
+        rect.setSize(rect.size().boundedTo(QSize(22, 22)))
+        rect.moveCenter(self.rect().center())
+        vector_icon(self.symbol).paint(painter, rect)
+        painter.end()
+
+
+class ModuleRow(QFrame):
+    """Catalogue row with one action group, independent of description height."""
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._arrange_actions()
+
+    def _arrange_actions(self) -> None:
+        if not hasattr(self, 'catalog_actions'):
+            return
+        grid = self.layout()
+        # Reserve a useful text column, rather than splitting individual buttons.
+        narrow = self.width() < self.catalog_actions.sizeHint().width() + 390
+        if getattr(self, '_actions_below', None) != narrow:
+            self._actions_below = narrow
+            grid.removeWidget(self.catalog_actions)
+            grid.addWidget(self.catalog_actions, 1 if narrow else 0,
+                           1 if narrow else 2, Qt.AlignRight | Qt.AlignVCenter)
+        height = max(action_height(button) for button in self.catalog_action_buttons)
+        for button in self.catalog_action_buttons:
+            button.setFixedHeight(height)
+
+    def changeEvent(self, event) -> None:
+        super().changeEvent(event)
+        if event.type() in (QEvent.FontChange, QEvent.StyleChange):
+            self._arrange_actions()
 
 
 class ModernSelect(QComboBox):
@@ -177,15 +235,23 @@ class ActionMenuButton(QToolButton):
     def __init__(self, parent: QWidget | None = None, *, accessible_name: str = "Más acciones") -> None:
         super().__init__(parent)
         self.setObjectName("ActionMenuButton")
-        self.setText("Más acciones  ⋯")
-        self.setToolButtonStyle(Qt.ToolButtonTextOnly)
+        from .vector_icons import vector_icon
+        self.setText("Más acciones")
+        self.setIcon(vector_icon('more'))
+        self.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
         self.setPopupMode(QToolButton.InstantPopup)
         self.setFocusPolicy(Qt.StrongFocus)
+        self.setFixedHeight(action_height(self))
         self.setAccessibleName(accessible_name)
         self.setToolTip(accessible_name)
         self._menu = QMenu(self)
         self._menu.setObjectName("ActionDropdownMenu")
         self.setMenu(self._menu)
+
+    def changeEvent(self, event) -> None:
+        super().changeEvent(event)
+        if event.type() in (QEvent.FontChange, QEvent.StyleChange):
+            self.setFixedHeight(action_height(self))
 
     def add_action(self, text: str, callback, *, destructive: bool = False) -> QAction:
         action = self._menu.addAction(text)
@@ -250,8 +316,8 @@ def panel(title: str = "", subtitle: str = "", *, name: str = "Panel") -> tuple[
     frame = QFrame()
     frame.setObjectName(name)
     layout = QVBoxLayout(frame)
-    layout.setContentsMargins(14, 12, 14, 14)
-    layout.setSpacing(10)
+    layout.setContentsMargins(SPACE_LG, SPACE_MD, SPACE_LG, SPACE_LG)
+    layout.setSpacing(SPACE_SM)
     if title:
         header = QVBoxLayout()
         header.setSpacing(2)
@@ -406,21 +472,21 @@ def module_row(
     action: QPushButton,
     description_control: QWidget | None = None,
 ) -> QFrame:
-    row = QFrame()
+    row = ModuleRow()
     row.setObjectName("ModuleRow")
     row.setAccessibleName(title)
     shortcut_hint = f" Atajo: {shortcut}." if shortcut else ""
     row.setToolTip(f"{description}{shortcut_hint}")
-    row.setAccessibleDescription(f"{description}{shortcut_hint}")
+    row.setAccessibleDescription(f"{description} Categoría: {category}. Estado: {status}.{shortcut_hint}")
     row.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
-    layout = QHBoxLayout(row)
+    layout = QGridLayout(row)
     layout.setContentsMargins(12, 10, 12, 10)
     layout.setSpacing(12)
 
-    icon = QLabel(_initials(title))
+    icon = ProcessIcon(title)
     icon.setObjectName("ModuleIcon")
     icon.setAlignment(Qt.AlignCenter)
-    layout.addWidget(icon, 0, Qt.AlignTop)
+    layout.addWidget(icon, 0, 0, Qt.AlignTop)
 
     text_layout = QVBoxLayout()
     text_layout.setSpacing(4)
@@ -436,8 +502,8 @@ def module_row(
 
     meta = QHBoxLayout()
     meta.setSpacing(6)
-    meta.addWidget(badge(category))
-    meta.addWidget(badge(status, tone="success" if status == "Disponible" else "neutral"))
+    if status != "Disponible":
+        meta.addWidget(badge(status))
     if shortcut:
         shortcut_label = QLabel(shortcut)
         shortcut_label.setObjectName("ModuleShortcut")
@@ -445,8 +511,12 @@ def module_row(
         shortcut_label.setAccessibleName(f"Atajo {shortcut}")
         meta.addWidget(shortcut_label)
     meta.addStretch(1)
-    text_layout.addLayout(meta)
-    layout.addLayout(text_layout, 1)
+    row.catalog_metadata = QWidget(row)
+    meta.setContentsMargins(0, 0, 0, 0)
+    row.catalog_metadata.setLayout(meta)
+    text_layout.addWidget(row.catalog_metadata)
+    layout.addLayout(text_layout, 0, 1)
+    layout.setColumnStretch(1, 1)
 
     action.setObjectName("PrimaryButton")
     action.setProperty("primary", True)
@@ -455,7 +525,16 @@ def module_row(
     if not action.accessibleName():
         action.setAccessibleName(f"Abrir {title}")
     action.setAccessibleDescription(f"Abre {title}.{shortcut_hint}")
-    layout.addWidget(action, 0, Qt.AlignVCenter)
+    row.catalog_actions = QWidget(row)
+    actions = QHBoxLayout(row.catalog_actions)
+    actions.setContentsMargins(0, 0, 0, 0)
+    actions.setSpacing(SPACE_SM)
+    row.catalog_action_buttons = [action]
+    if description_control is not None and hasattr(description_control, 'move_actions_to'):
+        description_control.move_actions_to(actions)
+        row.catalog_action_buttons.insert(0, description_control._actions_menu)
+    actions.addWidget(action, 0, Qt.AlignVCenter)
+    row._arrange_actions()
     return row
 
 
@@ -482,7 +561,7 @@ def dashboard_process_card(
 
     top = QHBoxLayout()
     top.setSpacing(8)
-    icon = QLabel(_initials(title))
+    icon = ProcessIcon(title)
     icon.setObjectName("DashboardProcessIcon")
     icon.setAlignment(Qt.AlignCenter)
     top.addWidget(icon)

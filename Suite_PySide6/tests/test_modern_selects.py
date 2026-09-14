@@ -83,6 +83,7 @@ class ModernSelectTests(unittest.TestCase):
 
     def test_pantallas_migradas_usan_componentes_modernos(self) -> None:
         main = MainWindow()
+        main.show_view("ajustes")
         mermas = MermasWindow()
         self.assertIsInstance(main.theme_combo, ModernSelect)
         self.assertIsInstance(main.organization_app_combo, SearchableComboBox)
