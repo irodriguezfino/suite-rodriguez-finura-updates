@@ -1,0 +1,3 @@
+# Preserve the published installer's exact bytes: version.json verifies SHA-256.
+# Keep earlier releases' existing line-ending conventions unchanged.
+Instalar_Suite_Rodriguez_Finura_v1.7.22.bat -text
