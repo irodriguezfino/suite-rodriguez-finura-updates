@@ -28,11 +28,11 @@ from suite_pyside6.core.precintos_txt_ax import (
     PrecintosTxtAxResult,
     csv_filename_from_source,
     ensure_csv_extension,
-    process_txt_file,
+    process_txt_files,
     write_ax_csv,
 )
 from suite_pyside6.ui.components import control_metric_pair, control_rail_label, dropzone, section_label, step_bar
-from suite_pyside6.ui.file_dialogs import open_file, save_file
+from suite_pyside6.ui.file_dialogs import open_files, save_file
 from suite_pyside6.ui.polish import confirm_discard_work, polish_window, show_inline_message, sync_recommended_action
 from suite_pyside6.ui.theme import base_qss
 
@@ -44,6 +44,7 @@ class PrecintosTxtAxWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.source_path: Path | None = None
+        self.source_paths: list[Path] = []
         self.output_path: Path | None = None
         self.is_processing = False
         self.result = PrecintosTxtAxResult()
@@ -76,7 +77,7 @@ class PrecintosTxtAxWindow(QMainWindow):
         hero_copy.setSpacing(3)
         title = QLabel("Precintos TXT a CSV AX")
         title.setObjectName("WindowTitle")
-        subtitle = QLabel("Extrae los precintos situados a la derecha de la flecha y prepara el CSV para Dynamics AX.")
+        subtitle = QLabel("Unifica los TXT, elimina la parte izquierda y el último dígito, y prepara el CSV para Dynamics AX.")
         subtitle.setObjectName("WindowSubtitle")
         subtitle.setWordWrap(True)
         hero_copy.addWidget(title)
@@ -98,13 +99,13 @@ class PrecintosTxtAxWindow(QMainWindow):
 
         layout.addWidget(step_bar("1 Seleccionar TXT  ->  2 Convertir a CSV  ->  3 Guardar CSV"))
 
-        self.select_button = QPushButton("Seleccionar TXT")
+        self.select_button = QPushButton("Añadir archivos TXT")
         self.select_button.setProperty("primary", True)
         self.select_button.setAccessibleName("Seleccionar archivo TXT")
         self.select_button.clicked.connect(self.select_file)
         self.upload_area = dropzone(
-            "Arrastra un archivo TXT aquí",
-            "También puedes seleccionarlo con el teclado. El archivo se procesa únicamente en este equipo.",
+            "Arrastra uno o varios archivos TXT aquí",
+            "Puedes seguir añadiendo todos los archivos necesarios. Se procesan únicamente en este equipo.",
             self.select_button,
         )
         self.upload_area.setAccessibleName("Área de carga de archivo TXT")
@@ -139,7 +140,7 @@ class PrecintosTxtAxWindow(QMainWindow):
         self.convert_button = QPushButton("Convertir a CSV")
         self.convert_button.setProperty("primary", True)
         self.convert_button.clicked.connect(self.convert_and_request_save)
-        self.clear_button = QPushButton("Seleccionar otro archivo")
+        self.clear_button = QPushButton("Limpiar proceso")
         self.clear_button.clicked.connect(self.clear)
         actions_layout.addWidget(self.convert_button)
         actions_layout.addWidget(self.clear_button)
@@ -163,13 +164,14 @@ class PrecintosTxtAxWindow(QMainWindow):
         self.metrics_layout = metrics_layout
         metrics_layout.setContentsMargins(8, 7, 8, 7)
         metrics_layout.setHorizontalSpacing(10)
-        for column in range(5):
+        for column in range(6):
             metrics_layout.setColumnStretch(column, 1)
         self.metric_lines = control_metric_pair(metrics_layout, 0, "Líneas totales", "0")
         self.metric_valid = control_metric_pair(metrics_layout, 1, "Líneas válidas", "0")
         self.metric_exported = control_metric_pair(metrics_layout, 2, "Precintos detectados", "0")
         self.metric_duplicates = control_metric_pair(metrics_layout, 3, "Duplicados", "0")
         self.metric_skipped = control_metric_pair(metrics_layout, 4, "Líneas ignoradas", "0")
+        self.metric_final = control_metric_pair(metrics_layout, 5, "Precintos finales", "0")
         summary_layout.addWidget(metrics)
         self.summary = QLabel()
         self.summary.setObjectName("ModuleDescription")
@@ -251,7 +253,7 @@ class PrecintosTxtAxWindow(QMainWindow):
             if not paths:
                 event.ignore()
                 return
-            self.load_path(paths[0])
+            self.load_paths(paths)
             event.acceptProposedAction()
 
         self.upload_area.dragEnterEvent = drag_enter  # type: ignore[method-assign]
@@ -259,40 +261,55 @@ class PrecintosTxtAxWindow(QMainWindow):
         self.upload_area.dropEvent = drop  # type: ignore[method-assign]
 
     def set_files(self, paths: list[Path]) -> None:
-        if not paths:
-            return
-        self.load_path(paths[0])
+        self.load_paths(paths)
 
     def load_path(self, path: Path) -> None:
-        if path.suffix.lower() != ".txt":
-            self.source_path = None
-            self.output_path = None
-            self.result = PrecintosTxtAxResult()
-            self.status.setText("El archivo seleccionado debe tener extensión .txt.")
+        self.load_paths([path])
+
+    def load_paths(self, paths: list[Path]) -> None:
+        if not paths:
+            return
+        if self.is_processing:
+            self.status.setText("Espera a que termine la carga actual antes de añadir más archivos.")
             self._refresh()
             return
-        self.source_path = path
+        invalid_paths = [path for path in paths if path.suffix.lower() != ".txt"]
+        if invalid_paths:
+            self.status.setText("Todos los archivos seleccionados deben tener extensión .txt.")
+            self._refresh()
+            return
+        new_paths = [path for path in paths if path not in self.source_paths]
+        if not new_paths:
+            self.status.setText("Esos archivos ya están añadidos al proceso.")
+            self._refresh()
+            return
+        pending_paths = [*self.source_paths, *new_paths]
+        self.source_paths = pending_paths
+        self.source_path = pending_paths[0]
         self.output_path = None
-        self.result = PrecintosTxtAxResult(source_path=path)
-        LOGGER.info("Archivo TXT seleccionado para precintos AX: %s", path)
+        LOGGER.info("Archivos TXT seleccionados para precintos AX: %s", pending_paths)
         self.is_processing = True
-        self.status.setText("Procesando el archivo TXT…")
+        self.status.setText(f"Procesando {len(pending_paths)} archivo(s) TXT…")
         self._refresh()
         def completed(result):
             self.result = result
             self.is_processing = False
-            self.status.setText("Archivo procesado. Pulsa Convertir a CSV para guardar." if result.precintos else "No se han encontrado precintos válidos.")
+            self.status.setText(
+                f"{len(self.source_paths)} archivo(s) unificado(s). Pulsa Convertir a CSV para guardar."
+                if result.precintos else "No se han encontrado precintos válidos."
+            )
             self._refresh()
         def failed(message):
+            self.source_paths = [path for path in self.source_paths if path not in new_paths]
+            self.source_path = self.source_paths[0] if self.source_paths else None
             self.is_processing = False
             self.status.setText(f"No se pudo procesar: {message}")
             self._refresh()
-        run_background(self, lambda: process_txt_file(path), completed, failed)
+        run_background(self, lambda: process_txt_files(pending_paths), completed, failed)
 
     def select_file(self) -> None:
-        path = open_file(self, "precintos_txt_ax/input", "Selecciona un archivo TXT", "Archivos TXT (*.txt);;Todos (*.*)")
-        if path is not None:
-            self.load_path(path)
+        paths = open_files(self, "precintos_txt_ax/input", "Añade uno o varios archivos TXT", "Archivos TXT (*.txt);;Todos (*.*)")
+        self.load_paths(paths)
 
     def convert_and_request_save(self) -> None:
         """Request an output destination for the already processed TXT."""
@@ -341,8 +358,9 @@ class PrecintosTxtAxWindow(QMainWindow):
         run_background(self, operation, completed, failed)
 
     def clear(self) -> None:
-        if self.source_path is not None and not confirm_discard_work(self, "Seleccionar otro archivo"):
+        if self.source_paths and not confirm_discard_work(self, "Limpiar proceso"):
             return
+        self.source_paths = []
         self.source_path = None
         self.output_path = None
         self.result = PrecintosTxtAxResult()
@@ -355,19 +373,22 @@ class PrecintosTxtAxWindow(QMainWindow):
             self._duplicate_count = self.result.duplicate_count
             self._result_summary = self.result.summary()
         self.file_name.setText(
-            f"Archivo seleccionado: {self.source_path.name}" if self.source_path else "Sin archivo seleccionado"
+            f"Archivos añadidos ({len(self.source_paths)}): " + ", ".join(path.name for path in self.source_paths)
+            if self.source_paths else "Sin archivos seleccionados"
         )
         self.metric_lines.setText(str(self.result.lines_read))
-        self.metric_exported.setText(str(self.result.exported_count))
+        self.metric_exported.setText(str(self.result.detected_count))
         self.metric_valid.setText(str(self.result.valid_lines))
         self.metric_skipped.setText(str(self.result.skipped_lines))
         self.metric_duplicates.setText(str(self._duplicate_count))
+        self.metric_final.setText(str(self.result.exported_count))
         for label, value in (
             (self.metric_lines, self.result.lines_read),
-            (self.metric_exported, self.result.exported_count),
+            (self.metric_exported, self.result.detected_count),
             (self.metric_valid, self.result.valid_lines),
             (self.metric_skipped, self.result.skipped_lines),
             (self.metric_duplicates, self._duplicate_count),
+            (self.metric_final, self.result.exported_count),
         ):
             label.setAccessibleDescription(f"{label.accessibleName()}: {value}")
         if getattr(self, "_displayed_result", None) is not self.result:
@@ -387,17 +408,19 @@ class PrecintosTxtAxWindow(QMainWindow):
         self.rail_next.setText(next_action)
         self.command_hint.setText(next_action)
         self.convert_button.setEnabled(bool(self.result.precintos) and not self.is_processing)
-        self.clear_button.setEnabled(self.source_path is not None)
-        # Antes de cargar un TXT no hay nada que sustituir. Ocultar esta acción
-        # evita un segundo botón bloqueado junto a la única acción posible.
-        self.clear_button.setVisible(self.source_path is not None)
+        self.clear_button.setEnabled(bool(self.source_paths) and not self.is_processing)
+        self.select_button.setEnabled(not self.is_processing)
+        # Mantener visible la acción evita que parezca que ha desaparecido.
+        # Antes de cargar archivos se muestra desactivada y se habilita en cuanto
+        # existe un proceso que pueda reiniciarse.
+        self.clear_button.setVisible(True)
         sync_recommended_action(
             self,
             next_action,
             {
                 "Seleccionar TXT": self.select_button,
                 "Convertir a CSV": self.convert_button,
-                "Seleccionar otro archivo": self.clear_button,
+                "Añadir archivos TXT": self.select_button,
             },
             (self.select_button, self.convert_button, self.clear_button),
         )
@@ -418,18 +441,18 @@ class PrecintosTxtAxWindow(QMainWindow):
         if "generado correctamente" in self.status.text().lower():
             return "CSV generado", "El CSV está listo para importarse en AX."
         if self.result.precintos:
-            return "Precintos listos", "El archivo ya está procesado. Pulsa Convertir a CSV para guardarlo."
+            return "Precintos listos", "Los archivos están unificados. Pulsa Convertir a CSV para guardarlos."
         if self.source_path is not None and self.result.lines_read:
             return "Sin datos válidos", "No se ha encontrado ningún valor después de la flecha."
         if self.source_path is not None:
             return "TXT procesado", "No se ha encontrado ningún precinto válido."
-        return "Pendiente de TXT", "Selecciona o arrastra un archivo TXT para empezar."
+        return "Pendiente de TXT", "Selecciona o arrastra uno o varios archivos TXT para empezar."
 
     def _next_action_text(self) -> str:
         if self.source_path is None:
             return "Seleccionar TXT"
         if not self.result.precintos:
-            return "Seleccionar otro archivo"
+            return "Añadir archivos TXT"
         return "Convertir a CSV"
 
     def flow_state(self) -> tuple[int, bool, bool]:

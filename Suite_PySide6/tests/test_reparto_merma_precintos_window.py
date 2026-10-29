@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from qt_jobs import wait_for_jobs
 from pathlib import Path
+from unittest.mock import patch
 
 from openpyxl import Workbook
 from PySide6.QtWidgets import QApplication, QFrame, QLabel
@@ -46,6 +47,13 @@ class RepartoMermaPrecintosWindowTests(unittest.TestCase):
         self.assertTrue(window.load_button.accessibleName())
         self.assertTrue(window.final_weight.accessibleName())
         self.assertTrue(window.work_order.accessibleName())
+        self.assertEqual(
+            window.report_recipients.text(),
+            "Mmiguelez@finuradeiberico.es; mjzapico@finuradeiberico.es; "
+            "federico.garcia@finuradeiberico.es; vcelada@finuradeiberico.es; "
+            "Nvizcaino@finuradeiberico.es",
+        )
+        self.assertFalse(window.report_button.isEnabled())
         self.assertTrue(window.preview_table.accessibleDescription())
         window.show_pda()
         self.assertFalse(window.pda_back_button.isHidden())
@@ -193,6 +201,27 @@ class RepartoMermaPrecintosWindowTests(unittest.TestCase):
             self.assertEqual(window.state, "Exportación completada")
             self.assertEqual(output.read_text(encoding="cp1252"), "OT-0001;A;9,00\nOT-0001;B;18,00\n")
             self.assertTrue(all(len(row.split(";")) == 3 for row in output.read_text(encoding="cp1252").splitlines()))
+            window.close()
+
+    def test_informe_usa_fecha_opl_orden_existente_y_destinatario_editable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            window = RepartoMermaPrecintosWindow()
+            source = self.make_source(directory, ["157520036481;X280574;12,86;1,00;19/05/2025"])
+            window.load_path(source)
+            window.final_weight.setText("8,23")
+            wait_for_jobs(window)
+            window.work_order.setText("230324")
+            window.opl_date.setText("20/10/2026")
+            self.assertTrue(window.report_button.isEnabled())
+            self.assertTrue(window.export_button.isEnabled())
+            with patch("suite_pyside6.ui.reparto_merma_precintos_window.send_deshuesado_report_email") as send_email:
+                window.report_button.click()
+                wait_for_jobs(window)
+            send_email.assert_called_once()
+            args = send_email.call_args.args
+            self.assertEqual(args[0], window.report_recipients.text())
+            self.assertEqual(args[2:], ("20/10/2026", "230324"))
+            self.assertIn("Informe enviado correctamente", window.status.text())
             window.close()
 
     def test_pda_admite_csv_como_origen(self):

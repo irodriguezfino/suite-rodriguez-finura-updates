@@ -27,17 +27,19 @@ class PrecintosTxtAxWindowTests(unittest.TestCase):
         self.assertIs(get_window_class("precintos_txt_ax"), PrecintosTxtAxWindow)
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "listado precintos.txt"
-            source.write_text("A -> P001\r\nB -> P001\r\nincorrecta\r\n", encoding="utf-8", newline="")
+            source.write_text("A -> 1001\r\nB -> 1001\r\nincorrecta\r\n", encoding="utf-8", newline="")
             output = Path(directory) / "listado precintos"
             window = PrecintosTxtAxWindow()
             window.load_path(source)
             wait_for_jobs(window)
             self.assertTrue(window.convert_button.isEnabled())
-            self.assertEqual(window.result.precintos, ["P001", "P001"])
+            self.assertEqual(window.result.precintos, ["100"])
             self.assertEqual(window.metric_lines.text(), "3")
             self.assertEqual(window.metric_valid.text(), "2")
+            self.assertEqual(window.metric_exported.text(), "2")
             self.assertEqual(window.metric_duplicates.text(), "1")
-            self.assertEqual(window.precintos_list.toPlainText(), "P001\nP001")
+            self.assertEqual(window.metric_final.text(), "1")
+            self.assertEqual(window.precintos_list.toPlainText(), "100")
             self.assertEqual(window.ignored_table.rowCount(), 1)
             self.assertEqual(window.ignored_table.item(0, 0).text(), "3")
             self.assertEqual(window.ignored_table.item(0, 1).text(), "incorrecta")
@@ -50,12 +52,13 @@ class PrecintosTxtAxWindowTests(unittest.TestCase):
                     window.metric_exported,
                     window.metric_duplicates,
                     window.metric_skipped,
+                    window.metric_final,
                 )
             }
             self.assertEqual(metric_rows, {0})
             window.save_path(output)
             wait_for_jobs(window)
-            self.assertEqual(output.with_suffix(".csv").read_bytes(), b"P001\r\nP001\r\n")
+            self.assertEqual(output.with_suffix(".csv").read_bytes(), b"100\r\n")
             self.assertIn("CSV generado correctamente", window.status.text())
             window.close()
 
@@ -73,32 +76,74 @@ class PrecintosTxtAxWindowTests(unittest.TestCase):
             self.assertFalse(window.convert_button.isEnabled())
             window.close()
 
-    def test_cargar_un_segundo_archivo_limpia_el_resultado_anterior(self):
+    def test_cargar_un_segundo_archivo_acumula_el_resultado_anterior(self):
         with tempfile.TemporaryDirectory() as directory:
             first = Path(directory) / "primero.txt"
             second = Path(directory) / "segundo.txt"
-            first.write_text("A -> PRIMERO\n", encoding="utf-8")
-            second.write_text("B -> SEGUNDO\n", encoding="utf-8")
+            first.write_text("A -> 1001\n", encoding="utf-8")
+            second.write_text("B -> 2002\n", encoding="utf-8")
             window = PrecintosTxtAxWindow()
             window.load_path(first)
             wait_for_jobs(window)
-            self.assertEqual(window.result.precintos, ["PRIMERO"])
+            self.assertEqual(window.result.precintos, ["100"])
             self.assertEqual(window.ignored_table.rowCount(), 0)
             self.assertFalse(window.ignored_empty.isHidden())
             window.load_path(second)
             wait_for_jobs(window)
-            self.assertEqual(window.result.precintos, ["SEGUNDO"])
+            self.assertEqual(window.result.precintos, ["100", "200"])
+            self.assertEqual(window.source_paths, [first, second])
             self.assertEqual(window.ignored_table.rowCount(), 0)
+            window.close()
+
+    def test_limpiar_proceso_borra_todos_los_archivos_y_resultados(self):
+        with tempfile.TemporaryDirectory() as directory:
+            first = Path(directory) / "primero.txt"
+            second = Path(directory) / "segundo.txt"
+            first.write_text("A -> 1001\n", encoding="utf-8")
+            second.write_text("B -> 2002\n", encoding="utf-8")
+            window = PrecintosTxtAxWindow()
+            window.load_paths([first, second])
+            wait_for_jobs(window)
+            with patch("suite_pyside6.ui.precintos_txt_ax_window.confirm_discard_work", return_value=True):
+                window.clear_button.click()
+            self.assertEqual(window.source_paths, [])
+            self.assertIsNone(window.source_path)
+            self.assertEqual(window.result.precintos, [])
+            self.assertEqual(window.metric_lines.text(), "0")
+            self.assertFalse(window.convert_button.isEnabled())
+            self.assertFalse(window.clear_button.isHidden())
+            self.assertFalse(window.clear_button.isEnabled())
+            window.close()
+
+    def test_dos_archivos_iguales_generan_solo_los_precintos_finales(self):
+        with tempfile.TemporaryDirectory() as directory:
+            first = Path(directory) / "original.txt"
+            copy = Path(directory) / "copia.txt"
+            output = Path(directory) / "final.csv"
+            content = "A -> 2052803108191\nB -> 2052803113133\n"
+            first.write_text(content, encoding="utf-8")
+            copy.write_text(content, encoding="utf-8")
+            window = PrecintosTxtAxWindow()
+            window.load_paths([first, copy])
+            wait_for_jobs(window)
+            self.assertEqual(window.metric_valid.text(), "4")
+            self.assertEqual(window.metric_exported.text(), "4")
+            self.assertEqual(window.metric_duplicates.text(), "2")
+            self.assertEqual(window.metric_final.text(), "2")
+            self.assertIn("Precintos finales para el CSV: 2", window.summary.text())
+            window.save_path(output)
+            wait_for_jobs(window)
+            self.assertEqual(output.read_bytes(), b"205280310819\r\n205280311313\r\n")
             window.close()
 
     def test_tabla_de_ignoradas_se_actualiza_y_coincide_con_el_conteo(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "mezclado.txt"
-            source.write_text("\nA -> OK\nSIN FLECHA\nB -> \nC -> COD\x00IGO\n", encoding="utf-8")
+            source.write_text("\nA -> 1234\nSIN FLECHA\nB -> \nC -> COD\x00IGO\n", encoding="utf-8")
             window = PrecintosTxtAxWindow()
             window.load_path(source)
             wait_for_jobs(window)
-            self.assertEqual(window.result.precintos, ["OK"])
+            self.assertEqual(window.result.precintos, ["123"])
             self.assertEqual(window.metric_skipped.text(), "4")
             self.assertEqual(window.ignored_table.rowCount(), 4)
             self.assertEqual(
@@ -116,7 +161,7 @@ class PrecintosTxtAxWindowTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "origen.txt"
             output = Path(directory) / "salida.csv"
-            source.write_text("A -> 0001\nB -> P002\nSin separador\n", encoding="utf-8")
+            source.write_text("A -> 0001\nB -> 2002\nSin separador\n", encoding="utf-8")
             window = PrecintosTxtAxWindow()
             window.load_path(source)
             wait_for_jobs(window)
@@ -124,19 +169,19 @@ class PrecintosTxtAxWindowTests(unittest.TestCase):
                 window.convert_button.click()
                 wait_for_jobs(window)
             self.assertTrue(save_dialog.called)
-            self.assertEqual(window.result.precintos, ["0001", "P002"])
+            self.assertEqual(window.result.precintos, ["000", "200"])
             self.assertEqual(window.metric_lines.text(), "3")
             self.assertEqual(window.metric_exported.text(), "2")
             self.assertEqual(window.metric_skipped.text(), "1")
             self.assertEqual(window.output_path, output)
-            self.assertEqual(output.read_bytes(), b"0001\r\nP002\r\n")
+            self.assertEqual(output.read_bytes(), b"000\r\n200\r\n")
             self.assertIn("CSV generado correctamente", window.status.text())
             window.close()
 
     def test_error_de_escritura_se_muestra_y_conserva_la_conversion(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "origen.txt"
-            source.write_text("A -> P001\n", encoding="utf-8")
+            source.write_text("A -> 1001\n", encoding="utf-8")
             window = PrecintosTxtAxWindow()
             window.load_path(source)
             wait_for_jobs(window)
@@ -144,7 +189,7 @@ class PrecintosTxtAxWindowTests(unittest.TestCase):
                 with patch("suite_pyside6.ui.precintos_txt_ax_window.write_ax_csv", side_effect=OSError("sin permiso")):
                     window.save_path(Path(directory) / "bloqueado.csv")
                     wait_for_jobs(window)
-            self.assertEqual(window.result.precintos, ["P001"])
+            self.assertEqual(window.result.precintos, ["100"])
             self.assertIsNone(window.output_path)
             self.assertIn("No se ha podido generar", window.status.text())
             window.close()
@@ -154,7 +199,7 @@ class PrecintosTxtAxWindowTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "origen.txt"
             output = Path(directory) / "resultado.csv"
-            source.write_text("A -> 0000123\nB -> P002\n", encoding="utf-8")
+            source.write_text("A -> 0000123\nB -> 2002\n", encoding="utf-8")
             menu = MainWindow()
             menu.show()
             definition = app_by_key("precintos_txt_ax")
@@ -166,14 +211,14 @@ class PrecintosTxtAxWindowTests(unittest.TestCase):
                 wait_for_jobs(window)
                 window.convert_button.click()
                 wait_for_jobs(window)
-            self.assertEqual(window.result.precintos, ["0000123", "P002"])
-            self.assertEqual(output.read_bytes(), b"0000123\r\nP002\r\n")
+            self.assertEqual(window.result.precintos, ["000012", "200"])
+            self.assertEqual(output.read_bytes(), b"000012\r\n200\r\n")
             self.assertEqual(window.output_path, output)
             menu.close()
 
     def test_cancelar_selectores_no_altera_el_estado(self):
         window = PrecintosTxtAxWindow()
-        with patch("suite_pyside6.ui.precintos_txt_ax_window.open_file", return_value=None):
+        with patch("suite_pyside6.ui.precintos_txt_ax_window.open_files", return_value=[]):
             window.select_file()
         self.assertIsNone(window.source_path)
         self.assertFalse(window.convert_button.isEnabled())
@@ -185,7 +230,7 @@ class PrecintosTxtAxWindowTests(unittest.TestCase):
             wait_for_jobs(window)
             with patch("suite_pyside6.ui.precintos_txt_ax_window.save_file", return_value=None):
                 window.save_csv_dialog()
-            self.assertEqual(window.result.precintos, ["0001"])
+            self.assertEqual(window.result.precintos, ["000"])
             self.assertTrue(window.convert_button.isEnabled())
         window.close()
 
@@ -200,7 +245,7 @@ class PrecintosTxtAxWindowTests(unittest.TestCase):
     def test_arrastrar_txt_lo_procesa_automaticamente(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "arrastrado.txt"
-            source.write_text("A -> DROP-001\n", encoding="utf-8")
+            source.write_text("A -> 1234\n", encoding="utf-8")
             mime_data = QMimeData()
             mime_data.setUrls([QUrl.fromLocalFile(str(source))])
             event = QDropEvent(
@@ -214,7 +259,7 @@ class PrecintosTxtAxWindowTests(unittest.TestCase):
             window.upload_area.dropEvent(event)
             wait_for_jobs(window)
             self.assertTrue(event.isAccepted())
-            self.assertEqual(window.result.precintos, ["DROP-001"])
+            self.assertEqual(window.result.precintos, ["123"])
             self.assertTrue(window.convert_button.isEnabled())
             window.close()
 

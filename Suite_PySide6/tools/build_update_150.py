@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.7.22"
+VERSION = "1.7.23"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
@@ -197,7 +197,7 @@ if __name__ == "__main__":
     site_packages = target / "runtime" / "Lib" / "site-packages"
     pyside_src = QT_ENV / "Lib" / "site-packages" / "PySide6"
     pyside_dst = site_packages / "PySide6"
-    pyside_dst.mkdir(parents=True)
+    pyside_dst.mkdir(parents=True, exist_ok=True)
     for name in PYSIDE_FILES:
         source = pyside_src / name
         if source.exists():
@@ -296,13 +296,13 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
     full_digest = sha256(full_package)
     installer_digest = sha256(installer_bat)
     notes = (
-        "- Tarjetas de Procesos: acciones alineadas y estables en ambas densidades, con adaptación a anchos reducidos.\n"
-        "- Cabeceras compactas, personalización en menú y menos paneles, sombras e indicaciones duplicadas.\n"
-        "- Casillas con marca explícita, controles numéricos y desplegables coherentes e iconos vectoriales compartidos.\n"
-        "- Bandeja simplificada, estados vacíos útiles, elección PDA/FAC mediante tarjetas y trabajos abiertos con desplazamiento.\n"
-        "- Motores, cálculos, guardado y medidas de protección de datos sin cambios respecto a v1.7.21.\n"
-        "- Pruebas de regresión y renderizados Qt en temas claro/oscuro y escalas 100/125/150/200 %.\n"
-        "- Detalle de cambios y límites de validación: outputs/audit_1.7.22/IMPLEMENTACION.md."
+        "- Precintos TXT a CSV AX permite añadir y unificar tantos TXT como sean necesarios sin sustituir los anteriores.\n"
+        "- La conversión elimina la parte izquierda, la flecha y el último dígito del valor derecho antes de generar el CSV.\n"
+        "- Los duplicados se contabilizan y se excluyen del CSV; el nuevo contador Precintos finales muestra la salida real.\n"
+        "- Limpiar proceso reinicia por completo la carga de Precintos TXT a CSV AX sin cerrar la aplicación.\n"
+        "- Precintos Deshuesado añade Fecha OPL, destinatarios y el envío de un informe Excel independiente del CSV AX.\n"
+        "- El informe incluye fecha OPL, fecha de creación, precinto, peso origen, peso final, merma individual y OPL.\n"
+        "- El CSV AX de Precintos Deshuesado conserva sin cambios su formato y funcionamiento."
     )
     manifest = {
         "schema": "suite-rodriguez-finura-update-v1",

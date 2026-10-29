@@ -14,9 +14,12 @@ import csv
 import io
 import os
 import re
+import smtplib
 import tempfile
 import unicodedata
 from dataclasses import dataclass
+from datetime import date, datetime
+from email.message import EmailMessage
 from functools import cached_property
 from decimal import Decimal, InvalidOperation, ROUND_FLOOR, ROUND_HALF_UP, localcontext
 from pathlib import Path
@@ -58,6 +61,7 @@ class SourceRecord:
     position: int
     precinto: str
     peso_original: Decimal
+    fecha_creacion: str = ""
 
 
 @dataclass(frozen=True)
@@ -148,6 +152,19 @@ class AXCsvFormat:
 
 AX_CSV_FORMAT = AXCsvFormat()
 
+DEFAULT_REPORT_RECIPIENTS = (
+    "Mmiguelez@finuradeiberico.es; "
+    "mjzapico@finuradeiberico.es; "
+    "federico.garcia@finuradeiberico.es; "
+    "vcelada@finuradeiberico.es; "
+    "Nvizcaino@finuradeiberico.es"
+)
+REPORT_SMTP_HOST = "smtp.vallcompanys.es"
+REPORT_SMTP_PORT = 25
+REPORT_SMTP_USER = "envio@smtp.erod.es"
+REPORT_SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD") or os.environ.get("SUITE_CONTROL_SMTP_PASSWORD", "")
+REPORT_SMTP_STARTTLS = False
+
 
 @dataclass(frozen=True)
 class FinalWeightValidation:
@@ -209,6 +226,17 @@ class AdjustmentResult:
     @property
     def adjusted_total(self) -> Decimal:
         return sum((row.adjusted_weight for row in self.rows), Decimal("0"))
+
+
+@dataclass(frozen=True)
+class DeshuesadoReportRow:
+    fecha_opl: date
+    fecha_creacion: date
+    precinto: str
+    peso_origen: Decimal
+    peso_final: Decimal
+    merma_porcentaje: Decimal
+    opl: str
 
 
 @dataclass(frozen=True)
@@ -295,6 +323,19 @@ def _message_column_index(rows: list[tuple[object, ...]]) -> int:
     return 0
 
 
+def _extract_creation_date(values) -> str:
+    for value in values:
+        if isinstance(value, datetime):
+            return value.strftime("%d/%m/%Y")
+        if isinstance(value, date):
+            return value.strftime("%d/%m/%Y")
+        text = "" if value is None else str(value)
+        match = re.search(r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b|\b\d{4}-\d{1,2}-\d{1,2}\b", text)
+        if match:
+            return match.group(0)
+    return ""
+
+
 def _read_message_workbook(workbook: Workbook) -> SourceReadResult:
     from openpyxl.utils import get_column_letter
     records: list[SourceRecord] = []
@@ -311,27 +352,34 @@ def _read_message_workbook(workbook: Workbook) -> SourceReadResult:
         if value is None or not str(value).strip():
             ignored.append(IgnoredRow(line_number, "fila vacia"))
             continue
-        # En el legado, una segunda columna con datos era un Excel mal formado.
-        # El formato nuevo usa A/B como metadatos y C para el mensaje, por lo
-        # que esa regla solo se mantiene cuando el mensaje está en A.
+        structured_values: list[str] | None = None
+        # Algunas exportaciones PDA ya traen precinto, artículo, peso, unidades
+        # y fecha separados en columnas. Las filas con solo una columna extra
+        # siguen considerándose una estructura accidental.
         if message_column == 0 and any(cell is not None and str(cell).strip() for cell in row[1:]):
-            issues.append(
-                ValidationIssue(
-                    "INVALID_WORKBOOK_LAYOUT",
-                    "Cada mensaje debe estar contenido en la primera columna del Excel.",
-                    line_number=line_number,
+            if len(row) >= 3 and str(row[0] or "").strip() and str(row[2] or "").strip():
+                structured_values = ["" if cell is None else str(cell).strip() for cell in row]
+            else:
+                issues.append(
+                    ValidationIssue(
+                        "INVALID_WORKBOOK_LAYOUT",
+                        "Cada mensaje debe estar en una celda o en las columnas PDA esperadas.",
+                        line_number=line_number,
+                    )
                 )
-            )
-            continue
+                continue
         message = str(value).strip()
         if _is_message_header(message):
             ignored.append(IgnoredRow(line_number, "encabezado de mensaje"))
             continue
-        try:
-            fields = next(csv.reader([message], delimiter=";", quotechar='"', strict=True))
-        except csv.Error as exc:
-            issues.append(ValidationIssue("INVALID_MESSAGE_ROW", f"Mensaje invalido: {exc}", line_number=line_number))
-            continue
+        if structured_values is not None:
+            fields = structured_values
+        else:
+            try:
+                fields = next(csv.reader([message], delimiter=";", quotechar='"', strict=True))
+            except csv.Error as exc:
+                issues.append(ValidationIssue("INVALID_MESSAGE_ROW", f"Mensaje invalido: {exc}", line_number=line_number))
+                continue
         if len(fields) < 3:
             issues.append(
                 ValidationIssue("TOO_FEW_FIELDS", "El mensaje tiene menos de tres campos.", line_number=line_number)
@@ -353,7 +401,8 @@ def _read_message_workbook(workbook: Workbook) -> SourceReadResult:
         if weight < 0:
             issues.append(ValidationIssue("NEGATIVE_WEIGHT", "El peso no puede ser negativo.", line_number=line_number))
             continue
-        records.append(SourceRecord(line_number, len(records), precinto, weight))
+        creation_date = _extract_creation_date(fields)
+        records.append(SourceRecord(line_number, len(records), precinto, weight, creation_date))
 
     total = sum((record.peso_original for record in records), Decimal("0"))
     if records and total == 0:
@@ -461,7 +510,8 @@ def _read_pda_csv(path: Path) -> SourceReadResult:
             if weight < 0:
                 issues.append(ValidationIssue("NEGATIVE_WEIGHT", "El peso no puede ser negativo.", line_number=line_number))
                 continue
-            records.append(SourceRecord(line_number, len(records), precinto, weight))
+            creation_date = _extract_creation_date(values)
+            records.append(SourceRecord(line_number, len(records), precinto, weight, creation_date))
     except csv.Error as exc:
         issues.append(ValidationIssue("READ_ERROR", f"No se pudo leer el CSV: {exc}", line_number=reader.line_num or None))
 
@@ -703,6 +753,185 @@ def build_preview(result: AdjustmentResult) -> PreviewModel:
             for row in result.rows
         ),
     )
+
+
+def parse_report_date(value: str | date, field_name: str) -> date:
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    text = str(value or "").strip()
+    for date_format in ("%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d", "%d/%m/%y"):
+        try:
+            return datetime.strptime(text, date_format).date()
+        except ValueError:
+            continue
+    raise ValueError(f"{field_name} debe tener formato dd/mm/aaaa.")
+
+
+def parse_report_recipients(value: str) -> list[str]:
+    recipients = [part.strip() for part in re.split(r"[;,\s]+", value or "") if part.strip()]
+    unique: list[str] = []
+    seen: set[str] = set()
+    for recipient in recipients:
+        key = recipient.casefold()
+        if key not in seen:
+            seen.add(key)
+            unique.append(recipient)
+    if not unique:
+        raise ValueError("Introduce al menos una dirección de correo.")
+    invalid = [recipient for recipient in unique if re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", recipient) is None]
+    if invalid:
+        raise ValueError("Direcciones de correo no válidas: " + ", ".join(invalid))
+    return unique
+
+
+def build_deshuesado_report_rows(
+    result: AdjustmentResult,
+    fecha_opl: str | date,
+    opl: str | None,
+) -> tuple[DeshuesadoReportRow, ...]:
+    opl_date = parse_report_date(fecha_opl, "La fecha OPL")
+    normalized_opl = validate_work_order(opl).require_valid()
+    rows: list[DeshuesadoReportRow] = []
+    for row in result.rows:
+        creation_date = parse_report_date(
+            row.source.fecha_creacion,
+            f"La fecha de creación de la línea {row.source.line_number}",
+        )
+        loss_percentage = Decimal("0")
+        if row.source.peso_original != 0:
+            loss_percentage = (
+                (row.source.peso_original - row.adjusted_weight)
+                / row.source.peso_original
+                * Decimal("100")
+            )
+        rows.append(
+            DeshuesadoReportRow(
+                fecha_opl=opl_date,
+                fecha_creacion=creation_date,
+                precinto=row.source.precinto,
+                peso_origen=row.source.peso_original,
+                peso_final=row.adjusted_weight,
+                merma_porcentaje=loss_percentage.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+                opl=normalized_opl,
+            )
+        )
+    return tuple(rows)
+
+
+def render_deshuesado_report_xlsx(
+    result: AdjustmentResult,
+    fecha_opl: str | date,
+    opl: str | None,
+) -> bytes:
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+
+    rows = build_deshuesado_report_rows(result, fecha_opl, opl)
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "Informe"
+    worksheet.sheet_view.showGridLines = False
+    worksheet.freeze_panes = "A2"
+    headers = ("Fecha OPL", "Fecha creación precinto", "Precinto", "Peso origen", "Peso final", "Merma (%)", "OPL")
+    worksheet.append(headers)
+    for row in rows:
+        worksheet.append(
+            (
+                row.fecha_opl,
+                row.fecha_creacion,
+                row.precinto,
+                row.peso_origen,
+                row.peso_final,
+                row.merma_porcentaje,
+                row.opl,
+            )
+        )
+    header_fill = PatternFill("solid", fgColor="FFD966")
+    header_font = Font(name="Arial", size=10, bold=True, color="1F1F1F")
+    body_font = Font(name="Arial", size=10, color="1F1F1F")
+    bottom_border = Border(bottom=Side(style="thin", color="B7B7B7"))
+    for cell in worksheet[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.border = bottom_border
+    for row in worksheet.iter_rows(min_row=2):
+        for cell in row:
+            cell.font = body_font
+            cell.alignment = Alignment(vertical="center")
+    for column in ("A", "B"):
+        for cell in worksheet[column][1:]:
+            cell.number_format = "dd/mm/yyyy"
+    for column in ("D", "E", "F"):
+        for cell in worksheet[column][1:]:
+            cell.number_format = "0.00"
+    for cell in worksheet["C"][1:]:
+        cell.number_format = "@"
+        cell.quotePrefix = True
+    for cell in worksheet["G"][1:]:
+        cell.number_format = "@"
+        cell.quotePrefix = True
+    widths = {"A": 14, "B": 23, "C": 18, "D": 14, "E": 14, "F": 13, "G": 20}
+    for column, width in widths.items():
+        worksheet.column_dimensions[column].width = width
+    worksheet.auto_filter.ref = f"A1:G{max(1, worksheet.max_row)}"
+    output = io.BytesIO()
+    workbook.save(output)
+    workbook.close()
+    return output.getvalue()
+
+
+def send_deshuesado_report_email(
+    recipients_text: str,
+    result: AdjustmentResult,
+    fecha_opl: str | date,
+    opl: str | None,
+    *,
+    smtp_host: str = REPORT_SMTP_HOST,
+    smtp_port: int = REPORT_SMTP_PORT,
+    smtp_user: str = REPORT_SMTP_USER,
+    smtp_password: str = REPORT_SMTP_PASSWORD,
+    smtp_starttls: bool = REPORT_SMTP_STARTTLS,
+) -> EmailMessage:
+    recipients = parse_report_recipients(recipients_text)
+    normalized_opl = validate_work_order(opl).require_valid()
+    opl_date = parse_report_date(fecha_opl, "La fecha OPL")
+    report_bytes = render_deshuesado_report_xlsx(result, opl_date, normalized_opl)
+    safe_opl = re.sub(r"[^A-Za-z0-9._-]+", "_", normalized_opl).strip("._") or "OPL"
+    filename = f"Informe_deshuesado_{safe_opl}.xlsx"
+
+    message = EmailMessage()
+    message["From"] = smtp_user
+    message["To"] = ", ".join(recipients)
+    message["Subject"] = f"Informe de deshuesado - OPL {normalized_opl}"
+    message.set_content(
+        "Buenos días,\n\n"
+        f"Adjuntamos el informe de deshuesado de la OPL {normalized_opl}, fecha {opl_date.strftime('%d/%m/%Y')}.\n\n"
+        "Un saludo,"
+    )
+    message.add_attachment(
+        report_bytes,
+        maintype="application",
+        subtype="vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename=filename,
+    )
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as smtp:
+            smtp.ehlo()
+            if smtp_starttls:
+                smtp.starttls()
+                smtp.ehlo()
+            if smtp_user and smtp_password:
+                smtp.login(smtp_user, smtp_password)
+            begin_commit()
+            smtp.send_message(message)
+    except smtplib.SMTPException as exc:
+        raise RuntimeError("No se pudo enviar el informe con el servidor corporativo.") from exc
+    except OSError as exc:
+        raise RuntimeError("No se pudo conectar con el servidor de correo corporativo.") from exc
+    return message
 
 
 def _format_decimal(value: Decimal, export_format: AXCsvFormat) -> str:

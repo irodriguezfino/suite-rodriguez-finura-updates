@@ -1,0 +1,9 @@
+Suite Rodriguez Finura v1.7.23
+
+- Precintos TXT a CSV AX permite añadir y unificar tantos TXT como sean necesarios sin sustituir los anteriores.
+- La conversión elimina la parte izquierda, la flecha y el último dígito del valor derecho antes de generar el CSV.
+- Los duplicados se contabilizan y se excluyen del CSV; el nuevo contador Precintos finales muestra la salida real.
+- Limpiar proceso reinicia por completo la carga de Precintos TXT a CSV AX sin cerrar la aplicación.
+- Precintos Deshuesado añade Fecha OPL, destinatarios y el envío de un informe Excel independiente del CSV AX.
+- El informe incluye fecha OPL, fecha de creación, precinto, peso origen, peso final, merma individual y OPL.
+- El CSV AX de Precintos Deshuesado conserva sin cambios su formato y funcionamiento.

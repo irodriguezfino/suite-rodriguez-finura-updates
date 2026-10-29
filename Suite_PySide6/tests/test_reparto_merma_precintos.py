@@ -2,22 +2,26 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from io import BytesIO
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import patch
 
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 
 from suite_pyside6.core.reparto_merma_precintos import (
     AX_CSV_FORMAT,
     AXCsvFormat,
     DomainValidationError,
+    build_deshuesado_report_rows,
     build_preview,
     calculate_adjustment,
     read_source_file,
     read_fac_files,
+    render_deshuesado_report_xlsx,
     render_ax_csv,
     render_ax_csv_records,
+    send_deshuesado_report_email,
     write_ax_csv,
     validate_ax_csv_content,
     validate_final_weight,
@@ -66,6 +70,58 @@ class RepartoMermaPrecintosTests(unittest.TestCase):
             Decimal("15.10"), Decimal("16.20"), Decimal("17.50"),
         ])
         self.assertEqual(source.total_weight, Decimal("88.20"))
+
+    def test_lee_fecha_de_creacion_en_mensaje_y_en_columnas_pda(self):
+        message_source = self.read(["2152803105723;X280574;14,27;1,00;19/05/2025"])
+        self.assertEqual(message_source.records[0].fecha_creacion, "19/05/2025")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "columnas.xlsx"
+            workbook = Workbook()
+            worksheet = workbook.active
+            worksheet.append(["Mensaje (08:53:36)"])
+            worksheet.append([215280310572, "X280574", 14.27, 1.00, "19/05/2025"])
+            workbook.save(path)
+            workbook.close()
+            column_source = read_source_file(path)
+        self.assertTrue(column_source.is_valid)
+        self.assertEqual(column_source.records[0].fecha_creacion, "19/05/2025")
+        self.assertEqual(column_source.records[0].peso_original, Decimal("14.27"))
+
+    def test_informe_excel_contiene_solo_las_siete_columnas_solicitadas(self):
+        result = self.result(["157520036481;X280574;12,86;1,00;19/05/2025"], "8,23")
+        report_rows = build_deshuesado_report_rows(result, "20/10/2026", "230324")
+        self.assertEqual(report_rows[0].merma_porcentaje, Decimal("36.00"))
+        content = render_deshuesado_report_xlsx(result, "20/10/2026", "230324")
+        workbook = load_workbook(BytesIO(content), data_only=True)
+        worksheet = workbook["Informe"]
+        self.assertEqual(
+            [cell.value for cell in worksheet[1]],
+            ["Fecha OPL", "Fecha creación precinto", "Precinto", "Peso origen", "Peso final", "Merma (%)", "OPL"],
+        )
+        self.assertEqual(worksheet.max_column, 7)
+        self.assertEqual(worksheet["C2"].value, "157520036481")
+        self.assertEqual(worksheet["D2"].value, 12.86)
+        self.assertEqual(worksheet["E2"].value, 8.23)
+        self.assertEqual(worksheet["F2"].value, 36)
+        self.assertEqual(worksheet["G2"].value, "230324")
+        workbook.close()
+
+    def test_correo_del_informe_usa_destinatarios_y_adjunta_el_excel(self):
+        result = self.result(["157520036481;X280574;12,86;1,00;19/05/2025"], "8,23")
+        with patch("suite_pyside6.core.reparto_merma_precintos.smtplib.SMTP") as smtp_class:
+            smtp = smtp_class.return_value.__enter__.return_value
+            message = send_deshuesado_report_email(
+                "milagros.sanchez@finuradeiberico.es",
+                result,
+                "20/10/2026",
+                "230324",
+            )
+        self.assertEqual(message["To"], "milagros.sanchez@finuradeiberico.es")
+        self.assertIn("OPL 230324", message["Subject"])
+        attachments = list(message.iter_attachments())
+        self.assertEqual(len(attachments), 1)
+        self.assertEqual(attachments[0].get_filename(), "Informe_deshuesado_230324.xlsx")
+        smtp.send_message.assert_called_once_with(message)
 
     def test_lee_formato_actual_ibericos_con_mensaje_en_columna_c(self):
         with tempfile.TemporaryDirectory() as directory:

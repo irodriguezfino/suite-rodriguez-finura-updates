@@ -30,6 +30,7 @@ from suite_pyside6.core.paths import resource_path
 from suite_pyside6.ui.background import run_background
 from suite_pyside6.core.reparto_merma_precintos import (
     AdjustmentResult,
+    DEFAULT_REPORT_RECIPIENTS,
     DomainValidationError,
     SourceReadResult,
     ValidationIssue,
@@ -37,6 +38,7 @@ from suite_pyside6.core.reparto_merma_precintos import (
     calculate_adjustment,
     read_source_file,
     read_fac_files,
+    send_deshuesado_report_email,
     validate_final_weight,
     validate_work_order,
     write_ax_csv,
@@ -63,6 +65,8 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         self.adjustment: AdjustmentResult | None = None
         self.final_issues: tuple[ValidationIssue, ...] = ()
         self.export_path: Path | None = None
+        self.is_sending_report = False
+        self.report_message = ""
         self.state = "Inicial"
         self.fac_state = "Inicial"
         self._fac_cache = FACAnalysisCache()
@@ -245,9 +249,19 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         rail_layout.addWidget(labeled_field("Peso final", self.final_weight, compact=True))
         self.work_order = QLineEdit()
         self.work_order.setPlaceholderText("Ej.: OT-001234")
-        self.work_order.setAccessibleDescription("Orden obligatoria para el CSV AX. Se conserva como texto, incluidos los ceros iniciales.")
+        self.work_order.setAccessibleDescription("Orden de trabajo u OPL obligatoria para el CSV AX y el informe. Se conserva como texto.")
         self.work_order.textChanged.connect(self._on_work_order_changed)
-        rail_layout.addWidget(labeled_field("Orden de trabajo", self.work_order, compact=True))
+        rail_layout.addWidget(labeled_field("Orden de trabajo - OPL", self.work_order, compact=True))
+        self.opl_date = QLineEdit()
+        self.opl_date.setPlaceholderText("dd/mm/aaaa")
+        self.opl_date.setAccessibleDescription("Fecha OPL que aparecerá en todas las filas del informe Excel.")
+        self.opl_date.textChanged.connect(self._on_report_input_changed)
+        rail_layout.addWidget(labeled_field("Fecha OPL", self.opl_date, compact=True))
+        self.report_recipients = QLineEdit(DEFAULT_REPORT_RECIPIENTS)
+        self.report_recipients.setPlaceholderText("correo@empresa.com; otro@empresa.com")
+        self.report_recipients.setAccessibleDescription("Destinatarios del informe separados por punto y coma.")
+        self.report_recipients.textChanged.connect(self._on_report_input_changed)
+        rail_layout.addWidget(labeled_field("Destinatarios del informe", self.report_recipients, compact=True))
         rail_layout.addWidget(section_label("Fichero"))
         self.file_detail = control_rail_label("Sin fichero seleccionado")
         rail_layout.addWidget(self.file_detail)
@@ -258,6 +272,10 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         self.export_button.clicked.connect(self.save_csv_dialog)
         self.export_button.setAccessibleDescription("Guarda un CSV AX con la orden de trabajo, el precinto y el peso ajustado.")
         rail_layout.addWidget(self.export_button)
+        self.report_button = QPushButton("Mandar informe")
+        self.report_button.clicked.connect(self.send_report)
+        self.report_button.setAccessibleDescription("Envía por correo un Excel independiente con el reparto y la merma por precinto.")
+        rail_layout.addWidget(self.report_button)
         workspace_layout.addWidget(preview_panel, 5)
         workspace_layout.addWidget(rail, 2)
         layout.addWidget(workspace, 1)
@@ -782,12 +800,16 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         self.work_order.blockSignals(True)
         self.work_order.clear()
         self.work_order.blockSignals(False)
+        self.opl_date.blockSignals(True)
+        self.opl_date.clear()
+        self.opl_date.blockSignals(False)
         self.state = "Analizando"
         self.status.setText(f"Analizando fichero: {path.name}")
         self.source_result = read_source_file(path)
         self._recalculate()
 
     def _on_final_weight_changed(self, _text: str) -> None:
+        self.report_message = ""
         self.export_path = None
         self.adjustment = None
         self.export_button.setEnabled(False)
@@ -798,12 +820,17 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         self._weight_timer.start(150)
 
     def _on_work_order_changed(self, _text: str) -> None:
+        self.report_message = ""
         self.export_path = None
         if self.adjustment is not None:
             self.state = "Listo para exportar" if validate_work_order(self.work_order.text()).is_valid else "Orden de trabajo pendiente"
             self._refresh()
         else:
             self._recalculate()
+
+    def _on_report_input_changed(self, _text: str) -> None:
+        self.report_message = ""
+        self._refresh()
 
     def _recalculate(self) -> None:
         timer = getattr(self, "_weight_timer", None)
@@ -878,6 +905,42 @@ class RepartoMermaPrecintosWindow(QMainWindow):
             self._refresh()
         run_background(self, lambda: write_ax_csv(path, adjustment, work_order_validation.value), completed, failed)
 
+    def send_report(self) -> None:
+        if self.adjustment is None or self.is_sending_report:
+            return
+        adjustment = self.adjustment
+        recipients = self.report_recipients.text().strip()
+        fecha_opl = self.opl_date.text().strip()
+        opl = self.work_order.text().strip()
+        self.is_sending_report = True
+        self.report_message = "Preparando y enviando el informe…"
+        self.status.setText(self.report_message)
+        self._refresh()
+
+        def completed(_message: object) -> None:
+            self.is_sending_report = False
+            self.report_message = "Informe enviado correctamente."
+            self.status.setText(self.report_message)
+            show_inline_message(self, "success", "Informe enviado correctamente.")
+            self._refresh()
+
+        def failed(message: str) -> None:
+            self.is_sending_report = False
+            self.report_message = f"No se pudo enviar el informe: {message}"
+            self.status.setText(self.report_message)
+            show_inline_message(self, "error", message)
+            self._refresh()
+
+        if not run_background(
+            self,
+            lambda: send_deshuesado_report_email(recipients, adjustment, fecha_opl, opl),
+            completed,
+            failed,
+        ):
+            self.is_sending_report = False
+            show_inline_message(self, "warning", "Ya hay una operación en curso.")
+            self._refresh()
+
     def clear(self) -> None:
         if not confirm_discard_work(self, "Limpiar reparto"):
             return
@@ -886,12 +949,16 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         self.adjustment = None
         self.final_issues = ()
         self.export_path = None
+        self.report_message = ""
         self.final_weight.blockSignals(True)
         self.final_weight.clear()
         self.final_weight.blockSignals(False)
         self.work_order.blockSignals(True)
         self.work_order.clear()
         self.work_order.blockSignals(False)
+        self.opl_date.blockSignals(True)
+        self.opl_date.clear()
+        self.opl_date.blockSignals(False)
         self.state = "Inicial"
         self.status.setText("Inicial")
         self._refresh()
@@ -908,7 +975,20 @@ class RepartoMermaPrecintosWindow(QMainWindow):
             and self.adjustment.adjusted_total == self.adjustment.final_weight
         )
         self.export_button.setEnabled(can_export)
-        self.clear_button.setEnabled(result is not None or bool(self.final_weight.text()) or bool(self.work_order.text()))
+        can_report = (
+            self.adjustment is not None
+            and validate_work_order(self.work_order.text()).is_valid
+            and bool(self.opl_date.text().strip())
+            and bool(self.report_recipients.text().strip())
+            and not self.is_sending_report
+        )
+        self.report_button.setEnabled(can_report)
+        self.clear_button.setEnabled(
+            result is not None
+            or bool(self.final_weight.text())
+            or bool(self.work_order.text())
+            or bool(self.opl_date.text())
+        )
         self._refresh_pilot_state()
         self._sync_recommended_action()
 
@@ -941,7 +1021,9 @@ class RepartoMermaPrecintosWindow(QMainWindow):
         self.rail_detail.setText(detail)
         self.rail_progress.setValue(progress)
         self.rail_progress.setAccessibleDescription(f"Progreso estimado: {progress} por ciento.")
-        if self.state != "Exportación completada":
+        if self.report_message:
+            self.status.setText(self.report_message)
+        elif self.state != "Exportación completada":
             self.status.setText(state)
 
     def _pilot_state(self) -> tuple[str, str, int]:

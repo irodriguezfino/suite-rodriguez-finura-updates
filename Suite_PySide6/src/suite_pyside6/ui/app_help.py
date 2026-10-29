@@ -78,12 +78,12 @@ APP_HELP: dict[str, AppHelp] = {
         "Guarda primero el TXT AX: es el paso que habilita el cruce posterior con el albarán.",
     ),
     "precintos_txt_ax": AppHelp(
-        "Extrae los precintos escritos a la derecha de una flecha en un TXT.",
-        "Sirve para convertir rápidamente un listado de texto en un CSV de una columna para AX.",
-        "Selecciona un TXT que contenga líneas con el separador -> o →.",
-        ("Selecciona el TXT.", "Revisa el resumen de valores extraídos e ignorados.", "Pulsa Convertir a CSV y elige dónde guardarlo."),
-        "Un CSV de una columna con los precintos únicos extraídos.",
-        "Las líneas sin flecha o sin valor se muestran como ignoradas para que puedas comprobarlas.",
+        "Unifica uno o varios TXT y prepara los precintos situados a la derecha de una flecha.",
+        "Elimina la parte izquierda, la flecha y el último dígito del número derecho antes de crear el CSV para AX.",
+        "Añade uno o varios TXT con líneas formadas por número, separador -> o → y número.",
+        ("Añade todos los TXT necesarios.", "Revisa el resumen unificado y las líneas ignoradas.", "Pulsa Convertir a CSV y elige dónde guardarlo."),
+        "Un CSV de una columna con los precintos finales, sin repeticiones ni líneas ignoradas.",
+        "Los duplicados se contabilizan pero no pasan al CSV. Limpiar proceso permite comenzar de nuevo sin cerrar la aplicación.",
     ),
     "pesos": AppHelp(
         "Prepara Excel de pesos: renombra la primera hoja visible a Hoja1 y, si eliges vaciado, ajusta solo pesoBruto. pesoNeto se conserva sin modificar.",
@@ -99,7 +99,7 @@ APP_HELP: dict[str, AppHelp] = {
         "Elige PDA si partes de mensajes/lecturas; elige FAC si ya dispones de CSV de deshuesado.",
         ("Elige el modo PDA o FAC.", "Carga el fichero o los CSV correspondientes.", "En PDA indica el peso final; en FAC confirma las filas marcadas como SI y la orden.", "Revisa el reparto y guarda el CSV AX."),
         "CSV AX con orden de trabajo, precinto y peso.",
-        "En modo FAC solo se exportan las filas marcadas como SI; no se recalcula su merma.",
+        "En PDA puedes enviar un informe Excel independiente indicando Fecha OPL y destinatarios. El CSV AX no cambia.",
     ),
     "file_compare": AppHelp(
         "Compara dos archivos o carpetas para saber si son iguales y localizar sus diferencias.",

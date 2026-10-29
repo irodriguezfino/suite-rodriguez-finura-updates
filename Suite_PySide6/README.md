@@ -162,6 +162,21 @@ proporcional del Excel de mensajes. FAC lee uno o varios CSV separados por
 `;`, ignora filas vacías, exporta solo `SI` y reutiliza el mismo contrato AX:
 CP1252, `;`, coma decimal, dos decimales, sin cabecera y CRLF.
 
+En PDA, el campo visible `Orden de trabajo - OPL` sigue alimentando el CSV AX.
+Además, puede indicarse `Fecha OPL` y enviar por correo un Excel independiente
+con fecha OPL, fecha de creación del precinto, precinto, peso origen, peso final,
+merma individual y OPL. Los destinatarios son editables y el envío del informe
+no altera ni condiciona el guardado del CSV AX.
+
+## Precintos TXT a CSV AX
+
+La herramienta admite varios TXT en una misma operación y permite seguir
+añadiendo archivos hasta completar el lote. Por cada línea conserva el número
+posterior a la flecha sin su último dígito. Los duplicados se detectan sobre el
+conjunto unificado, se muestran en el resumen y se excluyen del CSV. El contador
+`Precintos finales` indica las filas reales de salida y `Limpiar proceso`
+reinicia toda la operación sin cerrar la Suite.
+
 ## Pasada de paridad visual y funcional
 
 Se ha reforzado el tema global PySide6 con la identidad azul/rojo de Rodriguez:
