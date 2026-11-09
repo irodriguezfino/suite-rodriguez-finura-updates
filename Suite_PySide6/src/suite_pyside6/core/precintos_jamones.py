@@ -7,6 +7,7 @@ import io
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from email.message import EmailMessage
 import os
 from pathlib import Path
@@ -15,6 +16,7 @@ from .atomic_io import write_text_atomically
 import re
 import smtplib
 from difflib import SequenceMatcher
+import unicodedata
 
 
 
@@ -86,6 +88,66 @@ class RegistroJamones:
         while len(campos) < CAMPOS_ESPERADOS:
             campos.append("")
         return ";".join(campos) + ";"
+
+
+@dataclass(frozen=True)
+class RangoPesoResumen:
+    minimo: Decimal
+    maximo: Decimal
+    piezas_originales: int
+    peso_original: Decimal
+
+
+@dataclass(frozen=True)
+class ResumenPartida:
+    partida: str
+    proveedor: str
+    lote: str
+    fecha: str
+    hora: str
+    total_piezas: int
+    total_peso: Decimal
+    rangos: tuple[RangoPesoResumen, ...]
+
+    @property
+    def piezas_en_rangos(self) -> int:
+        return sum(rango.piezas_originales for rango in self.rangos)
+
+
+@dataclass(frozen=True)
+class ResultadoRangoPeso:
+    rango: RangoPesoResumen
+    piezas_validas: int
+    peso_valido: Decimal
+
+
+@dataclass(frozen=True)
+class ControlResumenPartida:
+    resumen: ResumenPartida
+    rangos: tuple[ResultadoRangoPeso, ...]
+    total_validos: int
+    peso_total_valido: Decimal
+    fuera_de_rango: tuple[RegistroJamones, ...]
+    pesos_no_validos: tuple[RegistroJamones, ...]
+
+    @property
+    def piezas_en_rangos(self) -> int:
+        return sum(rango.piezas_validas for rango in self.rangos)
+
+    @property
+    def cuadra_con_validos(self) -> bool:
+        return (
+            self.piezas_en_rangos == self.total_validos
+            and not self.fuera_de_rango
+            and not self.pesos_no_validos
+        )
+
+
+@dataclass(frozen=True)
+class SeleccionPeso:
+    minimo: float
+    maximo: float
+    registros: tuple[RegistroJamones, ...]
 
 
 @dataclass
@@ -338,9 +400,16 @@ def validar_registro_completo(
 
 
 def parsear_peso(valor: str) -> float | None:
-    texto = (valor or "").strip().replace(".", "").replace(",", ".")
+    texto = (valor or "").strip().replace(" ", "")
     if not texto:
         return None
+    if "," in texto and "." in texto:
+        if texto.rfind(",") > texto.rfind("."):
+            texto = texto.replace(".", "").replace(",", ".")
+        else:
+            texto = texto.replace(",", "")
+    elif "," in texto:
+        texto = texto.replace(",", ".")
     try:
         return float(texto)
     except ValueError:
@@ -350,6 +419,222 @@ def parsear_peso(valor: str) -> float | None:
 def formatear_peso(valor: float) -> str:
     texto = f"{valor:.3f}".rstrip("0").rstrip(".")
     return texto.replace(".", ",")
+
+
+def _decimal_resumen(valor: str, campo: str) -> Decimal:
+    texto = str(valor or "").strip().replace(" ", "")
+    if not texto:
+        raise ValueError(f"{campo} está vacío.")
+    if "," in texto and "." in texto:
+        if texto.rfind(",") > texto.rfind("."):
+            texto = texto.replace(".", "").replace(",", ".")
+        else:
+            texto = texto.replace(",", "")
+    elif "," in texto:
+        texto = texto.replace(",", ".")
+    try:
+        return Decimal(texto)
+    except InvalidOperation as exc:
+        raise ValueError(f"{campo} no es un número válido: {valor}") from exc
+
+
+def _normalizar_rotulo_resumen(valor: str) -> str:
+    texto = unicodedata.normalize("NFKD", str(valor or ""))
+    texto = "".join(char for char in texto if not unicodedata.combining(char))
+    texto = texto.upper().replace("º", "").replace("°", "")
+    return re.sub(r"[^A-Z0-9]+", " ", texto).strip()
+
+
+def _lineas_resumen(texto: str) -> list[str]:
+    return [re.sub(r"\s+", " ", linea).strip() for linea in str(texto or "").splitlines() if linea.strip()]
+
+
+def _valor_despues_de_rotulo(lineas: list[str], *terminos: str) -> list[str]:
+    for index, linea in enumerate(lineas):
+        normalizada = _normalizar_rotulo_resumen(linea)
+        if all(termino in normalizada for termino in terminos):
+            if index + 1 >= len(lineas):
+                break
+            return lineas[index + 1].split()
+    raise ValueError(f"No se ha encontrado el dato posterior a {' / '.join(terminos)}.")
+
+
+def parsear_resumen_partida(texto: str) -> ResumenPartida:
+    lineas = _lineas_resumen(texto)
+    if not lineas:
+        raise ValueError("Pega el resumen de la partida antes de añadirlo.")
+
+    partida_values = _valor_despues_de_rotulo(lineas, "PARTIDA")
+    proveedor_lote = _valor_despues_de_rotulo(lineas, "PROVEEDOR", "LOTE")
+    fecha_hora = _valor_despues_de_rotulo(lineas, "FECHA", "HORA")
+    totales = _valor_despues_de_rotulo(lineas, "TOTAL PIEZAS", "TOTAL PESO")
+    if len(proveedor_lote) < 2 or len(fecha_hora) < 2 or len(totales) < 2:
+        raise ValueError("El resumen no contiene proveedor/lote, fecha/hora o totales completos.")
+
+    rango_index = next(
+        (index for index, linea in enumerate(lineas) if "RANGO DE PESOS" in _normalizar_rotulo_resumen(linea)),
+        -1,
+    )
+    if rango_index < 0:
+        raise ValueError("No se ha encontrado la sección RANGO DE PESOS.")
+
+    rangos: list[RangoPesoResumen] = []
+    for linea in lineas[rango_index + 1 :]:
+        valores = linea.split()
+        if len(valores) < 4:
+            continue
+        try:
+            minimo = _decimal_resumen(valores[0], "Mínimo")
+            maximo = _decimal_resumen(valores[1], "Máximo")
+            piezas_decimal = _decimal_resumen(valores[2], "Piezas")
+            peso = _decimal_resumen(valores[3], "Peso")
+        except ValueError:
+            continue
+        if minimo == 0 and maximo == 0 and piezas_decimal == 0 and peso == 0:
+            continue
+        if maximo <= minimo:
+            if piezas_decimal == 0 and peso == 0:
+                continue
+            raise ValueError(f"Rango no válido: {valores[0]} - {valores[1]}.")
+        if piezas_decimal != piezas_decimal.to_integral_value() or piezas_decimal < 0:
+            raise ValueError(f"Número de piezas no válido en el rango {valores[0]} - {valores[1]}.")
+        rangos.append(RangoPesoResumen(minimo, maximo, int(piezas_decimal), peso))
+
+    if not rangos:
+        raise ValueError("El resumen no contiene rangos de peso válidos.")
+    rangos.sort(key=lambda rango: (rango.minimo, rango.maximo))
+    for anterior, actual in zip(rangos, rangos[1:]):
+        if actual.minimo < anterior.maximo:
+            raise ValueError("Los rangos de peso se solapan; revisa los mínimos y máximos.")
+
+    total_piezas_decimal = _decimal_resumen(totales[0], "Total de piezas")
+    if total_piezas_decimal != total_piezas_decimal.to_integral_value() or total_piezas_decimal < 0:
+        raise ValueError("El total de piezas del resumen no es válido.")
+    return ResumenPartida(
+        partida=partida_values[0],
+        proveedor=proveedor_lote[0],
+        lote=proveedor_lote[1],
+        fecha=fecha_hora[0],
+        hora=fecha_hora[1],
+        total_piezas=int(total_piezas_decimal),
+        total_peso=_decimal_resumen(totales[1], "Total de peso"),
+        rangos=tuple(rangos),
+    )
+
+
+def leer_resumen_partida(path: Path) -> ResumenPartida:
+    from .text_stream import iter_text_lines
+
+    ruta = Path(path)
+    if ruta.suffix.lower() not in {".txt", ".csv"}:
+        raise ValueError("El resumen debe ser un archivo TXT o CSV.")
+    texto = "\n".join(iter_text_lines(ruta))
+    return parsear_resumen_partida(texto)
+
+
+def calcular_control_resumen(
+    result: PrecintosJamonesResult,
+    resumen: ResumenPartida,
+) -> ControlResumenPartida:
+    agrupados: list[list[RegistroJamones]] = [[] for _rango in resumen.rangos]
+    fuera: list[RegistroJamones] = []
+    pesos_no_validos: list[RegistroJamones] = []
+    peso_total = Decimal("0")
+    for registro in result.validos:
+        checkpoint()
+        try:
+            peso = _decimal_resumen(registro.peso, "Peso")
+        except ValueError:
+            pesos_no_validos.append(registro)
+            continue
+        peso_total += peso
+        encontrado = False
+        for index, rango in enumerate(resumen.rangos):
+            es_ultimo = index == len(resumen.rangos) - 1
+            if rango.minimo <= peso < rango.maximo or (es_ultimo and peso == rango.maximo):
+                agrupados[index].append(registro)
+                encontrado = True
+                break
+        if not encontrado:
+            fuera.append(registro)
+
+    controles = tuple(
+        ResultadoRangoPeso(
+            rango=rango,
+            piezas_validas=len(registros),
+            peso_valido=sum((_decimal_resumen(registro.peso, "Peso") for registro in registros), Decimal("0")),
+        )
+        for rango, registros in zip(resumen.rangos, agrupados)
+    )
+    return ControlResumenPartida(
+        resumen=resumen,
+        rangos=controles,
+        total_validos=len(result.validos),
+        peso_total_valido=peso_total,
+        fuera_de_rango=tuple(fuera),
+        pesos_no_validos=tuple(pesos_no_validos),
+    )
+
+
+def seleccionar_registros_por_peso(
+    result: PrecintosJamonesResult,
+    minimo_texto: str,
+    maximo_texto: str,
+) -> SeleccionPeso:
+    if result.invalidos:
+        raise ValueError("Primero corrige y revalida las incidencias de precintos.")
+    minimo = parsear_peso(minimo_texto)
+    maximo = parsear_peso(maximo_texto)
+    if minimo is None or maximo is None:
+        raise ValueError("Introduce un peso mínimo y un peso máximo válidos.")
+    if minimo > maximo:
+        raise ValueError("El peso mínimo no puede ser superior al peso máximo.")
+    registros = tuple(
+        registro
+        for registro in result.validos
+        if (peso := parsear_peso(registro.peso)) is not None and minimo <= peso <= maximo
+    )
+    return SeleccionPeso(minimo, maximo, registros)
+
+
+def formatear_decimal_resumen(valor: Decimal) -> str:
+    texto = format(valor, "f")
+    if "." in texto:
+        texto = texto.rstrip("0").rstrip(".")
+    return texto.replace(".", ",") or "0"
+
+
+def texto_control_resumen(control: ControlResumenPartida) -> str:
+    resumen = control.resumen
+    lineas = [
+        f"Partida: {resumen.partida}",
+        f"Proveedor: {resumen.proveedor} | Lote: {resumen.lote}",
+        f"Fecha: {resumen.fecha} {resumen.hora}",
+        f"Resumen original: {resumen.total_piezas} piezas | {formatear_decimal_resumen(resumen.total_peso)} kg",
+        "",
+        "Rangos recalculados sobre válidos:",
+    ]
+    for index, resultado in enumerate(control.rangos):
+        rango = resultado.rango
+        cierre = "≤" if index == len(control.rangos) - 1 else "<"
+        lineas.append(
+            f"{formatear_decimal_resumen(rango.minimo)} ≤ kg {cierre} {formatear_decimal_resumen(rango.maximo)}: "
+            f"{resultado.piezas_validas} uds / {formatear_decimal_resumen(resultado.peso_valido)} kg | "
+            f"Original: {rango.piezas_originales} uds / {formatear_decimal_resumen(rango.peso_original)} kg"
+        )
+    lineas.extend(
+        [
+            "",
+            f"Total en rangos: {control.piezas_en_rangos} de {control.total_validos} válidos",
+            f"Peso válido total: {formatear_decimal_resumen(control.peso_total_valido)} kg",
+        ]
+    )
+    if control.fuera_de_rango:
+        lineas.append(f"Fuera de los tramos: {len(control.fuera_de_rango)}")
+    if control.pesos_no_validos:
+        lineas.append(f"Pesos no válidos: {len(control.pesos_no_validos)}")
+    lineas.append("Control correcto: la suma coincide con los válidos." if control.cuadra_con_validos else "Revisar: la suma de los tramos no coincide con los válidos.")
+    return "\n".join(lineas)
 
 
 def parsear_linea(line: str, archivo: str, numero_linea: int, orden: int) -> RegistroJamones | None:

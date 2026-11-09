@@ -25,14 +25,20 @@ from PySide6.QtWidgets import (
 from suite_pyside6.core.paths import resource_path
 from suite_pyside6.ui.background import run_background, run_export
 from suite_pyside6.core.precintos_jamones import (
+    ControlResumenPartida,
     PrecintosJamonesResult,
+    ResumenPartida,
+    calcular_control_resumen,
     correction_text,
+    formatear_peso,
+    leer_resumen_partida,
     process_precintos_jamones,
     revalidate_corrections,
     save_precintos_csv,
     save_precintos_txt,
+    seleccionar_registros_por_peso,
+    texto_control_resumen,
     tipo_jamon_visible,
-    weight_filter_text,
 )
 from suite_pyside6.ui.components import control_metric_pair, control_pill, control_rail_label, section_label, step_bar
 from suite_pyside6.ui.file_dialogs import open_file, open_files, save_file
@@ -48,7 +54,10 @@ class PrecintosJamonesWindow(QMainWindow):
         self.official_excel: Path | None = None
         self.result = PrecintosJamonesResult()
         self.last_attachments: list[Path] = []
-        self.weight_filter_pending = False
+        self.weight_filter_records = None
+        self.batch_summary: ResumenPartida | None = None
+        self.batch_summary_control: ControlResumenPartida | None = None
+        self.batch_summary_path: Path | None = None
         self.show_dialogs = True
         self.setWindowTitle("Precintos Jamones")
         self.resize(1160, 740)
@@ -139,6 +148,10 @@ class PrecintosJamonesWindow(QMainWindow):
         self.official_button.clicked.connect(self.select_official)
         actions_layout.addWidget(self.official_button)
 
+        self.summary_button = QPushButton("Añadir resumen")
+        self.summary_button.clicked.connect(self.add_summary_dialog)
+        actions_layout.addWidget(self.summary_button)
+
         validacion_label = QLabel("VALIDACIÓN")
         validacion_label.setObjectName("GroupLabel")
         validacion_label.setText("VALIDACIÓN")
@@ -168,7 +181,7 @@ class PrecintosJamonesWindow(QMainWindow):
         self.weight_max.setMaximumWidth(96)
         actions_layout.addWidget(self.weight_max)
 
-        self.weight_button = QPushButton("Filtrar pesos")
+        self.weight_button = QPushButton("Mostrar entre pesos")
         self.weight_button.clicked.connect(self.apply_weight_filter)
         actions_layout.addWidget(self.weight_button)
 
@@ -223,8 +236,12 @@ class PrecintosJamonesWindow(QMainWindow):
         self.preview_table.setObjectName("ControlPreviewTable")
         self.preview_table.setAccessibleName("Vista previa de precintos de jamones")
         self.preview_table.setHorizontalHeaderLabels(["Línea", "Código", "Precinto", "Peso", "Lote", "Estado"])
-        self.preview_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self.preview_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+        header = self.preview_table.horizontalHeader()
+        for column in range(5):
+            header.setSectionResizeMode(column, QHeaderView.Fixed)
+        header.setSectionResizeMode(5, QHeaderView.Stretch)
+        for column, width in enumerate((72, 110, 190, 90, 145)):
+            self.preview_table.setColumnWidth(column, width)
         self.preview_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         preview_layout.addLayout(preview_header)
         preview_layout.addWidget(self.preview_table, 1)
@@ -276,11 +293,11 @@ class PrecintosJamonesWindow(QMainWindow):
 
         rail = QFrame()
         rail.setObjectName("ControlStatusRail")
-        rail.setMinimumWidth(245)
+        rail.setMinimumWidth(360)
         rail_layout = QVBoxLayout(rail)
         rail_layout.setContentsMargins(12, 10, 12, 10)
         rail_layout.setSpacing(9)
-        rail_title = section_label("Salida y control oficial")
+        rail_title = section_label("Resumen y salida")
         self.rail_state = control_rail_label("Pendiente de TXT/CSV", role="state")
         self.rail_detail = control_rail_label("Carga uno o varios archivos para iniciar la validación.")
         self.rail_detail.setWordWrap(True)
@@ -294,6 +311,22 @@ class PrecintosJamonesWindow(QMainWindow):
         alerts_title = section_label("Avisos")
         self.rail_alerts = control_rail_label("Sin avisos.")
         self.rail_alerts.setWordWrap(True)
+        summary_title = section_label("Resumen por rangos")
+        self.range_summary = QPlainTextEdit()
+        self.range_summary.setObjectName("RangeSummaryText")
+        self.range_summary.setAccessibleName("Resumen recalculado por rangos de peso")
+        self.range_summary.setReadOnly(True)
+        self.range_summary.setLineWrapMode(QPlainTextEdit.NoWrap)
+        self.range_summary.setMaximumHeight(280)
+        self.range_warning = QLabel()
+        self.range_warning.setObjectName("RangeSummaryWarning")
+        self.range_warning.setWordWrap(True)
+        self.range_warning.setStyleSheet(
+            "QLabel#RangeSummaryWarning {"
+            " color: #991b1b; background: #fee2e2; border: 1px solid #ef4444;"
+            " border-radius: 5px; padding: 7px 9px; font-weight: 700; }"
+        )
+        self.range_warning.setVisible(False)
         self.output = QPlainTextEdit()
         self.output.setObjectName("OutputText")
         self.output.setAccessibleName("Vista de salida TXT/CSV")
@@ -308,6 +341,9 @@ class PrecintosJamonesWindow(QMainWindow):
         rail_layout.addWidget(self.rail_next)
         rail_layout.addWidget(alerts_title)
         rail_layout.addWidget(self.rail_alerts)
+        rail_layout.addWidget(summary_title)
+        rail_layout.addWidget(self.range_warning)
+        rail_layout.addWidget(self.range_summary)
         output_title = section_label("Salida TXT/CSV")
         rail_layout.addWidget(output_title)
         rail_layout.addWidget(self.output)
@@ -321,7 +357,7 @@ class PrecintosJamonesWindow(QMainWindow):
         content_layout.addWidget(preview_panel, 3)
         content_layout.addWidget(issues_panel, 2)
 
-        workspace_layout.addWidget(content_stack, 5)
+        workspace_layout.addWidget(content_stack, 4)
         workspace_layout.addWidget(rail, 2)
         layout.addWidget(workspace, 1)
 
@@ -350,11 +386,42 @@ class PrecintosJamonesWindow(QMainWindow):
             else:
                 self._refresh()
 
+    def add_summary_dialog(self) -> None:
+        file = open_file(
+            self,
+            "precintos_jamones/resumen",
+            "Selecciona el resumen de la partida",
+            "Resumen TXT/CSV (*.txt *.csv);;Todos (*.*)",
+        )
+        if not file:
+            return
+        try:
+            summary = leer_resumen_partida(file)
+        except Exception as exc:
+            self.status.setText(f"Resumen no válido: {exc}")
+            if self.show_dialogs:
+                show_inline_message(self, "warning", str(exc))
+            return
+        self.batch_summary = summary
+        self.batch_summary_path = file
+        self._recalculate_batch_summary()
+        self.status.setText(
+            f"Resumen {file.name} añadido: partida {summary.partida or '-'} y {len(summary.rangos)} tramos de peso."
+        )
+        self._refresh()
+
+    def _recalculate_batch_summary(self) -> None:
+        self.batch_summary_control = (
+            calcular_control_resumen(self.result, self.batch_summary)
+            if self.batch_summary is not None and self.result.validos
+            else None
+        )
+
     def set_files(self, paths: list[Path]) -> None:
         self.paths = list(paths)
         self.result = PrecintosJamonesResult(selected_files=list(paths))
         self.last_attachments = []
-        self.weight_filter_pending = False
+        self.weight_filter_records = None
         self.process_files()
 
     def process_files(self) -> None:
@@ -365,7 +432,8 @@ class PrecintosJamonesWindow(QMainWindow):
         self._refresh_buttons_only()
         def completed(result: PrecintosJamonesResult) -> None:
             self.result = result
-            self.weight_filter_pending = False
+            self.weight_filter_records = None
+            self._recalculate_batch_summary()
             self.status.setText(f"Validación completada: {len(self.result.validos)} registros válidos.")
             self._refresh()
         def failed(message: str) -> None:
@@ -380,14 +448,15 @@ class PrecintosJamonesWindow(QMainWindow):
         self._refresh_buttons_only()
 
     def revalidate(self) -> None:
-        if not (self.result.invalidos or self.weight_filter_pending):
+        if not self.result.invalidos:
             return
         result, text = self.result, self.preview.toPlainText()
         self.status.setText("Revalidando correcciones…")
         def completed(updated):
             self.result = updated
             self.last_attachments = []
-            self.weight_filter_pending = False
+            self.weight_filter_records = None
+            self._recalculate_batch_summary()
             if updated.invalidos:
                 message = f"Quedan {len(updated.invalidos)} líneas por corregir."
                 show_inline_message(self, "warning", message)
@@ -404,23 +473,26 @@ class PrecintosJamonesWindow(QMainWindow):
             show_inline_message(self, "warning", "Procesa primero uno o varios archivos.")
             return
         try:
-            editor, resumen, pending = weight_filter_text(self.result, self.weight_min.text(), self.weight_max.text())
+            selection = seleccionar_registros_por_peso(
+                self.result, self.weight_min.text(), self.weight_max.text()
+            )
         except Exception as exc:
             self.status.setText(str(exc))
             if self.show_dialogs:
                 show_inline_message(self, "warning", str(exc))
             return
-        self.preview.setReadOnly(not pending)
-        self.preview.setPlainText(editor if pending else self.result.preview_text() + "\n\n" + resumen)
-        self.weight_filter_pending = pending
+        self.weight_filter_records = list(selection.registros)
         self.last_attachments = []
-        self.status.setText("Filtro de pesos aplicado. Modifica los registros si procede y revalida.")
-        self._refresh_buttons_only()
+        self.status.setText(
+            f"Mostrando {len(selection.registros)} jamones entre "
+            f"{formatear_peso(selection.minimo)} y {formatear_peso(selection.maximo)} kg."
+        )
+        self._refresh()
 
     def clear_weight_filter(self) -> None:
         self.weight_min.clear()
         self.weight_max.clear()
-        self.weight_filter_pending = False
+        self.weight_filter_records = None
         self._refresh()
         self.status.setText("Filtro de pesos limpiado.")
 
@@ -463,7 +535,10 @@ class PrecintosJamonesWindow(QMainWindow):
         self.official_excel = None
         self.result = PrecintosJamonesResult()
         self.last_attachments = []
-        self.weight_filter_pending = False
+        self.weight_filter_records = None
+        self.batch_summary = None
+        self.batch_summary_control = None
+        self.batch_summary_path = None
         self.weight_min.clear()
         self.weight_max.clear()
         self.status.setText("Sin archivos cargados")
@@ -472,9 +547,8 @@ class PrecintosJamonesWindow(QMainWindow):
     def _refresh(self) -> None:
         if self.result.validos or self.result.invalidos:
             self.summary.setText(" | ".join(self.result.summary_lines()))
-            self.preview.setReadOnly(not bool(self.result.invalidos or self.weight_filter_pending))
-            if not self.weight_filter_pending:
-                self.preview.setPlainText(correction_text(self.result) if self.result.invalidos else self.result.preview_text())
+            self.preview.setReadOnly(not bool(self.result.invalidos))
+            self.preview.setPlainText(correction_text(self.result) if self.result.invalidos else self.result.preview_text())
             self.issues.setPlainText(self._issues_text())
             self.output.setPlainText(self._output_text())
         else:
@@ -484,21 +558,27 @@ class PrecintosJamonesWindow(QMainWindow):
             self.preview.setPlainText("Arrastra TXT/CSV de precintos aquí o usa Cargar TXT/CSV para empezar.")
             self.issues.setPlainText("Sin incidencias.")
             self.output.setPlainText("La salida TXT/CSV aparecerá después de procesar registros válidos.")
+        self.range_summary.setPlainText(self._range_summary_text())
+        warning = self._range_warning_text()
+        self.range_warning.setText(warning)
+        self.range_warning.setVisible(bool(warning))
         self._populate_preview_table()
         self._refresh_buttons_only()
 
     def _refresh_buttons_only(self) -> None:
-        can_save = bool(self.result.validos and not self.result.invalidos and not self.weight_filter_pending)
+        can_save = bool(self.result.validos and not self.result.invalidos)
         self.process_button.setEnabled(bool(self.paths))
-        self.revalidate_button.setEnabled(bool(self.result.invalidos or self.weight_filter_pending))
+        self.revalidate_button.setEnabled(bool(self.result.invalidos))
         self.save_txt_button.setEnabled(can_save)
         self.save_csv_button.setEnabled(can_save and not self.result.es_lote_mixto())
         self.save_csv_button.setToolTip(
             "El CSV requiere un único tipo de jamón; revisa el lote mixto." if self.result.es_lote_mixto() else "Guardar CSV"
         )
         self.weight_button.setEnabled(bool(self.result.validos and not self.result.invalidos))
-        self.clear_filter_button.setEnabled(bool(self.result.validos or self.result.invalidos or self.weight_filter_pending))
-        self.clear_button.setEnabled(bool(self.paths or self.result.validos or self.result.invalidos or self.official_excel))
+        self.clear_filter_button.setEnabled(self.weight_filter_records is not None)
+        self.clear_button.setEnabled(
+            bool(self.paths or self.result.validos or self.result.invalidos or self.official_excel or self.batch_summary)
+        )
         self._sync_weight_filter_controls()
         self._refresh_pilot_state()
         self._sync_recommended_action()
@@ -525,13 +605,14 @@ class PrecintosJamonesWindow(QMainWindow):
         )
 
     def _sync_weight_filter_controls(self) -> None:
-        visible = bool(self.weight_button.isEnabled() or self.weight_filter_pending)
+        visible = bool(self.weight_button.isEnabled() or self.weight_filter_records is not None)
         self.weight_min.setVisible(visible)
         self.weight_max.setVisible(visible)
 
     def _populate_preview_table(self) -> None:
         rows: list[tuple[str, str, str, str, str, str]] = []
-        for registro in self.result.validos[:120]:
+        valid_records = self.weight_filter_records if self.weight_filter_records is not None else self.result.validos
+        for registro in valid_records[:120]:
             rows.append(
                 (
                     str(registro.linea),
@@ -542,7 +623,8 @@ class PrecintosJamonesWindow(QMainWindow):
                     f"Válido · {tipo_jamon_visible(self.result.tipo_registro(registro))}",
                 )
             )
-        for registro, motivo in self.result.invalidos[:80]:
+        invalid_records = [] if self.weight_filter_records is not None else self.result.invalidos
+        for registro, motivo in invalid_records[:80]:
             rows.append(
                 (
                     str(registro.linea),
@@ -561,14 +643,14 @@ class PrecintosJamonesWindow(QMainWindow):
                     if column == 5 and value.startswith("Pendiente"):
                         item.setToolTip(value)
                     self.preview_table.setItem(row_index, column, item)
-        total_rows = len(self.result.validos) + len(self.result.invalidos)
+        total_rows = len(valid_records) + len(invalid_records)
         update_count_label(self.preview_count, len(rows), total_rows, "líneas")
 
     def _refresh_pilot_state(self) -> None:
         validos = len(self.result.validos)
         invalidos = len(self.result.invalidos)
         duplicados = len(self.result.duplicados)
-        pendientes = invalidos + int(self.weight_filter_pending)
+        pendientes = invalidos
         files = len(self.paths)
         self.metric_valid.setText(str(validos))
         self.metric_pending.setText(str(pendientes))
@@ -587,7 +669,7 @@ class PrecintosJamonesWindow(QMainWindow):
         )
 
         has_issues = bool(self.result.invalidos or self.result.duplicados or self.result.oficiales or self.result.es_lote_mixto())
-        needs_corrections = bool(self.result.invalidos or self.weight_filter_pending)
+        needs_corrections = bool(self.result.invalidos)
         self.issues_empty.setVisible(not has_issues and not needs_corrections)
         self.issues.setVisible(has_issues)
         self.preview.setVisible(needs_corrections)
@@ -613,7 +695,7 @@ class PrecintosJamonesWindow(QMainWindow):
         status = self.status.text().lower()
         if "guardado" in status:
             return "Salida guardada", "El archivo de salida se ha generado correctamente.", 100
-        if self.result.invalidos or self.weight_filter_pending:
+        if self.result.invalidos:
             return "Revisión pendiente", "Corrige las líneas marcadas y revalida.", 55
         if self.result.validos:
             return "Validado", "Los precintos están listos para guardar TXT o CSV.", 80
@@ -628,7 +710,7 @@ class PrecintosJamonesWindow(QMainWindow):
             return "Cargar TXT/CSV"
         if self.paths and not (self.result.validos or self.result.invalidos):
             return "Procesar control"
-        if self.result.invalidos or self.weight_filter_pending:
+        if self.result.invalidos:
             return "Revalidar correcciones"
         if self.result.validos:
             return "Guardar TXT o CSV"
@@ -640,8 +722,13 @@ class PrecintosJamonesWindow(QMainWindow):
             alerts.append(f"{len(self.result.invalidos)} líneas pendientes")
         if self.result.duplicados:
             alerts.append(f"{len(self.result.duplicados)} duplicados suprimidos")
-        if self.weight_filter_pending:
-            alerts.append("Filtro de peso pendiente de revalidar")
+        if self.weight_filter_records is not None:
+            alerts.append(f"Filtro de peso: {len(self.weight_filter_records)} de {len(self.result.validos)} jamones")
+        if self.batch_summary_control and not self.batch_summary_control.cuadra_con_validos:
+            alerts.append(
+                f"Resumen: {len(self.batch_summary_control.fuera_de_rango) + len(self.batch_summary_control.pesos_no_validos)} "
+                "válidos no encajan en los tramos"
+            )
         if self.result.oficiales:
             extra, missing = self.result.differences()
             if extra:
@@ -651,6 +738,35 @@ class PrecintosJamonesWindow(QMainWindow):
         if self.result.es_lote_mixto():
             alerts.append("Lote mixto: el CSV queda bloqueado hasta separarlo o corregirlo")
         return "\n".join(alerts) if alerts else "Sin avisos."
+
+    def _range_summary_text(self) -> str:
+        if self.batch_summary_control is not None:
+            archivo = self.batch_summary_path.name if self.batch_summary_path else "-"
+            return f"Archivo resumen: {archivo}\n{texto_control_resumen(self.batch_summary_control)}"
+        if self.batch_summary is not None:
+            return (
+                f"Resumen: {self.batch_summary_path.name if self.batch_summary_path else '-'}\n"
+                f"Partida {self.batch_summary.partida or '-'} añadida.\n"
+                "Carga y procesa los TXT/CSV para recalcular sus tramos con los registros válidos."
+            )
+        return (
+            "Pulsa “Añadir resumen” y selecciona el archivo del resumen original de la partida. "
+            "Aquí verás las piezas y el peso recalculados por tramo."
+        )
+
+    def _range_warning_text(self) -> str:
+        control = self.batch_summary_control
+        if control is None or control.cuadra_con_validos:
+            return ""
+        fuera = len(control.fuera_de_rango)
+        sin_peso = len(control.pesos_no_validos)
+        partes: list[str] = []
+        if fuera:
+            partes.append(f"{fuera} jamón" + ("" if fuera == 1 else "es") + " fuera de todos los rangos")
+        if sin_peso:
+            partes.append(f"{sin_peso} registro" + ("" if sin_peso == 1 else "s") + " con peso no válido")
+        detalle = " y ".join(partes) or "la suma de los tramos no coincide"
+        return f"ADVERTENCIA: {detalle}. Revisa el resumen antes de guardar."
 
     def _empty_issue_text(self) -> str:
         if not self.paths and not self.result.validos:
@@ -677,7 +793,7 @@ class PrecintosJamonesWindow(QMainWindow):
         status = self.status.text().lower()
         if "guardado" in status:
             return 4, False, True
-        if self.result.invalidos or self.weight_filter_pending:
+        if self.result.invalidos:
             return 3, True, False
         if self.result.validos:
             return 4, False, False

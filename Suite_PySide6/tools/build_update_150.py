@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.7.24"
+VERSION = "1.7.25"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
@@ -296,9 +296,9 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
     full_digest = sha256(full_package)
     installer_digest = sha256(installer_bat)
     notes = (
-        "- Precintos Deshuesado PDA admite los ficheros automáticos que incluyen avisos sin transacciones positivas.\n"
-        "- Los avisos se contabilizan como líneas ignoradas y ya no bloquean los registros válidos del fichero.\n"
-        "- Los cálculos, el informe Excel y el CSV AX se generan únicamente con los registros que contienen precinto y peso."
+        "- Precintos Jamones permite cargar el archivo de resumen de la partida y recalcula piezas y peso por cada rango con los registros válidos.\n"
+        "- El resumen avisa en rojo cuando algún jamón válido no encaja en ninguno de los rangos definidos.\n"
+        "- El filtro de pesos muestra los jamones comprendidos entre el mínimo y el máximo, y la pantalla aprovecha mejor el ancho disponible."
     )
     manifest = {
         "schema": "suite-rodriguez-finura-update-v1",

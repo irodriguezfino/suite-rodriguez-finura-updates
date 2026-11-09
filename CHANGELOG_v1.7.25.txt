@@ -1,0 +1,5 @@
+Suite Rodriguez Finura v1.7.25
+
+- Precintos Jamones permite cargar el archivo de resumen de la partida y recalcula piezas y peso por cada rango con los registros válidos.
+- El resumen avisa en rojo cuando algún jamón válido no encaja en ninguno de los rangos definidos.
+- El filtro de pesos muestra los jamones comprendidos entre el mínimo y el máximo, y la pantalla aprovecha mejor el ancho disponible.
