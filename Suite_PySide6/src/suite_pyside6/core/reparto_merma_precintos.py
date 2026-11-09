@@ -269,6 +269,16 @@ def _is_message_header(value: str) -> bool:
     return value.strip().casefold().startswith("mensaje")
 
 
+def _is_no_positive_transactions_notice(value: str) -> bool:
+    return bool(
+        re.fullmatch(
+            r"no hay transacciones positivas para el serial\s+\d+",
+            value.strip(),
+            flags=re.IGNORECASE,
+        )
+    )
+
+
 def _parse_decimal(value: str, field_name: str, line_number: int | None = None) -> Decimal:
     text = str(value).strip()
     if not text:
@@ -371,6 +381,9 @@ def _read_message_workbook(workbook: Workbook) -> SourceReadResult:
         message = str(value).strip()
         if _is_message_header(message):
             ignored.append(IgnoredRow(line_number, "encabezado de mensaje"))
+            continue
+        if _is_no_positive_transactions_notice(message):
+            ignored.append(IgnoredRow(line_number, "sin transacciones positivas"))
             continue
         if structured_values is not None:
             fields = structured_values
@@ -475,6 +488,10 @@ def _read_pda_csv(path: Path) -> SourceReadResult:
             if _is_pda_csv_header(fields):
                 has_message_header = True
                 ignored.append(IgnoredRow(line_number, "encabezado de mensaje"))
+                continue
+
+            if len(fields) == 1 and _is_no_positive_transactions_notice(fields[0]):
+                ignored.append(IgnoredRow(line_number, "sin transacciones positivas"))
                 continue
 
             if len(fields) == 1 and fields[0].count(";") < 2:

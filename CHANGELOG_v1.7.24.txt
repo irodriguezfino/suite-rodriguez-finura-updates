@@ -1,0 +1,5 @@
+Suite Rodriguez Finura v1.7.24
+
+- Precintos Deshuesado PDA admite los ficheros automáticos que incluyen avisos sin transacciones positivas.
+- Los avisos se contabilizan como líneas ignoradas y ya no bloquean los registros válidos del fichero.
+- Los cálculos, el informe Excel y el CSV AX se generan únicamente con los registros que contienen precinto y peso.

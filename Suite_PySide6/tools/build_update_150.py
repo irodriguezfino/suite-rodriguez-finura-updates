@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.7.23"
+VERSION = "1.7.24"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
@@ -296,13 +296,9 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
     full_digest = sha256(full_package)
     installer_digest = sha256(installer_bat)
     notes = (
-        "- Precintos TXT a CSV AX permite añadir y unificar tantos TXT como sean necesarios sin sustituir los anteriores.\n"
-        "- La conversión elimina la parte izquierda, la flecha y el último dígito del valor derecho antes de generar el CSV.\n"
-        "- Los duplicados se contabilizan y se excluyen del CSV; el nuevo contador Precintos finales muestra la salida real.\n"
-        "- Limpiar proceso reinicia por completo la carga de Precintos TXT a CSV AX sin cerrar la aplicación.\n"
-        "- Precintos Deshuesado añade Fecha OPL, destinatarios y el envío de un informe Excel independiente del CSV AX.\n"
-        "- El informe incluye fecha OPL, fecha de creación, precinto, peso origen, peso final, merma individual y OPL.\n"
-        "- El CSV AX de Precintos Deshuesado conserva sin cambios su formato y funcionamiento."
+        "- Precintos Deshuesado PDA admite los ficheros automáticos que incluyen avisos sin transacciones positivas.\n"
+        "- Los avisos se contabilizan como líneas ignoradas y ya no bloquean los registros válidos del fichero.\n"
+        "- Los cálculos, el informe Excel y el CSV AX se generan únicamente con los registros que contienen precinto y peso."
     )
     manifest = {
         "schema": "suite-rodriguez-finura-update-v1",

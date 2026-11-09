@@ -71,6 +71,38 @@ class RepartoMermaPrecintosTests(unittest.TestCase):
         ])
         self.assertEqual(source.total_weight, Decimal("88.20"))
 
+    def test_ignora_avisos_sin_transacciones_y_conserva_los_registros_validos(self):
+        source = self.read([
+            "215280210572;X280574;14,27;1,00    19/05/2025",
+            "No hay transacciones positivas para el serial 425280210492",
+            "215280210600;X280574;14,47;1,00    19/05/2025",
+            "No hay transacciones positivas para el serial 425280211164",
+        ])
+
+        self.assertTrue(source.is_valid)
+        self.assertEqual([record.precinto for record in source.records], ["215280210572", "215280210600"])
+        self.assertEqual(source.total_weight, Decimal("28.74"))
+        self.assertEqual(
+            [row.reason for row in source.ignored_rows],
+            ["encabezado de mensaje", "sin transacciones positivas", "sin transacciones positivas"],
+        )
+
+    def test_csv_ignora_avisos_sin_transacciones(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "automatico.csv"
+            path.write_text(
+                "Mensaje\n"
+                "215280210572;X280574;14,27;1,00    19/05/2025\n"
+                "No hay transacciones positivas para el serial 425280210492\n",
+                encoding="utf-8",
+            )
+            source = read_source_file(path)
+
+        self.assertTrue(source.is_valid)
+        self.assertEqual([record.precinto for record in source.records], ["215280210572"])
+        self.assertEqual(source.total_weight, Decimal("14.27"))
+        self.assertEqual(len(source.ignored_rows), 2)
+
     def test_lee_fecha_de_creacion_en_mensaje_y_en_columnas_pda(self):
         message_source = self.read(["2152803105723;X280574;14,27;1,00;19/05/2025"])
         self.assertEqual(message_source.records[0].fecha_creacion, "19/05/2025")

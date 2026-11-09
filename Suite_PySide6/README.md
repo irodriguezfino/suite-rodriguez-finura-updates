@@ -168,6 +168,11 @@ con fecha OPL, fecha de creación del precinto, precinto, peso origen, peso fina
 merma individual y OPL. Los destinatarios son editables y el envío del informe
 no altera ni condiciona el guardado del CSV AX.
 
+Los ficheros PDA automáticos pueden incluir mensajes `No hay transacciones
+positivas para el serial ...`. Esos avisos se contabilizan como líneas
+ignoradas y no bloquean el reparto de los registros que sí contienen precinto
+y peso.
+
 ## Precintos TXT a CSV AX
 
 La herramienta admite varios TXT en una misma operación y permite seguir

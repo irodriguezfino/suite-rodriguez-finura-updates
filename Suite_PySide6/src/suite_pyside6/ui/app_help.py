@@ -99,7 +99,7 @@ APP_HELP: dict[str, AppHelp] = {
         "Elige PDA si partes de mensajes/lecturas; elige FAC si ya dispones de CSV de deshuesado.",
         ("Elige el modo PDA o FAC.", "Carga el fichero o los CSV correspondientes.", "En PDA indica el peso final; en FAC confirma las filas marcadas como SI y la orden.", "Revisa el reparto y guarda el CSV AX."),
         "CSV AX con orden de trabajo, precinto y peso.",
-        "En PDA puedes enviar un informe Excel independiente indicando Fecha OPL y destinatarios. El CSV AX no cambia.",
+        "En PDA puedes enviar un informe Excel independiente indicando Fecha OPL y destinatarios. Los avisos sin transacciones positivas se ignoran sin bloquear los registros válidos. El CSV AX no cambia.",
     ),
     "file_compare": AppHelp(
         "Compara dos archivos o carpetas para saber si son iguales y localizar sus diferencias.",

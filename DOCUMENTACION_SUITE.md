@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.7.23
+Ultima revision: v1.7.24
 
 ## Para que sirve
 
@@ -89,6 +89,8 @@ Desde v1.7.7 el flujo unificado pasa a llamarse `Control y Recepción Precintos`
 Desde v1.7.8 cada perfil puede personalizar de forma independiente la descripción de la cabecera de una aplicación y la de cada proceso de la bandeja. Las acciones de descripción, versión y Bandeja se agrupan en la cabecera con una disposición uniforme y siguen siendo visibles en resoluciones estrechas.
 
 Desde v1.7.23 `Precintos TXT a CSV AX` permite unificar varios TXT, transforma el valor situado a la derecha de la flecha retirando su último dígito, elimina duplicados de la salida y muestra el total real de precintos finales. `Precintos Deshuesado` incorpora Fecha OPL y envío por correo de un Excel con fecha de creación, precinto, pesos, merma individual y OPL, manteniendo independiente y sin cambios el CSV AX.
+
+Desde v1.7.24 `Precintos Deshuesado` admite los ficheros PDA automáticos que intercalan avisos de ausencia de transacciones positivas. Esos avisos se muestran como líneas ignoradas y dejan de bloquear la carga de los registros válidos con peso.
 
 ## Organización y detección automática
 
