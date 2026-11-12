@@ -232,6 +232,7 @@ class AdjustmentResult:
 class DeshuesadoReportRow:
     fecha_opl: date
     fecha_creacion: date
+    dias: int
     precinto: str
     peso_origen: Decimal
     peso_final: Decimal
@@ -827,6 +828,7 @@ def build_deshuesado_report_rows(
             DeshuesadoReportRow(
                 fecha_opl=opl_date,
                 fecha_creacion=creation_date,
+                dias=(opl_date - creation_date).days,
                 precinto=row.source.precinto,
                 peso_origen=row.source.peso_original,
                 peso_final=row.adjusted_weight,
@@ -851,13 +853,14 @@ def render_deshuesado_report_xlsx(
     worksheet.title = "Informe"
     worksheet.sheet_view.showGridLines = False
     worksheet.freeze_panes = "A2"
-    headers = ("Fecha OPL", "Fecha creación precinto", "Precinto", "Peso origen", "Peso final", "Merma (%)", "OPL")
+    headers = ("Fecha OPL", "Fecha creación precinto", "Días", "Precinto", "Peso origen", "Peso final", "Merma (%)", "OPL")
     worksheet.append(headers)
     for row in rows:
         worksheet.append(
             (
                 row.fecha_opl,
                 row.fecha_creacion,
+                row.dias,
                 row.precinto,
                 row.peso_origen,
                 row.peso_final,
@@ -881,19 +884,19 @@ def render_deshuesado_report_xlsx(
     for column in ("A", "B"):
         for cell in worksheet[column][1:]:
             cell.number_format = "dd/mm/yyyy"
-    for column in ("D", "E", "F"):
+    for column in ("E", "F", "G"):
         for cell in worksheet[column][1:]:
             cell.number_format = "0.00"
-    for cell in worksheet["C"][1:]:
+    for cell in worksheet["D"][1:]:
         cell.number_format = "@"
         cell.quotePrefix = True
-    for cell in worksheet["G"][1:]:
+    for cell in worksheet["H"][1:]:
         cell.number_format = "@"
         cell.quotePrefix = True
-    widths = {"A": 14, "B": 23, "C": 18, "D": 14, "E": 14, "F": 13, "G": 20}
+    widths = {"A": 14, "B": 23, "C": 10, "D": 18, "E": 14, "F": 14, "G": 13, "H": 20}
     for column, width in widths.items():
         worksheet.column_dimensions[column].width = width
-    worksheet.auto_filter.ref = f"A1:G{max(1, worksheet.max_row)}"
+    worksheet.auto_filter.ref = f"A1:H{max(1, worksheet.max_row)}"
     output = io.BytesIO()
     workbook.save(output)
     workbook.close()
@@ -943,7 +946,13 @@ def send_deshuesado_report_email(
             if smtp_user and smtp_password:
                 smtp.login(smtp_user, smtp_password)
             begin_commit()
-            smtp.send_message(message)
+            refused = smtp.send_message(message, from_addr=smtp_user, to_addrs=recipients)
+            if refused:
+                rejected = ", ".join(str(recipient) for recipient in refused)
+                raise RuntimeError(f"El servidor rechazó estos destinatarios: {rejected}.")
+    except smtplib.SMTPRecipientsRefused as exc:
+        rejected = ", ".join(str(recipient) for recipient in exc.recipients) or "destinatarios indicados"
+        raise RuntimeError(f"El servidor rechazó estos destinatarios: {rejected}.") from exc
     except smtplib.SMTPException as exc:
         raise RuntimeError("No se pudo enviar el informe con el servidor corporativo.") from exc
     except OSError as exc:

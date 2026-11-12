@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.7.26"
+VERSION = "1.7.27"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
@@ -296,9 +296,9 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
     full_digest = sha256(full_package)
     installer_digest = sha256(installer_bat)
     notes = (
-        "- Precintos Jamones incorpora el botón Calcular resumen para obtener las unidades finales después de eliminar duplicados y corregir registros.\n"
-        "- Los rangos usan el mínimo incluido y el máximo excluido: un valor igual al máximo se contabiliza en el tramo siguiente.\n"
-        "- El archivo de resumen puede contener únicamente la tabla RANGO DE PESOS; proveedor, lote, fecha, hora y totales son opcionales."
+        "- El informe por correo de Precintos Deshuesado PDA incorpora la columna Días, calculada como Fecha OPL menos Fecha de creación del precinto.\n"
+        "- El envío SMTP entrega explícitamente la lista completa de destinatarios para admitir correctamente varios correos.\n"
+        "- Si el servidor rechaza algún destinatario, la aplicación identifica la dirección afectada en el mensaje de error."
     )
     manifest = {
         "schema": "suite-rodriguez-finura-update-v1",

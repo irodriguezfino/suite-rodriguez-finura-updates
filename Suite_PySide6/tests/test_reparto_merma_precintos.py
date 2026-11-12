@@ -119,41 +119,61 @@ class RepartoMermaPrecintosTests(unittest.TestCase):
         self.assertEqual(column_source.records[0].fecha_creacion, "19/05/2025")
         self.assertEqual(column_source.records[0].peso_original, Decimal("14.27"))
 
-    def test_informe_excel_contiene_solo_las_siete_columnas_solicitadas(self):
+    def test_informe_excel_incluye_dias_desde_creacion_hasta_fecha_opl(self):
         result = self.result(["157520036481;X280574;12,86;1,00;19/05/2025"], "8,23")
         report_rows = build_deshuesado_report_rows(result, "20/10/2026", "230324")
         self.assertEqual(report_rows[0].merma_porcentaje, Decimal("36.00"))
+        self.assertEqual(report_rows[0].dias, 519)
         content = render_deshuesado_report_xlsx(result, "20/10/2026", "230324")
         workbook = load_workbook(BytesIO(content), data_only=True)
         worksheet = workbook["Informe"]
         self.assertEqual(
             [cell.value for cell in worksheet[1]],
-            ["Fecha OPL", "Fecha creación precinto", "Precinto", "Peso origen", "Peso final", "Merma (%)", "OPL"],
+            ["Fecha OPL", "Fecha creación precinto", "Días", "Precinto", "Peso origen", "Peso final", "Merma (%)", "OPL"],
         )
-        self.assertEqual(worksheet.max_column, 7)
-        self.assertEqual(worksheet["C2"].value, "157520036481")
-        self.assertEqual(worksheet["D2"].value, 12.86)
-        self.assertEqual(worksheet["E2"].value, 8.23)
-        self.assertEqual(worksheet["F2"].value, 36)
-        self.assertEqual(worksheet["G2"].value, "230324")
+        self.assertEqual(worksheet.max_column, 8)
+        self.assertEqual(worksheet["C2"].value, 519)
+        self.assertEqual(worksheet["D2"].value, "157520036481")
+        self.assertEqual(worksheet["E2"].value, 12.86)
+        self.assertEqual(worksheet["F2"].value, 8.23)
+        self.assertEqual(worksheet["G2"].value, 36)
+        self.assertEqual(worksheet["H2"].value, "230324")
         workbook.close()
 
     def test_correo_del_informe_usa_destinatarios_y_adjunta_el_excel(self):
         result = self.result(["157520036481;X280574;12,86;1,00;19/05/2025"], "8,23")
         with patch("suite_pyside6.core.reparto_merma_precintos.smtplib.SMTP") as smtp_class:
             smtp = smtp_class.return_value.__enter__.return_value
+            smtp.send_message.return_value = {}
             message = send_deshuesado_report_email(
-                "milagros.sanchez@finuradeiberico.es",
+                "milagros.sanchez@finuradeiberico.es; mjzapico@finuradeiberico.es",
                 result,
                 "20/10/2026",
                 "230324",
             )
-        self.assertEqual(message["To"], "milagros.sanchez@finuradeiberico.es")
+        self.assertEqual(message["To"], "milagros.sanchez@finuradeiberico.es, mjzapico@finuradeiberico.es")
         self.assertIn("OPL 230324", message["Subject"])
         attachments = list(message.iter_attachments())
         self.assertEqual(len(attachments), 1)
         self.assertEqual(attachments[0].get_filename(), "Informe_deshuesado_230324.xlsx")
-        smtp.send_message.assert_called_once_with(message)
+        smtp.send_message.assert_called_once_with(
+            message,
+            from_addr="envio@smtp.erod.es",
+            to_addrs=["milagros.sanchez@finuradeiberico.es", "mjzapico@finuradeiberico.es"],
+        )
+
+    def test_correo_informa_el_destinatario_rechazado_por_smtp(self):
+        result = self.result(["157520036481;X280574;12,86;1,00;19/05/2025"], "8,23")
+        with patch("suite_pyside6.core.reparto_merma_precintos.smtplib.SMTP") as smtp_class:
+            smtp = smtp_class.return_value.__enter__.return_value
+            smtp.send_message.return_value = {"incorrecto@empresa.es": (550, b"Rejected")}
+            with self.assertRaisesRegex(RuntimeError, "incorrecto@empresa.es"):
+                send_deshuesado_report_email(
+                    "correcto@empresa.es; incorrecto@empresa.es",
+                    result,
+                    "20/10/2026",
+                    "230324",
+                )
 
     def test_lee_formato_actual_ibericos_con_mensaje_en_columna_c(self):
         with tempfile.TemporaryDirectory() as directory:

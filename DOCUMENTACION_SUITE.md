@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.7.26
+Ultima revision: v1.7.27
 
 ## Para que sirve
 
@@ -91,6 +91,8 @@ Desde v1.7.8 cada perfil puede personalizar de forma independiente la descripci�
 Desde v1.7.23 `Precintos TXT a CSV AX` permite unificar varios TXT, transforma el valor situado a la derecha de la flecha retirando su último dígito, elimina duplicados de la salida y muestra el total real de precintos finales. `Precintos Deshuesado` incorpora Fecha OPL y envío por correo de un Excel con fecha de creación, precinto, pesos, merma individual y OPL, manteniendo independiente y sin cambios el CSV AX.
 
 Desde v1.7.24 `Precintos Deshuesado` admite los ficheros PDA automáticos que intercalan avisos de ausencia de transacciones positivas. Esos avisos se muestran como líneas ignoradas y dejan de bloquear la carga de los registros válidos con peso.
+
+Desde v1.7.27 el Excel enviado por correo desde `Precintos Deshuesado PDA` incorpora la columna `Días`, obtenida restando la fecha de creación del precinto a la Fecha OPL introducida manualmente. El envío SMTP utiliza una lista explícita de destinatarios y muestra qué dirección ha sido rechazada si el servidor no acepta alguno de los correos conjuntos.
 
 ## Organización y detección automática
 

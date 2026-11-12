@@ -1,0 +1,5 @@
+Suite Rodriguez Finura v1.7.27
+
+- El informe por correo de Precintos Deshuesado PDA incorpora la columna Días, calculada como Fecha OPL menos Fecha de creación del precinto.
+- El envío SMTP entrega explícitamente la lista completa de destinatarios para admitir correctamente varios correos.
+- Si el servidor rechaza algún destinatario, la aplicación identifica la dirección afectada en el mensaje de error.
