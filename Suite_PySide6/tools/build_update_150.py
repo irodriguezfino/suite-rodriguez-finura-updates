@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.7.27"
+VERSION = "1.7.28"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
@@ -150,7 +150,7 @@ def remove_tree(path: Path) -> None:
     shutil.rmtree(path, onerror=on_error)
 
 
-def overlay_current_suite(target: Path) -> None:
+def overlay_current_suite(target: Path, *, include_runtime: bool = True) -> None:
     copytree_clean(PYSIDE_ROOT, target / "Suite_PySide6")
     for name in ("SuiteLauncher.py", "SuiteUpdater.py"):
         shutil.copy2(LEGACY_APP / name, target / name)
@@ -194,33 +194,34 @@ if __name__ == "__main__":
         json.dumps({"version_url": f"{REMOTE_BASE}/version.json"}, indent=2) + "\n",
     )
 
-    site_packages = target / "runtime" / "Lib" / "site-packages"
-    pyside_src = QT_ENV / "Lib" / "site-packages" / "PySide6"
-    pyside_dst = site_packages / "PySide6"
-    pyside_dst.mkdir(parents=True, exist_ok=True)
-    for name in PYSIDE_FILES:
-        source = pyside_src / name
-        if source.exists():
-            shutil.copy2(source, pyside_dst / name)
-    shutil.copytree(pyside_src / "plugins", pyside_dst / "plugins", dirs_exist_ok=True)
-    qt_site_packages = QT_ENV / "Lib" / "site-packages"
-    for pattern in PYSIDE_PACKAGE_PATTERNS:
-        for source in qt_site_packages.glob(pattern):
-            copy_site_package(source, site_packages)
+    if include_runtime:
+        site_packages = target / "runtime" / "Lib" / "site-packages"
+        pyside_src = QT_ENV / "Lib" / "site-packages" / "PySide6"
+        pyside_dst = site_packages / "PySide6"
+        pyside_dst.mkdir(parents=True, exist_ok=True)
+        for name in PYSIDE_FILES:
+            source = pyside_src / name
+            if source.exists():
+                shutil.copy2(source, pyside_dst / name)
+        shutil.copytree(pyside_src / "plugins", pyside_dst / "plugins", dirs_exist_ok=True)
+        qt_site_packages = QT_ENV / "Lib" / "site-packages"
+        for pattern in PYSIDE_PACKAGE_PATTERNS:
+            for source in qt_site_packages.glob(pattern):
+                copy_site_package(source, site_packages)
 
 
 def prepare_staging() -> None:
     if RELEASE_ROOT.exists():
         remove_tree(RELEASE_ROOT)
     STAGING.mkdir(parents=True)
-    overlay_current_suite(STAGING)
+    overlay_current_suite(STAGING, include_runtime=False)
 
 
 def prepare_full_staging() -> None:
     if FULL_RELEASE_ROOT.exists():
         remove_tree(FULL_RELEASE_ROOT)
     copytree_clean(BASE_FULL_APP, FULL_STAGING)
-    overlay_current_suite(FULL_STAGING)
+    overlay_current_suite(FULL_STAGING, include_runtime=True)
 
 
 def build_zip(package_name: str, release_root: Path) -> Path:
@@ -296,9 +297,9 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
     full_digest = sha256(full_package)
     installer_digest = sha256(installer_bat)
     notes = (
-        "- El informe por correo de Precintos Deshuesado PDA incorpora la columna Días, calculada como Fecha OPL menos Fecha de creación del precinto.\n"
-        "- El envío SMTP entrega explícitamente la lista completa de destinatarios para admitir correctamente varios correos.\n"
-        "- Si el servidor rechaza algún destinatario, la aplicación identifica la dirección afectada en el mensaje de error."
+        "- La actualización automática utiliza un paquete incremental reducido que no vuelve a descargar el runtime ya instalado.\n"
+        "- El actualizador amplía el tiempo de lectura de 20 a 120 segundos y reintenta hasta tres veces las descargas interrumpidas.\n"
+        "- Se evita el error de tiempo de espera observado al descargar actualizaciones en conexiones lentas."
     )
     manifest = {
         "schema": "suite-rodriguez-finura-update-v1",

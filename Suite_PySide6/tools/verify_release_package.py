@@ -14,11 +14,6 @@ REQUIRED_UPDATE_ENTRIES = (
     "Suite Rodriguez Finura/Menu_principal.py",
     "Suite Rodriguez Finura/version_local.json",
     "Suite Rodriguez Finura/Suite_PySide6/src/suite_pyside6/__init__.py",
-    "Suite Rodriguez Finura/runtime/Lib/site-packages/PySide6/QtCore.pyd",
-)
-REQUIRED_UPDATE_SITE_PACKAGES = (
-    "PySide6",
-    "shiboken6",
 )
 FORBIDDEN_UPDATE_SITE_PACKAGES = (
     "numpy",
@@ -77,8 +72,9 @@ def main() -> int:
         names = set(archive.namelist())
         for entry in REQUIRED_UPDATE_ENTRIES:
             assert entry in names, f"Falta entrada en ZIP: {entry}"
-        for package_name in REQUIRED_UPDATE_SITE_PACKAGES:
-            assert has_site_package(names, package_name), f"Falta dependencia runtime: {package_name}"
+        assert not any(name.startswith("Suite Rodriguez Finura/runtime/") for name in names), (
+            "El incremental no debe repetir el runtime ya instalado."
+        )
         for package_name in FORBIDDEN_UPDATE_SITE_PACKAGES:
             assert not has_site_package(names, package_name), f"El incremental no debe incluir: {package_name}"
 
@@ -90,6 +86,8 @@ def main() -> int:
         assert "pythonw.exe" in launcher and "SuiteLauncher.py" in launcher
         updater = archive.read("Suite Rodriguez Finura/SuiteUpdater.py").decode("utf-8-sig")
         assert updater.count("CREATE_NO_WINDOW") >= 3
+        assert "HTTP_TIMEOUT_SECONDS = 120" in updater
+        assert "DOWNLOAD_ATTEMPTS = 3" in updater
 
     with ZipFile(full_package) as archive:
         names = set(archive.namelist())

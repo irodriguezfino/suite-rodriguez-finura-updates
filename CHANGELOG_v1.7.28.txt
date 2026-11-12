@@ -1,0 +1,5 @@
+Suite Rodriguez Finura v1.7.28
+
+- La actualización automática utiliza un paquete incremental reducido que no vuelve a descargar el runtime ya instalado.
+- El actualizador amplía el tiempo de lectura de 20 a 120 segundos y reintenta hasta tres veces las descargas interrumpidas.
+- Se evita el error de tiempo de espera observado al descargar actualizaciones en conexiones lentas.

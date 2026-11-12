@@ -20,7 +20,8 @@ RUNTIME_PYTHONW = Path("runtime") / "pythonw.exe"
 LOCAL_VERSION_FILE = "version_local.json"
 RODRIGUEZ_LOGO = "RODRIGUEZ_logo.bmp"
 FINURA_LOGO = "FINURA_logo.bmp"
-HTTP_TIMEOUT_SECONDS = 20
+HTTP_TIMEOUT_SECONDS = 120
+DOWNLOAD_ATTEMPTS = 3
 UPDATE_LOG_FILE = (
     Path(os.environ.get("LOCALAPPDATA", tempfile.gettempdir()))
     / APP_NAME
@@ -268,13 +269,30 @@ def download_file(url: str, target: Path) -> None:
     log_update(f"Descargando paquete: url={url}; target={target}")
     request = Request(url, headers={"User-Agent": "Suite-Rodriguez-Finura-Updater"})
     target.parent.mkdir(parents=True, exist_ok=True)
-    with urlopen(request, timeout=HTTP_TIMEOUT_SECONDS) as response, target.open("wb") as f:
-        while True:
-            chunk = response.read(1024 * 1024)
-            if not chunk:
-                break
-            f.write(chunk)
-    log_update(f"Descarga completada: target={target}; bytes={target.stat().st_size}")
+    last_error: Exception | None = None
+    for attempt in range(1, DOWNLOAD_ATTEMPTS + 1):
+        try:
+            with urlopen(request, timeout=HTTP_TIMEOUT_SECONDS) as response, target.open("wb") as f:
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+            log_update(f"Descarga completada: target={target}; bytes={target.stat().st_size}; intento={attempt}")
+            return
+        except (OSError, TimeoutError) as exc:
+            last_error = exc
+            log_update(f"Descarga interrumpida: intento={attempt}/{DOWNLOAD_ATTEMPTS}; error={exc}")
+            try:
+                target.unlink(missing_ok=True)
+            except OSError:
+                pass
+            if attempt < DOWNLOAD_ATTEMPTS:
+                time.sleep(attempt * 2)
+    raise RuntimeError(
+        f"No se pudo descargar la actualización después de {DOWNLOAD_ATTEMPTS} intentos. "
+        f"Detalle: {last_error}"
+    )
 
 
 def unique_temp_package(name: str) -> Path:
