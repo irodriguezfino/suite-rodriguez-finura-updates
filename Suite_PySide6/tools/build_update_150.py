@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-VERSION = "1.7.25"
+VERSION = "1.7.26"
 PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_update.zip"
 FULL_PACKAGE_NAME = f"Suite_Rodriguez_Finura_v{VERSION}_full.zip"
 INSTALLER_BAT_NAME = f"Instalar_Suite_Rodriguez_Finura_v{VERSION}.bat"
@@ -296,9 +296,9 @@ def update_manifest(package: Path, full_package: Path, installer_bat: Path) -> N
     full_digest = sha256(full_package)
     installer_digest = sha256(installer_bat)
     notes = (
-        "- Precintos Jamones permite cargar el archivo de resumen de la partida y recalcula piezas y peso por cada rango con los registros válidos.\n"
-        "- El resumen avisa en rojo cuando algún jamón válido no encaja en ninguno de los rangos definidos.\n"
-        "- El filtro de pesos muestra los jamones comprendidos entre el mínimo y el máximo, y la pantalla aprovecha mejor el ancho disponible."
+        "- Precintos Jamones incorpora el botón Calcular resumen para obtener las unidades finales después de eliminar duplicados y corregir registros.\n"
+        "- Los rangos usan el mínimo incluido y el máximo excluido: un valor igual al máximo se contabiliza en el tramo siguiente.\n"
+        "- El archivo de resumen puede contener únicamente la tabla RANGO DE PESOS; proveedor, lote, fecha, hora y totales son opcionales."
     )
     manifest = {
         "schema": "suite-rodriguez-finura-update-v1",

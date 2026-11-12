@@ -1,0 +1,5 @@
+Suite Rodriguez Finura v1.7.26
+
+- Precintos Jamones incorpora el botón Calcular resumen para obtener las unidades finales después de eliminar duplicados y corregir registros.
+- Los rangos usan el mínimo incluido y el máximo excluido: un valor igual al máximo se contabiliza en el tramo siguiente.
+- El archivo de resumen puede contener únicamente la tabla RANGO DE PESOS; proveedor, lote, fecha, hora y totales son opcionales.

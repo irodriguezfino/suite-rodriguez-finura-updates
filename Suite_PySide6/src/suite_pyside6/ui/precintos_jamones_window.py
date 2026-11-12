@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from html import escape
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
@@ -18,6 +19,7 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
+    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -30,6 +32,7 @@ from suite_pyside6.core.precintos_jamones import (
     ResumenPartida,
     calcular_control_resumen,
     correction_text,
+    formatear_decimal_resumen,
     formatear_peso,
     leer_resumen_partida,
     process_precintos_jamones,
@@ -37,7 +40,6 @@ from suite_pyside6.core.precintos_jamones import (
     save_precintos_csv,
     save_precintos_txt,
     seleccionar_registros_por_peso,
-    texto_control_resumen,
     tipo_jamon_visible,
 )
 from suite_pyside6.ui.components import control_metric_pair, control_pill, control_rail_label, section_label, step_bar
@@ -312,11 +314,11 @@ class PrecintosJamonesWindow(QMainWindow):
         self.rail_alerts = control_rail_label("Sin avisos.")
         self.rail_alerts.setWordWrap(True)
         summary_title = section_label("Resumen por rangos")
-        self.range_summary = QPlainTextEdit()
+        self.range_summary = QTextEdit()
         self.range_summary.setObjectName("RangeSummaryText")
         self.range_summary.setAccessibleName("Resumen recalculado por rangos de peso")
         self.range_summary.setReadOnly(True)
-        self.range_summary.setLineWrapMode(QPlainTextEdit.NoWrap)
+        self.range_summary.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
         self.range_summary.setMaximumHeight(280)
         self.range_warning = QLabel()
         self.range_warning.setObjectName("RangeSummaryWarning")
@@ -327,6 +329,8 @@ class PrecintosJamonesWindow(QMainWindow):
             " border-radius: 5px; padding: 7px 9px; font-weight: 700; }"
         )
         self.range_warning.setVisible(False)
+        self.calculate_summary_button = QPushButton("Calcular resumen")
+        self.calculate_summary_button.clicked.connect(self.calculate_batch_summary)
         self.output = QPlainTextEdit()
         self.output.setObjectName("OutputText")
         self.output.setAccessibleName("Vista de salida TXT/CSV")
@@ -344,6 +348,7 @@ class PrecintosJamonesWindow(QMainWindow):
         rail_layout.addWidget(summary_title)
         rail_layout.addWidget(self.range_warning)
         rail_layout.addWidget(self.range_summary)
+        rail_layout.addWidget(self.calculate_summary_button)
         output_title = section_label("Salida TXT/CSV")
         rail_layout.addWidget(output_title)
         rail_layout.addWidget(self.output)
@@ -404,18 +409,25 @@ class PrecintosJamonesWindow(QMainWindow):
             return
         self.batch_summary = summary
         self.batch_summary_path = file
-        self._recalculate_batch_summary()
+        self.batch_summary_control = None
         self.status.setText(
             f"Resumen {file.name} añadido: partida {summary.partida or '-'} y {len(summary.rangos)} tramos de peso."
         )
         self._refresh()
 
-    def _recalculate_batch_summary(self) -> None:
-        self.batch_summary_control = (
-            calcular_control_resumen(self.result, self.batch_summary)
-            if self.batch_summary is not None and self.result.validos
-            else None
+    def calculate_batch_summary(self) -> None:
+        if self.batch_summary is None:
+            show_inline_message(self, "warning", "Añade primero el archivo de resumen de la partida.")
+            return
+        if not self.result.validos or self.result.invalidos:
+            show_inline_message(self, "warning", "Termina primero la validación de los precintos.")
+            return
+        self.batch_summary_control = calcular_control_resumen(self.result, self.batch_summary)
+        self.status.setText(
+            f"Resumen calculado: {self.batch_summary_control.piezas_en_rangos} de "
+            f"{self.batch_summary_control.total_validos} jamones repartidos en los rangos."
         )
+        self._refresh()
 
     def set_files(self, paths: list[Path]) -> None:
         self.paths = list(paths)
@@ -433,7 +445,7 @@ class PrecintosJamonesWindow(QMainWindow):
         def completed(result: PrecintosJamonesResult) -> None:
             self.result = result
             self.weight_filter_records = None
-            self._recalculate_batch_summary()
+            self.batch_summary_control = None
             self.status.setText(f"Validación completada: {len(self.result.validos)} registros válidos.")
             self._refresh()
         def failed(message: str) -> None:
@@ -456,7 +468,7 @@ class PrecintosJamonesWindow(QMainWindow):
             self.result = updated
             self.last_attachments = []
             self.weight_filter_records = None
-            self._recalculate_batch_summary()
+            self.batch_summary_control = None
             if updated.invalidos:
                 message = f"Quedan {len(updated.invalidos)} líneas por corregir."
                 show_inline_message(self, "warning", message)
@@ -558,7 +570,7 @@ class PrecintosJamonesWindow(QMainWindow):
             self.preview.setPlainText("Arrastra TXT/CSV de precintos aquí o usa Cargar TXT/CSV para empezar.")
             self.issues.setPlainText("Sin incidencias.")
             self.output.setPlainText("La salida TXT/CSV aparecerá después de procesar registros válidos.")
-        self.range_summary.setPlainText(self._range_summary_text())
+        self.range_summary.setHtml(self._range_summary_html())
         warning = self._range_warning_text()
         self.range_warning.setText(warning)
         self.range_warning.setVisible(bool(warning))
@@ -578,6 +590,9 @@ class PrecintosJamonesWindow(QMainWindow):
         self.clear_filter_button.setEnabled(self.weight_filter_records is not None)
         self.clear_button.setEnabled(
             bool(self.paths or self.result.validos or self.result.invalidos or self.official_excel or self.batch_summary)
+        )
+        self.calculate_summary_button.setEnabled(
+            bool(self.batch_summary is not None and self.result.validos and not self.result.invalidos)
         )
         self._sync_weight_filter_controls()
         self._refresh_pilot_state()
@@ -739,20 +754,43 @@ class PrecintosJamonesWindow(QMainWindow):
             alerts.append("Lote mixto: el CSV queda bloqueado hasta separarlo o corregirlo")
         return "\n".join(alerts) if alerts else "Sin avisos."
 
-    def _range_summary_text(self) -> str:
+    def _range_summary_html(self) -> str:
         if self.batch_summary_control is not None:
             archivo = self.batch_summary_path.name if self.batch_summary_path else "-"
-            return f"Archivo resumen: {archivo}\n{texto_control_resumen(self.batch_summary_control)}"
-        if self.batch_summary is not None:
-            return (
-                f"Resumen: {self.batch_summary_path.name if self.batch_summary_path else '-'}\n"
-                f"Partida {self.batch_summary.partida or '-'} añadida.\n"
-                "Carga y procesa los TXT/CSV para recalcular sus tramos con los registros válidos."
+            control = self.batch_summary_control
+            lineas = [
+                f"<div>Archivo resumen: {escape(archivo)}</div>",
+                f"<div>Partida: {escape(control.resumen.partida or '-')}</div>",
+                "<div style='margin-top:8px'><b>Rangos recalculados:</b></div>",
+            ]
+            for resultado in control.rangos:
+                rango = resultado.rango
+                lineas.append(
+                    "<div style='white-space:nowrap'>"
+                    f"{formatear_decimal_resumen(rango.minimo)} ≤ kg &lt; "
+                    f"{formatear_decimal_resumen(rango.maximo)}: "
+                    f"<b>{resultado.piezas_validas} unidades</b> · "
+                    f"{formatear_decimal_resumen(resultado.peso_valido)} kg</div>"
+                )
+            lineas.append(
+                f"<div style='margin-top:8px'><b>Total en rangos: {control.piezas_en_rangos} "
+                f"de {control.total_validos} válidos</b></div>"
             )
-        return (
-            "Pulsa “Añadir resumen” y selecciona el archivo del resumen original de la partida. "
-            "Aquí verás las piezas y el peso recalculados por tramo."
-        )
+            return "".join(lineas)
+        if self.batch_summary is not None:
+            archivo = escape(self.batch_summary_path.name if self.batch_summary_path else "-")
+            tramos = "".join(
+                "<div style='white-space:nowrap'>"
+                f"{formatear_decimal_resumen(rango.minimo)} ≤ kg &lt; "
+                f"{formatear_decimal_resumen(rango.maximo)}</div>"
+                for rango in self.batch_summary.rangos
+            )
+            return (
+                f"<div>Resumen: {archivo}</div>"
+                f"<div>Partida {escape(self.batch_summary.partida or '-')} · Tramos leídos:</div>"
+                f"{tramos}<div style='margin-top:8px'>Pulsa <b>Calcular resumen</b> cuando los precintos estén validados.</div>"
+            )
+        return "Pulsa <b>Añadir resumen</b> y selecciona el archivo original de la partida."
 
     def _range_warning_text(self) -> str:
         control = self.batch_summary_control

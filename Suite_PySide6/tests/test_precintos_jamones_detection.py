@@ -118,7 +118,7 @@ class PrecintosJamonesDetectionTests(unittest.TestCase):
         self.assertEqual(resumen.total_peso, Decimal("13000.65"))
         self.assertEqual(len(resumen.rangos), 5)
 
-        pesos = ["10,5", "11,99", "12", "12,5", "13", "15", "18"]
+        pesos = ["10,5", "11,99", "12", "12,5", "13", "15", "17,99"]
         result = PrecintosJamonesResult(validos=[registro_con_peso(i, peso) for i, peso in enumerate(pesos, 1)])
         control = calcular_control_resumen(result, resumen)
 
@@ -127,7 +127,7 @@ class PrecintosJamonesDetectionTests(unittest.TestCase):
         self.assertTrue(control.cuadra_con_validos)
         texto = texto_control_resumen(control)
         self.assertIn("Total en rangos: 7 de 7 válidos", texto)
-        self.assertIn("Original: 14 uds / 164,64 kg", texto)
+        self.assertIn("10,5 ≤ kg < 12: 2 uds", texto)
 
     def test_resumen_se_carga_desde_archivo(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -139,12 +139,30 @@ class PrecintosJamonesDetectionTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 leer_resumen_partida(path.with_suffix(".xlsx"))
 
+    def test_resumen_solo_necesita_la_tabla_de_rangos(self) -> None:
+        resumen = parsear_resumen_partida(
+            """RANGO DE PESOS
+MIN. MAX. PIEZAS PESO
+8 10,5 4 38,20
+10,5 12 6 67,50
+12 14 8 103,40
+"""
+        )
+        self.assertEqual(resumen.partida, "")
+        self.assertEqual(resumen.total_piezas, 18)
+        self.assertEqual(resumen.total_peso, Decimal("209.10"))
+        self.assertEqual([(r.minimo, r.maximo) for r in resumen.rangos], [
+            (Decimal("8"), Decimal("10.5")),
+            (Decimal("10.5"), Decimal("12")),
+            (Decimal("12"), Decimal("14")),
+        ])
+
     def test_resumen_avisa_si_un_valido_esta_fuera_de_los_tramos(self) -> None:
         resumen = parsear_resumen_partida(RESUMEN_PARTIDA)
-        result = PrecintosJamonesResult(validos=[registro_con_peso(1, "9,9")])
+        result = PrecintosJamonesResult(validos=[registro_con_peso(1, "9,9"), registro_con_peso(2, "18")])
         control = calcular_control_resumen(result, resumen)
         self.assertFalse(control.cuadra_con_validos)
-        self.assertEqual(len(control.fuera_de_rango), 1)
+        self.assertEqual(len(control.fuera_de_rango), 2)
 
     def test_filtro_selecciona_entre_minimo_y_maximo_incluidos(self) -> None:
         pesos = ["10,49", "10,5", "11", "12", "12,01"]

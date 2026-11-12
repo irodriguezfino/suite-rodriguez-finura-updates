@@ -2,7 +2,7 @@
 
 Documento funcional vivo de la Suite Rodriguez Finura.
 
-Ultima revision: v1.7.25
+Ultima revision: v1.7.26
 
 ## Para que sirve
 
@@ -99,6 +99,8 @@ La organización de procesos se guarda por perfil en `QSettings`, bajo `apps/org
 `Precintos Jamones` detecta ahora el tipo automáticamente por registro: un GTIN-12 de doce dígitos con control válido es jamón ibérico y cualquier otro valor se trata con las validaciones internas de jamón blanco. Los lotes mixtos se señalan por fila; se permite conservarlos en TXT, pero se bloquea el CSV hasta que el lote tenga un único tipo porque sus formatos de salida son distintos.
 
 Desde v1.7.25 `Precintos Jamones` permite cargar un resumen TXT/CSV de la partida. Tras eliminar duplicados y corregir incidencias, recalcula las piezas y el peso de cada tramo con los registros válidos y muestra una advertencia roja cuando algún jamón no encaja en ningún rango. El filtro de pesos pasa a mostrar, sin modificar la salida, los jamones comprendidos entre el mínimo y el máximo indicados.
+
+Desde v1.7.26 el resumen utiliza el archivo únicamente para leer los tramos: proveedor, lote, fecha, hora y totales dejan de ser obligatorios. El recuento final se genera expresamente con `Calcular resumen`, muestra las unidades nuevas en negrita y aplica intervalos con mínimo incluido y máximo excluido para que los límites no se dupliquen entre tramos consecutivos.
 
 Los selectores visibles reutilizan `ModernSelect` (valor único), `SearchableComboBox` (listas que pueden crecer) y `ActionMenuButton` (acciones no seleccionables). Los tres conservan los controles nativos de PySide6 para teclado y lectores de pantalla; los estilos de popup, menú, foco y modo oscuro se centralizan en `ui/theme.py`.
 

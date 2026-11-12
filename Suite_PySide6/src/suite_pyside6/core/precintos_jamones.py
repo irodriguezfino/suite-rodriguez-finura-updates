@@ -459,17 +459,22 @@ def _valor_despues_de_rotulo(lineas: list[str], *terminos: str) -> list[str]:
     raise ValueError(f"No se ha encontrado el dato posterior a {' / '.join(terminos)}.")
 
 
+def _valor_opcional_despues_de_rotulo(lineas: list[str], *terminos: str) -> list[str]:
+    try:
+        return _valor_despues_de_rotulo(lineas, *terminos)
+    except ValueError:
+        return []
+
+
 def parsear_resumen_partida(texto: str) -> ResumenPartida:
     lineas = _lineas_resumen(texto)
     if not lineas:
         raise ValueError("Pega el resumen de la partida antes de añadirlo.")
 
-    partida_values = _valor_despues_de_rotulo(lineas, "PARTIDA")
-    proveedor_lote = _valor_despues_de_rotulo(lineas, "PROVEEDOR", "LOTE")
-    fecha_hora = _valor_despues_de_rotulo(lineas, "FECHA", "HORA")
-    totales = _valor_despues_de_rotulo(lineas, "TOTAL PIEZAS", "TOTAL PESO")
-    if len(proveedor_lote) < 2 or len(fecha_hora) < 2 or len(totales) < 2:
-        raise ValueError("El resumen no contiene proveedor/lote, fecha/hora o totales completos.")
+    partida_values = _valor_opcional_despues_de_rotulo(lineas, "PARTIDA")
+    proveedor_lote = _valor_opcional_despues_de_rotulo(lineas, "PROVEEDOR", "LOTE")
+    fecha_hora = _valor_opcional_despues_de_rotulo(lineas, "FECHA", "HORA")
+    totales = _valor_opcional_despues_de_rotulo(lineas, "TOTAL PIEZAS", "TOTAL PESO")
 
     rango_index = next(
         (index for index, linea in enumerate(lineas) if "RANGO DE PESOS" in _normalizar_rotulo_resumen(linea)),
@@ -507,17 +512,28 @@ def parsear_resumen_partida(texto: str) -> ResumenPartida:
         if actual.minimo < anterior.maximo:
             raise ValueError("Los rangos de peso se solapan; revisa los mínimos y máximos.")
 
-    total_piezas_decimal = _decimal_resumen(totales[0], "Total de piezas")
-    if total_piezas_decimal != total_piezas_decimal.to_integral_value() or total_piezas_decimal < 0:
-        raise ValueError("El total de piezas del resumen no es válido.")
+    total_piezas_decimal = sum((Decimal(rango.piezas_originales) for rango in rangos), Decimal("0"))
+    if totales:
+        try:
+            total_piezas_candidato = _decimal_resumen(totales[0], "Total de piezas")
+        except ValueError:
+            total_piezas_candidato = total_piezas_decimal
+        if total_piezas_candidato == total_piezas_candidato.to_integral_value() and total_piezas_candidato >= 0:
+            total_piezas_decimal = total_piezas_candidato
+    total_peso = sum((rango.peso_original for rango in rangos), Decimal("0"))
+    if len(totales) >= 2:
+        try:
+            total_peso = _decimal_resumen(totales[1], "Total de peso")
+        except ValueError:
+            pass
     return ResumenPartida(
-        partida=partida_values[0],
-        proveedor=proveedor_lote[0],
-        lote=proveedor_lote[1],
-        fecha=fecha_hora[0],
-        hora=fecha_hora[1],
+        partida=partida_values[0] if partida_values else "",
+        proveedor=proveedor_lote[0] if proveedor_lote else "",
+        lote=proveedor_lote[1] if len(proveedor_lote) >= 2 else "",
+        fecha=fecha_hora[0] if fecha_hora else "",
+        hora=fecha_hora[1] if len(fecha_hora) >= 2 else "",
         total_piezas=int(total_piezas_decimal),
-        total_peso=_decimal_resumen(totales[1], "Total de peso"),
+        total_peso=total_peso,
         rangos=tuple(rangos),
     )
 
@@ -550,8 +566,7 @@ def calcular_control_resumen(
         peso_total += peso
         encontrado = False
         for index, rango in enumerate(resumen.rangos):
-            es_ultimo = index == len(resumen.rangos) - 1
-            if rango.minimo <= peso < rango.maximo or (es_ultimo and peso == rango.maximo):
+            if rango.minimo <= peso < rango.maximo:
                 agrupados[index].append(registro)
                 encontrado = True
                 break
@@ -614,13 +629,11 @@ def texto_control_resumen(control: ControlResumenPartida) -> str:
         "",
         "Rangos recalculados sobre válidos:",
     ]
-    for index, resultado in enumerate(control.rangos):
+    for resultado in control.rangos:
         rango = resultado.rango
-        cierre = "≤" if index == len(control.rangos) - 1 else "<"
         lineas.append(
-            f"{formatear_decimal_resumen(rango.minimo)} ≤ kg {cierre} {formatear_decimal_resumen(rango.maximo)}: "
-            f"{resultado.piezas_validas} uds / {formatear_decimal_resumen(resultado.peso_valido)} kg | "
-            f"Original: {rango.piezas_originales} uds / {formatear_decimal_resumen(rango.peso_original)} kg"
+            f"{formatear_decimal_resumen(rango.minimo)} ≤ kg < {formatear_decimal_resumen(rango.maximo)}: "
+            f"{resultado.piezas_validas} uds / {formatear_decimal_resumen(resultado.peso_valido)} kg"
         )
     lineas.extend(
         [
